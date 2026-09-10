@@ -227,7 +227,9 @@ export function Gallery({
           }}
         />
       </label>
-      <div className="gallery">
+      <div
+        className={part.catalogueSource ? "gallery source-gallery" : "gallery"}
+      >
         {part.images.map((url, i) => (
           <figure key={`${i}-${url.slice(0, 30)}`}>
             <img

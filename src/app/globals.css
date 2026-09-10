@@ -1189,3 +1189,8 @@ fieldset {
     font-size: 9px;
   }
 }
+.source-gallery img {
+  width: 334px;
+  height: auto;
+  max-width: 100%;
+}

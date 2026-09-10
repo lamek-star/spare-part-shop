@@ -27,6 +27,7 @@ import Forms from "./Forms";
 import ContactDetails from "./ContactDetails";
 import Management from "./Management";
 import Dashboard from "./Dashboard";
+import CatalogueSource from "./CatalogueSource";
 import { SupersessionForm, CompatibilityForm, Gallery } from "./CatalogueTools";
 const groups = [
   { name: "Dashboard", icon: LayoutDashboard, items: [] },
@@ -341,8 +342,8 @@ function App({ services }: { services: Services }) {
   const compatibility = (id?: string) => (
     <>
       <p className="notice">
-        Sample fitment relationships. Always verify application, engine and
-        production year with an authoritative catalogue.
+        Demo and supplier-listed fitment relationships. Always verify
+        application, engine and production year with an authoritative catalogue.
       </p>
       <Table
         headers={[
@@ -507,7 +508,7 @@ function App({ services }: { services: Services }) {
               {part.sku}{" "}
               <span className="muted">
                 {" "}
-                / OEM sample{" "}
+                / OEM reference{" "}
                 {
                   s.numbers.find(
                     (n) => n.partId === part.id && n.type === "OEM_OE",
@@ -515,11 +516,16 @@ function App({ services }: { services: Services }) {
                 }
               </span>
             </p>
-            <Badge>{status(part)}</Badge> <Badge>Demo catalogue</Badge>
+            <Badge>{status(part)}</Badge>{" "}
+            <Badge>
+              {part.catalogueSource ? "Supplier listed" : "Demo catalogue"}
+            </Badge>
           </div>
           <div className="part-price">
             <small>Selling price</small>
-            <strong>{money(part.price)}</strong>
+            <strong>
+              {part.pricingPending ? "Not set" : money(part.price)}
+            </strong>
             <small>
               {available(part.id)} available across {s.warehouses.length}{" "}
               locations
@@ -553,6 +559,7 @@ function App({ services }: { services: Services }) {
           {tab === "Overview" ? (
             <div className="detail-grid">
               <div>
+                <CatalogueSource part={part} />
                 <h3>Product information</h3>
                 <p>{part.description}</p>
                 <dl>
@@ -561,8 +568,18 @@ function App({ services }: { services: Services }) {
                     ["Category", part.category],
                     ["Country of origin", part.origin],
                     ["Unit", part.unit],
-                    ["Weight", `${part.weight} kg`],
-                    ["Cost", money(part.cost)],
+                    [
+                      "Weight",
+                      part.catalogueSource && part.weight === 0
+                        ? "Not supplied"
+                        : `${part.weight} kg`,
+                    ],
+                    [
+                      "Cost",
+                      part.catalogueSource && part.cost === 0
+                        ? "Not set"
+                        : money(part.cost),
+                    ],
                     ["Reorder level", part.reorder],
                     ["Minimum stock", part.minimum],
                   ].map(([k, v]) => (
@@ -848,7 +865,7 @@ function App({ services }: { services: Services }) {
             "Part / internal SKU",
             "Brand",
             "Category",
-            "OEM reference (demo)",
+            "OEM reference",
             "Available",
             "Selling price",
             "Status",
@@ -864,7 +881,7 @@ function App({ services }: { services: Services }) {
             s.numbers.find((n) => n.partId === p.id && n.type === "OEM_OE")
               ?.display,
             <strong>{available(p.id)}</strong>,
-            money(p.price),
+            p.pricingPending ? "Not set" : money(p.price),
             <Badge>{status(p)}</Badge>,
             <button
               aria-label={`Open ${p.name}`}
@@ -886,7 +903,7 @@ function App({ services }: { services: Services }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <Badge>Unverified sample numbers</Badge>
+          <Badge>Check source verification</Badge>
         </div>
         {numberTable(undefined, page === "Cross References")}
       </section>

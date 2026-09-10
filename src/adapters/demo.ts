@@ -1,6 +1,7 @@
 import { State, Order, Stock, normalizeNumber } from "../domain/models";
 import { Services } from "../services/contracts";
 import { seed } from "./seed";
+import { mergeNengunCatalogue } from "../data/nengun-headlamp";
 export const uid = () => crypto.randomUUID();
 const requireThat = (ok: unknown, message: string) => {
   if (!ok) throw new Error(message);
@@ -124,12 +125,14 @@ export function createDemoAdapter(
           l.quantity > 0 &&
           Number.isFinite(l.price) &&
           l.price >= 0 &&
+          (!s.parts.find((p) => p.id === l.partId)?.pricingPending ||
+            l.price > 0) &&
           Number.isFinite(l.discount) &&
           l.discount >= 0 &&
           l.discount <= 100 &&
           l.processed === 0 &&
           l.returned === 0,
-        "Each line needs a valid part, positive whole quantity, valid price and discount.",
+        "Each line needs a valid part, positive whole quantity, valid price and discount. Imported items need an explicit AED unit price.",
       ),
     );
   };
@@ -603,7 +606,9 @@ export function browserAdapter(): Services {
       );
     initial = parsed;
   }
-  return createDemoAdapter(initial, (s) =>
+  const merged = mergeNengunCatalogue(initial ?? seed());
+  localStorage.setItem(key, JSON.stringify(merged));
+  return createDemoAdapter(merged, (s) =>
     localStorage.setItem(key, JSON.stringify(s)),
   );
 }

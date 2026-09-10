@@ -59,6 +59,7 @@ export default function Forms({
         });
       else if (type === "Part")
         await services.catalogue.save({
+          ...part,
           id: part?.id ?? uid(),
           name: v("name"),
           sku: v("sku"),
@@ -68,6 +69,7 @@ export default function Forms({
           description: v("description"),
           cost: n("cost"),
           price: n("price"),
+          pricingPending: part?.catalogueSource ? n("price") <= 0 : undefined,
           currency: "AED",
           unit: v("unit"),
           weight: n("weight"),

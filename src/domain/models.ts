@@ -35,6 +35,19 @@ export interface Part {
   status: "Active" | "Inactive";
   images: string[];
   notes: string;
+  pricingPending?: boolean;
+  catalogueSource?: {
+    provider: string;
+    url: string;
+    diagramUrl: string;
+    diagramCode: string;
+    observedAt: string;
+    priceJpy: number | null;
+    availability: string;
+    quantityRequired: number | null;
+    applicability: string;
+    specification: string;
+  };
 }
 export interface PartNumber {
   readonly id: string;
@@ -49,7 +62,7 @@ export interface PartNumber {
   active: boolean;
   primary: boolean;
   notes: string;
-  verification: "Demo" | "Verified";
+  verification: "Demo" | "Verified" | "Supplier listed";
   supersededBy?: string;
 }
 export interface Vehicle {
