@@ -19,6 +19,18 @@ export interface Services {
   snapshot(): State;
   subscribe(listener: () => void): () => void;
   catalogue: {
+    adopt(
+      reference: import("../catalogue/models").ReferenceDetail,
+      values: {
+        sku: string;
+        supplierId: string;
+        cost: number;
+        price: number;
+        warehouseId: string;
+        reorder: number;
+        currency: string;
+      },
+    ): CommandResult;
     search(query: string): Part[];
     save(part: Part): CommandResult;
     addNumber(number: PartNumber): CommandResult;

@@ -17,6 +17,22 @@ export const numberTypes = [
 ] as const;
 export type NumberType = (typeof numberTypes)[number];
 export interface Part {
+  imageMetadata?: Record<
+    string,
+    {
+      mime: string;
+      size: number;
+      width: number;
+      height: number;
+      rights: import("../catalogue/models").ImageRights;
+      source: string;
+    }
+  >;
+  preferredCataloguePartId?: string;
+  supplierId?: string;
+  defaultWarehouseId?: string;
+  taxCategory?: string;
+  referenceProvenance?: import("../catalogue/models").Provenance;
   id: string;
   name: string;
   sku: string;
@@ -50,6 +66,7 @@ export interface Part {
   };
 }
 export interface PartNumber {
+  provenance?: import("../catalogue/models").Provenance;
   readonly id: string;
   partId: string;
   display: string;

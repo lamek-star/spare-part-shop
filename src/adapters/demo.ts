@@ -1,7 +1,6 @@
 import { State, Order, Stock, normalizeNumber } from "../domain/models";
 import { Services } from "../services/contracts";
 import { seed } from "./seed";
-import { mergeNengunCatalogue } from "../data/nengun-headlamp";
 export const uid = () => crypto.randomUUID();
 const requireThat = (ok: unknown, message: string) => {
   if (!ok) throw new Error(message);
@@ -145,6 +144,95 @@ export function createDemoAdapter(
       };
     },
     catalogue: {
+      adopt: (reference, values) =>
+        commit("Reference added to My Products", reference.part.id, (s) => {
+          requireThat(
+            !s.parts.some(
+              (p) => p.preferredCataloguePartId === reference.part.id,
+            ),
+            "This reference is already in My Products.",
+          );
+          requireThat(
+            values.sku.trim() && !s.parts.some((p) => p.sku === values.sku),
+            "Choose a unique internal SKU.",
+          );
+          requireThat(
+            s.contacts.some(
+              (c) => c.id === values.supplierId && c.kind === "Supplier",
+            ) && s.warehouses.some((w) => w.id === values.warehouseId),
+            "Choose a supplier and warehouse.",
+          );
+          requireThat(
+            values.currency === "AED" &&
+              [values.cost, values.price, values.reorder].every(
+                (n) => Number.isFinite(n) && n >= 0,
+              ),
+            "Use AED and nonnegative prices/reorder level.",
+          );
+          const partId = uid();
+          s.parts.push({
+            id: partId,
+            preferredCataloguePartId: reference.part.id,
+            referenceProvenance: reference.part.provenance,
+            supplierId: values.supplierId,
+            defaultWarehouseId: values.warehouseId,
+            taxCategory: "Standard",
+            name: reference.part.description,
+            sku: values.sku,
+            brand: reference.part.manufacturer,
+            manufacturer: reference.part.manufacturer,
+            category: "Reference catalogue",
+            description: reference.part.catalogueDescription,
+            cost: values.cost,
+            price: values.price,
+            currency: values.currency,
+            unit: "Each",
+            weight: 0,
+            origin: "Unspecified",
+            reorder: values.reorder,
+            minimum: 0,
+            status: "Active",
+            images: ["/part.svg"],
+            notes:
+              "Company product linked to reference catalogue. Fitment remains " +
+              reference.part.provenance.verification,
+          });
+          s.numbers.push({
+            id: uid(),
+            partId,
+            display: values.sku,
+            normalized: normalizeNumber(values.sku),
+            type: "INTERNAL_SKU",
+            brand: reference.part.manufacturer,
+            source: "Company entry",
+            market: "UAE",
+            primary: true,
+            active: true,
+            notes: "Company SKU",
+            verification: "Demo",
+          });
+          for (const n of reference.numbers)
+            s.numbers.push({
+              id: uid(),
+              partId,
+              display: n.original,
+              normalized: n.normalized,
+              type: n.type,
+              brand: n.manufacturer,
+              source: n.provenance.sourceProvider,
+              market: n.market,
+              primary: n.primary,
+              active: n.active,
+              notes:
+                "Reference identifier snapshot; source record " +
+                n.provenance.sourceRecordId,
+              verification:
+                n.provenance.verification === "UNVERIFIED"
+                  ? "Demo"
+                  : "Supplier listed",
+              provenance: n.provenance,
+            });
+        }),
       search: (q) => {
         const n = normalizeNumber(q);
         const matches = state.parts.filter(
@@ -606,7 +694,13 @@ export function browserAdapter(): Services {
       );
     initial = parsed;
   }
-  const merged = mergeNengunCatalogue(initial ?? seed());
+  const merged = initial ?? seed();
+  for (const part of merged.parts)
+    part.images = part.images.filter(
+      (url) =>
+        !url.includes("mitsubishi-headlamp.png") &&
+        !url.includes("image.nengun.com"),
+    );
   localStorage.setItem(key, JSON.stringify(merged));
   return createDemoAdapter(merged, (s) =>
     localStorage.setItem(key, JSON.stringify(s)),
