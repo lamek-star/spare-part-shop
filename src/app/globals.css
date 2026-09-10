@@ -1194,3 +1194,121 @@ fieldset {
   height: auto;
   max-width: 100%;
 }
+.diagram-editor {
+  max-width: 1000px;
+  margin: auto;
+}
+.diagram-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f3f5f7;
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+}
+.diagram-canvas {
+  height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: white;
+  text-align: center;
+}
+.diagram-canvas > img {
+  display: block;
+  min-height: 100%;
+  height: auto;
+  object-fit: contain;
+  max-height: none;
+}
+.diagram-canvas > img[style*="100%"] {
+  height: 100%;
+  min-height: 0;
+}
+.diagram-caption {
+  background: #344654;
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.diagram-caption span {
+  font-size: 11px;
+  max-width: 55%;
+}
+.image-thumbnails {
+  display: flex;
+  gap: 10px;
+  padding: 16px 0;
+  overflow: auto;
+}
+.image-thumbnails button {
+  flex-direction: column;
+  min-width: 90px;
+}
+.image-thumbnails button[aria-pressed="true"] {
+  border: 2px solid var(--teal);
+}
+.image-thumbnails img {
+  width: 80px;
+  height: 65px;
+  object-fit: contain;
+}
+.image-help {
+  margin-top: 16px;
+  font-size: 12px;
+}
+.part-image-open {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  padding: 0;
+  background: white;
+}
+.part-image-open img {
+  width: 130px;
+  height: 110px;
+  object-fit: contain;
+}
+.part-image-open small {
+  color: var(--teal);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 700px) {
+  .diagram-canvas {
+    height: 320px;
+  }
+  .diagram-caption {
+    flex-direction: column;
+  }
+  .diagram-caption span {
+    max-width: 100%;
+  }
+  .diagram-toolbar {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+}
+.part-form-image {
+  border: 1px solid var(--line);
+  padding: 16px;
+  border-radius: 6px;
+  margin: 16px 0;
+}
+.part-form-image > img {
+  width: 100%;
+  height: 180px;
+  object-fit: contain;
+  background: white;
+  margin: 10px 0;
+}
+.catalogue-coverage {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}

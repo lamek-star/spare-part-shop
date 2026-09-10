@@ -149,3 +149,64 @@ test("mobile purchasing navigation exposes the operational screens", async ({
     page.getByRole("dialog", { name: "Purchase", exact: true }),
   ).toBeVisible();
 });
+
+test("item image add, replace, primary selection and item edit persist", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page.getByRole("textbox", { name: "Global search" }).fill("8301A619");
+  await page.locator(".search-results button").first().click();
+  await page.getByRole("button", { name: "Open item images" }).click();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect(page.locator(".diagram-toolbar")).toContainText("150%");
+  await page.getByRole("button", { name: "Fit image", exact: true }).click();
+  const png = {
+    name: "item.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  };
+  const add = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Add image", exact: true }).click();
+  await (await add).setFiles(png);
+  await expect(
+    page.getByRole("button", { name: "View image 2", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Make primary", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Make primary", exact: true }),
+  ).toBeDisabled();
+  const replace = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Replace selected image" }).click();
+  await (await replace).setFiles({ ...png, name: "replacement.png" });
+  await expect(page.locator(".diagram-canvas img")).toHaveAttribute(
+    "src",
+    /^data:image\/png/,
+  );
+  await page
+    .getByRole("button", { name: "Edit item information", exact: true })
+    .click();
+  await page
+    .getByLabel("Part name", { exact: true })
+    .fill("Editable headlamp item");
+  await page.getByRole("button", { name: "Save part", exact: true }).click();
+  await expect(page.locator(".diagram-caption")).toContainText(
+    "Editable headlamp item",
+  );
+  await page.reload();
+  await page.getByRole("textbox", { name: "Global search" }).fill("8301A619");
+  await page.locator(".search-results button").first().click();
+  await page.getByRole("button", { name: "Open item images" }).click();
+  await expect(page.locator(".diagram-canvas img")).toHaveAttribute(
+    "src",
+    /^data:image\/png/,
+  );
+  await expect(page.locator(".diagram-caption")).toContainText(
+    "Editable headlamp item",
+  );
+  await page.getByRole("button", { name: "Remove selected image" }).click();
+  await expect(page.locator(".image-thumbnails button")).toHaveCount(1);
+});

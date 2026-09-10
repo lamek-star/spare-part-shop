@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Part } from "../domain/models";
 import { Services } from "../services/contracts";
 import { uid } from "../adapters/demo";
@@ -177,88 +177,189 @@ export function CompatibilityForm({
 export function Gallery({
   part,
   services,
+  onEdit,
 }: {
   part: Part;
   services: Services;
+  onEdit?: () => void;
 }) {
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const replaceIndex = useRef<number | null>(null);
+  const current = Math.min(selected, Math.max(0, part.images.length - 1));
+  const save = async (images: string[]) => {
+    setBusy(true);
+    try {
+      const latest = services.snapshot().parts.find((p) => p.id === part.id);
+      if (!latest) throw new Error("Part no longer exists.");
+      await services.catalogue.save({ ...latest, images });
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const choose = (replace: boolean) => {
+    replaceIndex.current = replace ? current : null;
+    fileInput.current?.click();
+  };
   return (
-    <>
-      <p className="muted">
-        The first image is used as the primary thumbnail. Image URLs are
-        supplied by the data adapter.
-      </p>
+    <section
+      className="diagram-editor"
+      aria-label="Item images and assembly diagram"
+    >
+      <div className="panel-head">
+        <div>
+          <h3>Item images & assembly diagram</h3>
+          <small>
+            {part.catalogueSource
+              ? "Shared assembly illustration; match the callout to the reference below."
+              : "Add product photos or an assembly drawing."}
+          </small>
+        </div>
+        <div className="actions">
+          {onEdit && <button onClick={onEdit}>Edit item information</button>}
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => choose(false)}
+          >
+            Add image
+          </button>
+        </div>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      <label className="button">
-        Add image
-        <input
-          className="file-input"
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            if (
-              file.size > 1_000_000 ||
-              !["image/png", "image/jpeg", "image/webp"].includes(file.type)
-            ) {
-              setError("Choose a PNG, JPEG or WebP image smaller than 1 MB.");
-              return;
-            }
-            const reader = new FileReader();
-            reader.onload = async () => {
-              try {
-                await services.catalogue.save({
-                  ...part,
-                  images: [...part.images, String(reader.result)],
-                });
-                setError("");
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            };
-            reader.onerror = () => setError("Image could not be read.");
-            reader.readAsDataURL(file);
-            e.target.value = "";
-          }}
-        />
-      </label>
-      <div
-        className={part.catalogueSource ? "gallery source-gallery" : "gallery"}
-      >
+      <input
+        ref={fileInput}
+        type="file"
+        hidden
+        aria-label="Upload item image"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          if (
+            file.size > 1_000_000 ||
+            !["image/png", "image/jpeg", "image/webp"].includes(file.type)
+          ) {
+            setError("Choose a PNG, JPEG or WebP image smaller than 1 MB.");
+            return;
+          }
+          const index = replaceIndex.current;
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const latest = services
+              .snapshot()
+              .parts.find((p) => p.id === part.id)!;
+            const images = [...latest.images];
+            if (index === null) {
+              images.push(String(reader.result));
+              setSelected(images.length - 1);
+            } else images[index] = String(reader.result);
+            await save(images);
+            setZoom(1);
+          };
+          reader.onerror = () => setError("Image could not be read.");
+          reader.readAsDataURL(file);
+        }}
+      />
+      <div className="diagram-toolbar">
+        <span>
+          {part.catalogueSource
+            ? "Callout " + part.catalogueSource.diagramCode
+            : part.sku}
+        </span>
+        <div className="actions">
+          <button
+            aria-label="Zoom out"
+            disabled={zoom <= 1}
+            onClick={() => setZoom(Math.max(1, zoom - 0.5))}
+          >
+            −
+          </button>
+          <span>{Math.round(zoom * 100)}%</span>
+          <button
+            aria-label="Zoom in"
+            disabled={zoom >= 3}
+            onClick={() => setZoom(Math.min(3, zoom + 0.5))}
+          >
+            +
+          </button>
+          <button onClick={() => setZoom(1)}>Fit image</button>
+        </div>
+      </div>
+      <div className="diagram-canvas">
+        {part.images[current] ? (
+          <img
+            src={part.images[current]}
+            alt={part.name + " assembly or item image"}
+            style={{ width: zoom * 100 + "%", maxWidth: "none" }}
+          />
+        ) : (
+          <p className="empty">No image attached. Add an image to this item.</p>
+        )}
+      </div>
+      <div className="diagram-caption">
+        <strong>{part.name}</strong>
+        <span>{part.catalogueSource?.applicability || part.sku}</span>
+      </div>
+      <div className="image-thumbnails">
         {part.images.map((url, i) => (
-          <figure key={`${i}-${url.slice(0, 30)}`}>
-            <img
-              src={url}
-              alt={`${part.name} ${i === 0 ? "primary image" : `image ${i + 1}`}`}
-            />
-            <figcaption>
-              {i === 0 ? (
-                "Primary image"
-              ) : (
-                <button
-                  onClick={async () => {
-                    try {
-                      await services.catalogue.save({
-                        ...part,
-                        images: [url, ...part.images.filter((_, j) => j !== i)],
-                      });
-                    } catch (e) {
-                      setError((e as Error).message);
-                    }
-                  }}
-                >
-                  Make primary
-                </button>
-              )}
-            </figcaption>
-          </figure>
+          <button
+            key={i}
+            aria-label={"View image " + (i + 1)}
+            aria-pressed={current === i}
+            onClick={() => {
+              setSelected(i);
+              setZoom(1);
+            }}
+          >
+            <img src={url} alt="" />
+            <small>{i === 0 ? "Primary" : "Image " + (i + 1)}</small>
+          </button>
         ))}
       </div>
-    </>
+      {part.images.length > 0 && (
+        <div className="actions">
+          <button disabled={busy} onClick={() => choose(true)}>
+            Replace selected image
+          </button>
+          <button
+            disabled={busy || current === 0}
+            onClick={async () => {
+              await save([
+                part.images[current],
+                ...part.images.filter((_, i) => i !== current),
+              ]);
+              setSelected(0);
+            }}
+          >
+            Make primary
+          </button>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              await save(part.images.filter((_, i) => i !== current));
+              setSelected(0);
+            }}
+          >
+            Remove selected image
+          </button>
+        </div>
+      )}
+      <p className="muted image-help">
+        Your edits are saved to this item in the local workspace. The original
+        supplier source record is retained.
+      </p>
+    </section>
   );
 }

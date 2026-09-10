@@ -13,3 +13,10 @@ The original product page exposes 20 vehicle rows across IX, VII, VIII and Wagon
 Migration is additive and idempotent: existing parts, notes, orders and movements are preserved. New entries start with no stock movements, no assigned AED business prices, and unknown origin/weight. Source provenance survives part edits. Supplier-listed is a distinct verification state, not manufacturer-verified.
 
 Validation: import counts, idempotence, preservation of existing data, normalized OEM search, reference types, currency separation, shared image path, replacement integrity and discontinuation state are covered by tests/nengun.test.ts.
+
+## Image editing update — 10 September 2026
+
+The image tab now uses a large white assembly-diagram canvas, dark contextual caption, selectable thumbnails and 100–300% zoom. Operators can add, replace, remove and choose the primary image. The part edit/create form also accepts a primary image, saving it with item information. Source metadata is preserved when local item information or images change. These controls are enabled for the local demo operator; definitive authorization remains a platform responsibility.
+
+The current imported catalogue is still only the 38-row headlamp assembly, not all Nengun manufacturers or models. The user confirmed that no export/API/feed is available. Broader collection scope remains to be specified; no claim of full-catalogue coverage is made.
+The user requested all manufacturers rather than a narrower vehicle range. Full catalogue ingestion remains outstanding; the application now displays its limited coverage explicitly.

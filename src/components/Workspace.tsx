@@ -500,7 +500,17 @@ function App({ services }: { services: Services }) {
     content = (
       <>
         <div className="part-hero">
-          <img src={part.images[0]} alt="Illustrative spare part" />
+          <button
+            className="part-image-open"
+            aria-label="Open item images"
+            onClick={() => setTab("Images")}
+          >
+            <img
+              src={part.images[0] ?? "/part.svg"}
+              alt="Item image or shared assembly diagram"
+            />
+            <small>View / edit images</small>
+          </button>
           <div>
             <Badge>{part.brand}</Badge>
             <h2>{part.name}</h2>
@@ -672,7 +682,11 @@ function App({ services }: { services: Services }) {
           ) : tab === "Documents" ? (
             documents(part.id)
           ) : tab === "Images" ? (
-            <Gallery part={part} services={services} />
+            <Gallery
+              part={part}
+              services={services}
+              onEdit={() => setModal("Part")}
+            />
           ) : (
             movementTable(part.id)
           )}
@@ -860,6 +874,16 @@ function App({ services }: { services: Services }) {
           </select>
           <small>{parts.length} parts</small>
         </div>
+        <p className="catalogue-coverage">
+          Nengun coverage:{" "}
+          {s.parts.filter(
+            (p) =>
+              p.catalogueSource?.provider === "Nengun Performance" ||
+              p.catalogueSource?.provider === "Nengun",
+          ).length || s.parts.filter((p) => p.catalogueSource).length}{" "}
+          imported items · Mitsubishi headlamp assembly only. Full multi-brand
+          catalogue not yet imported.
+        </p>
         <Table
           headers={[
             "Part / internal SKU",
@@ -873,7 +897,7 @@ function App({ services }: { services: Services }) {
           ]}
           rows={parts.map((p) => [
             <div className="part-cell">
-              <img src={p.images[0]} alt="" />
+              <img src={p.images[0] ?? "/part.svg"} alt="" />
               {partLink(p.id)}
             </div>,
             p.brand,

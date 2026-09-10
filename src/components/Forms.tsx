@@ -26,6 +26,8 @@ export default function Forms({
   const s = services.snapshot();
   const [error, setError] = useState("");
   const [review, setReview] = useState(false);
+  const [draftImages, setDraftImages] = useState(part?.images ?? ["/part.svg"]);
+  const [readingImage, setReadingImage] = useState(false);
   const [lines, setLines] = useState([
     {
       partId: part?.id ?? s.parts[0].id,
@@ -77,7 +79,7 @@ export default function Forms({
           reorder: n("reorder"),
           minimum: n("minimum"),
           status: v("status") as Part["status"],
-          images: part?.images ?? ["/part.svg"],
+          images: draftImages,
           notes: v("notes"),
         });
       else if (type === "Part number")
@@ -418,6 +420,52 @@ export default function Forms({
           </button>
         </div>
       )}
+      {type === "Part" && (
+        <div className="part-form-image">
+          <h3>Primary item image</h3>
+          {draftImages[0] && (
+            <img src={draftImages[0]} alt="Primary image preview" />
+          )}
+          <Field label="Insert or replace primary image">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => {
+                e.stopPropagation();
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (
+                  file.size > 1_000_000 ||
+                  !["image/png", "image/jpeg", "image/webp"].includes(file.type)
+                ) {
+                  setError(
+                    "Choose a PNG, JPEG or WebP image smaller than 1 MB.",
+                  );
+                  return;
+                }
+                setReadingImage(true);
+                const reader = new FileReader();
+                reader.onload = () => {
+                  setDraftImages((images) => [
+                    String(reader.result),
+                    ...images.slice(1),
+                  ]);
+                  setReadingImage(false);
+                };
+                reader.onerror = () => {
+                  setError("Image could not be read.");
+                  setReadingImage(false);
+                };
+                reader.readAsDataURL(file);
+              }}
+            />
+          </Field>
+          <small>
+            The image and item information are saved together when you select
+            Save part.
+          </small>
+        </div>
+      )}
       <Field
         label={
           ["Transfer", "Adjustment"].includes(type) ? "Reason / notes" : "Notes"
@@ -436,7 +484,7 @@ export default function Forms({
         </p>
       )}
       <div className="form-actions">
-        <button className="primary" type="submit">
+        <button className="primary" type="submit" disabled={readingImage}>
           {type === "Transfer"
             ? review
               ? "Confirm transfer"
