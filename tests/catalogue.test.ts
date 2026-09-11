@@ -16,6 +16,7 @@ import {
 } from "../src/catalogue/models";
 import { createDemoAdapter } from "../src/adapters/demo";
 import { validateImageMetadata } from "../src/catalogue/assets";
+import { usablePersistedState } from "../src/catalogue/server";
 const mapping: ColumnMapping = Object.fromEntries(csvFields.map((k) => [k, k]));
 const header = csvFields.join(",");
 const csv = (
@@ -278,6 +279,15 @@ test("pagination bounds responses and vehicle filters cannot infer fitment by nu
   assert.equal(r.search("", 2, 20).items.length, 20);
   assert.equal(r.search("", 1, 20, "variant-ct9a").total, 3);
   assert.equal(r.search("", 1, 20, "", "", "1990").total, 0);
+});
+test("a persisted snapshot from an older schema is discarded, not trusted", () => {
+  const current = referenceSeed();
+  assert.equal(usablePersistedState(current), current);
+  assert.equal(
+    usablePersistedState({ ...current, schema: 1 } as never),
+    undefined,
+  );
+  assert.equal(usablePersistedState(undefined), undefined);
 });
 test("catalogue seed spans multiple makes and variants for meaningful browsing", () => {
   const r = new ReferenceRepository(referenceSeed());

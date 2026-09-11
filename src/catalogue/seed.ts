@@ -1,4 +1,4 @@
-import { ReferenceState, Provenance } from "./models";
+import { ReferenceState, Provenance, referenceSchemaVersion } from "./models";
 import { normalizeNumber } from "../domain/models";
 export function referenceSeed(): ReferenceState {
   const provenance: Provenance = {
@@ -13,7 +13,7 @@ export function referenceSeed(): ReferenceState {
   };
   const p = (id: string) => ({ ...provenance, sourceRecordId: id });
   return {
-    schema: 1,
+    schema: referenceSchemaVersion,
     sources: [
       {
         id: "original-demo",
@@ -187,6 +187,31 @@ export function referenceSeed(): ReferenceState {
           "Manual coordinates identify lens, housing and bulb. Not to scale.",
         provenance: p("demo-headlamp"),
       },
+      {
+        id: "demo-filtration",
+        catalogueId: "demo-e210",
+        sourceId: "original-demo",
+        variantId: "variant-e210",
+        categoryId: "filtration",
+        title: "Engine filtration assembly · conceptual demo",
+        code: "DEMO-FL-01",
+        image: {
+          id: "image-demo-filtration",
+          url: "/diagrams/demo-filtration.svg",
+          rights: "COMPANY_OWNED",
+          mime: "image/svg+xml",
+          width: 700,
+          height: 420,
+          size: 1506,
+          attribution:
+            "Original schematic created for this application. Not a manufacturer drawing.",
+          provenance: p("image-demo-filtration"),
+        },
+        revision: "1",
+        notes:
+          "Manual coordinates identify the oil filter and air filter. Not to scale.",
+        provenance: p("demo-filtration"),
+      },
     ],
     parts: ["Lens", "Housing", "Bulb"]
       .map((name, i) => ({
@@ -280,20 +305,42 @@ export function referenceSeed(): ReferenceState {
       { x: 19, y: 35 },
       { x: 52, y: 40 },
       { x: 82, y: 40 },
-    ].map((xy, i) => ({
-      id: `callout-${i + 1}`,
-      diagramId: "demo-headlamp",
-      display: `C0${i + 1}`,
-      normalized: `C0${i + 1}`,
-      partIds: [`reference-${i + 1}`],
-      ...xy,
-      width: 9,
-      height: 10,
-      sequence: i + 1,
-      notes:
-        "Manually mapped original demo drawing. Callout is not an OEM number.",
-      provenance: p(`callout-${i + 1}`),
-    })),
+    ]
+      .map((xy, i) => ({
+        id: `callout-${i + 1}`,
+        diagramId: "demo-headlamp",
+        display: `C0${i + 1}`,
+        normalized: `C0${i + 1}`,
+        partIds: [`reference-${i + 1}`],
+        ...xy,
+        width: 9,
+        height: 10,
+        quantity: 1,
+        sequence: i + 1,
+        notes:
+          "Manually mapped original demo drawing. Callout is not an OEM number.",
+        provenance: p(`callout-${i + 1}`),
+      }))
+      .concat(
+        [
+          { x: 19, y: 13 },
+          { x: 87, y: 13 },
+        ].map((xy, i) => ({
+          id: `callout-${i + 4}`,
+          diagramId: "demo-filtration",
+          display: `C0${i + 1}`,
+          normalized: `C0${i + 1}`,
+          partIds: [`reference-${i + 4}`],
+          ...xy,
+          width: 9,
+          height: 10,
+          quantity: 1,
+          sequence: i + 1,
+          notes:
+            "Manually mapped original demo drawing. Callout is not an OEM number.",
+          provenance: p(`callout-${i + 4}`),
+        })),
+      ),
     fitments: [1, 2, 3]
       .map((i) => ({
         id: `fit-ref-${i}`,

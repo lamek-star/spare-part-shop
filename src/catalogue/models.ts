@@ -269,8 +269,9 @@ export interface ImportBatch {
   attempts: number;
   history: { at: string; status: BatchStatus }[];
 }
+export const referenceSchemaVersion = 2;
 export interface ReferenceState {
-  schema: 1;
+  schema: typeof referenceSchemaVersion;
   sources: CatalogueSource[];
   makes: VehicleMake[];
   models: VehicleModel[];

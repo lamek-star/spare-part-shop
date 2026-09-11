@@ -350,6 +350,29 @@ test("EPC diagram panel shows callout details, quick adoption and fullscreen", a
     page.getByRole("button", { name: "Open My Product", exact: true }),
   ).toBeVisible();
 });
+test("second vehicle's own diagram is browsable and distinct from the first", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page
+    .getByRole("button", { name: "Reference Catalogue", exact: true })
+    .click();
+  await page
+    .getByLabel("Make", { exact: true })
+    .selectOption({ label: "Toyota" });
+  await expect(
+    page.getByRole("button", { name: /Open diagram: Engine filtration/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: /Open diagram: Engine filtration/ })
+    .click();
+  await page.getByRole("button", { name: "Callout C01", exact: true }).click();
+  const panel = page.locator(".epc-selected-callout");
+  await expect(panel).toContainText("Callout C01");
+  await expect(panel).toContainText("Engine oil filter");
+  await expect(panel).toContainText("DEMO-OE-ENG-4");
+});
 test("CSV mapping staging publish and import permission boundary", async ({
   page,
   request,
