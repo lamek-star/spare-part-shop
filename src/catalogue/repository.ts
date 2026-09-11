@@ -26,9 +26,9 @@ const timestamp = () => new Date().toISOString();
 const ensure = (condition: unknown, message: string) => {
   if (!condition) throw new Error(message);
 };
-const identity = (r: ImportRecord) =>
+const identity = (r: ImportRecord, provider: string) =>
   id(
-    "company-csv",
+    provider,
     r.sourceRecordId || normalizeNumber(r.number),
     r.manufacturer,
     r.catalogue,
@@ -325,6 +325,7 @@ export class ReferenceRepository {
     role: string,
     attested: boolean,
     retryId?: string,
+    sourceId = "company-csv",
   ) {
     this.admin(role);
     ensure(
@@ -341,7 +342,7 @@ export class ReferenceRepository {
     }
     const batch: ImportBatch = {
       id: batchId,
-      sourceId: "company-csv",
+      sourceId,
       startedAt: timestamp(),
       status: "PENDING",
       discovered: 0,
@@ -380,7 +381,7 @@ export class ReferenceRepository {
           row,
           mapping,
         );
-        const key = identity(record);
+        const key = identity(record, sourceId);
         const existing = this.state.parts.find((p) => p.id === key);
         if (existing)
           warnings.push(
@@ -399,7 +400,7 @@ export class ReferenceRepository {
           record.sourceRecordId &&
           this.state.parts.some(
             (p) =>
-              p.provenance.sourceProvider === "company-csv" &&
+              p.provenance.sourceProvider === sourceId &&
               p.provenance.sourceRecordId === record.sourceRecordId &&
               p.id !== key,
           )
@@ -467,7 +468,7 @@ export class ReferenceRepository {
     this.admin(role);
     const b = this.state.batches.find((b) => b.id === batchId);
     ensure(b, "Batch not found.");
-    return this.stage(b!.csv, b!.mapping, role, true, batchId);
+    return this.stage(b!.csv, b!.mapping, role, true, batchId, b!.sourceId);
   }
   exclude(batchId: string, rowId: string, role: string) {
     this.admin(role);
@@ -529,7 +530,7 @@ export class ReferenceRepository {
       for (const row of candidates) {
         const r = row.record;
         const provenance: Provenance = {
-          sourceProvider: "company-csv",
+          sourceProvider: batch.sourceId,
           sourceRecordId: r.sourceRecordId || row.identity,
           sourceUrl: r.sourceUrl,
           sourceCatalogue: r.catalogue,
@@ -573,7 +574,7 @@ export class ReferenceRepository {
           });
         const catalogueId = id(
             "catalogue",
-            "company-csv",
+            batch.sourceId,
             r.catalogue,
             variantId,
           ),
@@ -581,7 +582,7 @@ export class ReferenceRepository {
         if (!s.catalogues.some((c) => c.id === catalogueId))
           s.catalogues.push({
             id: catalogueId,
-            sourceId: "company-csv",
+            sourceId: batch.sourceId,
             variantId,
             name: r.catalogue,
             provenance,

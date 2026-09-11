@@ -73,6 +73,7 @@ export interface VehicleVariant {
   drivetrain: string;
   market: string;
   bodyType: string;
+  grade?: string;
   notes: string;
   provenance: Provenance;
 }
@@ -126,6 +127,7 @@ export interface DiagramCallout {
   y?: number;
   width?: number;
   height?: number;
+  quantity?: number;
   sequence: number;
   notes: string;
   provenance: Provenance;
