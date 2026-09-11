@@ -155,7 +155,7 @@ test("item image add, replace, primary selection and item edit persist", async (
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
-  await page.getByRole("textbox", { name: "Global search" }).fill("8301A619");
+  await page.getByRole("textbox", { name: "Global search" }).fill("SP-00001");
   await page.locator(".search-results button").first().click();
   await page.getByRole("button", { name: "Open item images" }).click();
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
@@ -197,7 +197,7 @@ test("item image add, replace, primary selection and item edit persist", async (
     "Editable headlamp item",
   );
   await page.reload();
-  await page.getByRole("textbox", { name: "Global search" }).fill("8301A619");
+  await page.getByRole("textbox", { name: "Global search" }).fill("SP-00001");
   await page.locator(".search-results button").first().click();
   await page.getByRole("button", { name: "Open item images" }).click();
   await expect(page.locator(".diagram-canvas img")).toHaveAttribute(
@@ -209,4 +209,197 @@ test("item image add, replace, primary selection and item edit persist", async (
   );
   await page.getByRole("button", { name: "Remove selected image" }).click();
   await expect(page.locator(".image-thumbnails button")).toHaveCount(1);
+});
+
+test("vehicle catalogue diagram adoption and OEM company search", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page
+    .getByRole("button", { name: "Reference Catalogue", exact: true })
+    .click();
+  await page
+    .getByLabel("Make", { exact: true })
+    .selectOption({ label: "Mitsubishi" });
+  await page
+    .getByLabel("Model", { exact: true })
+    .selectOption({ label: "Lancer Evolution IX" });
+  await page
+    .getByLabel("Variant", { exact: true })
+    .selectOption("variant-ct9a");
+  await page.getByLabel("Year", { exact: true }).fill("2006");
+  await page.getByLabel("Engine", { exact: true }).selectOption("4G63");
+  await page.getByLabel("Category", { exact: true }).selectOption("lighting");
+  await page
+    .getByRole("button", { name: /Open diagram: Headlamp assembly/ })
+    .click();
+  await page.getByRole("button", { name: "Callout C01", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Callout C01", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: "View reference part", exact: true })
+    .first()
+    .click();
+  await page
+    .locator(".tabs")
+    .getByRole("button", { name: "Part Numbers", exact: true })
+    .click();
+  await expect(
+    page.getByRole("cell", { name: "DEMO-OE-HL-1", exact: true }),
+  ).toBeVisible();
+  await page
+    .locator(".tabs")
+    .getByRole("button", { name: "Cross References", exact: true })
+    .click();
+  await expect(
+    page.getByRole("cell", { name: "ALTERNATIVE", exact: true }),
+  ).toBeVisible();
+  await page
+    .locator(".tabs")
+    .getByRole("button", { name: "Vehicle Compatibility", exact: true })
+    .click();
+  await expect(
+    page.getByRole("cell", { name: /Mitsubishi Lancer Evolution IX/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Add to My Products", exact: true })
+    .click();
+  await page.getByLabel("Internal SKU", { exact: true }).fill("CAT-E2E-LENS");
+  await page.getByLabel("Cost (AED)", { exact: true }).fill("80");
+  await page.getByLabel("Selling price (AED)", { exact: true }).fill("140");
+  await page
+    .getByRole("button", { name: "Create My Product", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Open My Product", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Open reference catalogue record" }),
+  ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Global search" })
+    .fill("DEMO OE HL 1");
+  await expect(
+    page
+      .locator(".search-results")
+      .getByRole("button")
+      .filter({ hasText: "CAT-E2E-LENS" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".search-results")
+      .getByRole("button")
+      .filter({ hasText: "Reference part" }),
+  ).toBeVisible();
+});
+
+test("CSV mapping staging publish and import permission boundary", async ({
+  page,
+  request,
+}) => {
+  const denied = await request.post("/api/catalogue", {
+    headers: { "x-demo-role": "Sales" },
+    data: { action: "stage", csv: "a\n1", mapping: {}, attested: true },
+  });
+  expect(denied.status()).toBe(403);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page
+    .getByRole("button", { name: "Catalogue Administration", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Import Batches", exact: true })
+    .click();
+  const number = "E2E-CSV-" + Date.now();
+  const content =
+    "maker,number,description,make,model,from,to\nDemo," +
+    number +
+    ",Imported fixture,Mitsubishi,Example,2005,2007";
+  await page.getByLabel("Upload CSV").setInputFiles({
+    name: "example.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(content),
+  });
+  for (const [field, column] of [
+    ["manufacturer", "maker"],
+    ["part_number", "number"],
+    ["description", "description"],
+    ["vehicle_make", "make"],
+    ["vehicle_model", "model"],
+    ["year_from", "from"],
+    ["year_to", "to"],
+  ])
+    await page.getByLabel(field, { exact: true }).selectOption(column);
+  await page
+    .getByRole("checkbox", {
+      name: "My organization may use this data internally.",
+    })
+    .check();
+  await page.getByRole("button", { name: "Validate and stage" }).click();
+  await expect(
+    page.getByRole("cell").filter({ hasText: number }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Approve import — publish valid rows" })
+    .click();
+  await expect(page.locator(".batch-review")).toContainText("COMPLETED");
+  await page.getByRole("textbox", { name: "Global search" }).fill(number);
+  await expect(
+    page
+      .locator(".search-results")
+      .getByRole("button")
+      .filter({ hasText: "Reference part" }),
+  ).toBeVisible();
+});
+
+test("purchase cancellation requires confirmation and blocks further receiving", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page.getByRole("button", { name: "Purchasing", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Purchase Orders", exact: true })
+    .click();
+  await page.getByRole("button", { name: "New purchase", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("quantity", { exact: true })
+    .fill("5");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await page.locator("tbody tr").first().getByRole("button").first().click();
+  await page.getByRole("button", { name: "Cancel purchase" }).click();
+  await page.getByRole("button", { name: "Keep order" }).click();
+  await expect(page.locator(".order-detail .badge").first()).toHaveText(
+    "Draft",
+  );
+  await page.getByRole("button", { name: "Cancel purchase" }).click();
+  await page.getByRole("button", { name: "Yes, cancel order" }).click();
+  await expect(page.locator(".order-detail .badge").first()).toHaveText(
+    "Cancelled",
+  );
+  await expect(
+    page.getByRole("button", { name: "Confirm purchase" }),
+  ).toHaveCount(0);
+});
+test("sales persona remains outside import administration after reload", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("Demo persona").selectOption("Sales");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await expect(
+    page.getByRole("button", { name: "Catalogue Administration", exact: true }),
+  ).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Catalogue Administration", exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/#catalogue-administration");
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Permission denied", exact: true }),
+  ).toBeVisible();
 });

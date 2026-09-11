@@ -12,7 +12,7 @@ export function Badge({ children }: { children: ReactNode }) {
   const text = String(children);
   return (
     <span
-      className={`badge ${/Active|Paid|Received|Fulfilled|In stock|Closed/.test(text) ? "green" : /Low|Unpaid|Pending|Confirmed|Demo|Quotation/.test(text) ? "amber" : /Out|Inactive/.test(text) ? "red" : ""}`}
+      className={`badge ${/Active|Paid|Received|Fulfilled|In stock|Closed/.test(text) ? "green" : /Low|Unpaid|Pending|Confirmed|Demo|Quotation/.test(text) ? "amber" : /Out|Inactive|Cancelled/.test(text) ? "red" : ""}`}
     >
       {children}
     </span>
@@ -21,9 +21,13 @@ export function Badge({ children }: { children: ReactNode }) {
 export function Table({
   headers,
   rows,
+  selectedRow,
+  onRowClick,
 }: {
   headers: string[];
   rows: ReactNode[][];
+  selectedRow?: number;
+  onRowClick?: (index: number) => void;
 }) {
   return (
     <div className="table-wrap">
@@ -37,7 +41,11 @@ export function Table({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i}>
+            <tr
+              key={i}
+              className={selectedRow === i ? "selected-table-row" : undefined}
+              onClick={onRowClick ? () => onRowClick(i) : undefined}
+            >
               {r.map((c, j) => (
                 <td key={j}>{c}</td>
               ))}

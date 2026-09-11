@@ -279,6 +279,16 @@ test("pagination bounds responses and vehicle filters cannot infer fitment by nu
   assert.equal(r.search("", 1, 20, "variant-ct9a").total, 3);
   assert.equal(r.search("", 1, 20, "", "", "1990").total, 0);
 });
+test("catalogue seed spans multiple makes and variants for meaningful browsing", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  const browse = r.browse({});
+  assert.deepEqual(browse.makes.map((m) => m.name).sort(), [
+    "Mitsubishi",
+    "Toyota",
+  ]);
+  assert.equal(r.search("", 1, 20, "variant-e210").total, 2);
+  assert.equal(r.detail("reference-4").part.manufacturer, "Toyota (demo)");
+});
 test("disabled feeds fail closed and permitted transport retries are bounded", async () => {
   await assert.rejects(() => providerExtensions.nengun.read(""), /disabled/);
   let calls = 0;

@@ -61,6 +61,7 @@ export interface Services {
     confirm(id: string): CommandResult;
     receive(id: string, quantities: number[]): CommandResult;
     close(id: string): CommandResult;
+    cancel(id: string): CommandResult;
   };
   sales: {
     create(order: Order): CommandResult;
@@ -69,6 +70,7 @@ export interface Services {
     invoice(id: string): CommandResult;
     pay(id: string): CommandResult;
     returnItems(id: string, quantities: number[]): CommandResult;
+    cancel(id: string): CommandResult;
   };
   contacts: { save(contact: Contact): CommandResult };
   documents: {

@@ -172,7 +172,8 @@ export interface Order {
     | "Received"
     | "Closed"
     | "Fulfilled"
-    | "Invoiced";
+    | "Invoiced"
+    | "Cancelled";
   payment: "Unpaid" | "Paid";
   lines: Line[];
   taxRate: number;

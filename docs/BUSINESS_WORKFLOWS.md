@@ -2,13 +2,15 @@
 
 ## Purchasing
 
-Create a draft with supplier, warehouse and multiple lines. Confirm, receive partial quantities, then receive the remainder and close. Receipts append PURCHASE_RECEIPT movements. The adapter rejects negative, fractional, excessive or repeated completed receipts; multi-line operations validate before publishing any change.
+Create a draft with supplier, warehouse and multiple lines. Confirm, receive partial quantities, then receive the remainder and close. Receipts append PURCHASE_RECEIPT movements. The adapter rejects negative, fractional, excessive or repeated completed receipts; multi-line operations validate before publishing any change. A draft or confirmed purchase with no goods received can be cancelled, with an on-screen confirmation step; once any receipt has posted, cancellation is refused.
 
 ## Sales
 
 Create quotation or draft sale. Confirm to reserve stock in the selected warehouse. Fulfill to release reservations and append SALE movements. Issue an invoice, then record payment independently. Discounts and a configurable tax placeholder are calculated on the order; the demo is not an accounting engine. Invoices support browser print/PDF.
 
 Returns are recorded against fulfilled lines and cannot exceed net delivered units. RETURN_IN movements restore stock. Financial credit notes and refunds are intentionally outside this stock-return reference workflow; the UI says so.
+
+An unfulfilled sale (draft, quotation or confirmed) can be cancelled, with an on-screen confirmation step; cancelling a confirmed order releases its stock reservation, since reservations are derived from order status rather than stored separately. Once a sale is fulfilled, cancellation is refused — use a return instead.
 
 ## Inventory
 

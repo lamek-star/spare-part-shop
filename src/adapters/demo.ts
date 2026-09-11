@@ -466,6 +466,15 @@ export function createDemoAdapter(
           );
           o.status = "Closed";
         }),
+      cancel: (id) =>
+        commit("Purchase cancelled", id, (s) => {
+          const o = order(s, id, "Purchase");
+          requireThat(
+            ["Draft", "Confirmed"].includes(o.status),
+            "Only draft or confirmed purchases with no goods received can be cancelled.",
+          );
+          o.status = "Cancelled";
+        }),
     },
     sales: {
       create: (o) =>
@@ -565,6 +574,15 @@ export function createDemoAdapter(
               );
             l.returned += quantities[i];
           });
+        }),
+      cancel: (id) =>
+        commit("Sale cancelled", id, (s) => {
+          const o = order(s, id, "Sale");
+          requireThat(
+            ["Draft", "Quotation", "Confirmed"].includes(o.status),
+            "Only unfulfilled sales can be cancelled. Use a return for fulfilled orders.",
+          );
+          o.status = "Cancelled";
         }),
     },
     contacts: {

@@ -75,6 +75,42 @@ test("full purchase, partial receipt, sale, invoice, payment and return lifecycl
   assert.throws(() => a.sales.returnItems("so-test", [9]));
   assert.throws(() => a.sales.fulfill("so-test"));
 });
+test("purchase and sales orders can be cancelled before fulfillment but not after", () => {
+  const a = createDemoAdapter();
+  a.purchasing.create(makeOrder("Purchase", "po-cancel"));
+  a.purchasing.cancel("po-cancel");
+  assert.equal(a.snapshot().orders[0].status, "Cancelled");
+  assert.throws(() => a.purchasing.confirm("po-cancel"));
+  assert.throws(() => a.purchasing.receive("po-cancel", [1]));
+
+  a.purchasing.create(makeOrder("Purchase", "po-received"));
+  a.purchasing.confirm("po-received");
+  a.purchasing.receive("po-received", [10]);
+  assert.throws(() => a.purchasing.cancel("po-received"));
+
+  a.sales.create(makeOrder("Sale", "so-cancel"));
+  a.sales.confirm("so-cancel");
+  assert.equal(
+    a.inventory
+      .list()
+      .find((x) => x.partId === "part-1" && x.warehouseId === "wh-1")!.reserved,
+    10,
+  );
+  a.sales.cancel("so-cancel");
+  assert.equal(a.snapshot().orders[0].status, "Cancelled");
+  assert.equal(
+    a.inventory
+      .list()
+      .find((x) => x.partId === "part-1" && x.warehouseId === "wh-1")!.reserved,
+    0,
+  );
+  assert.throws(() => a.sales.fulfill("so-cancel"));
+
+  a.sales.create(makeOrder("Sale", "so-fulfilled"));
+  a.sales.confirm("so-fulfilled");
+  a.sales.fulfill("so-fulfilled");
+  assert.throws(() => a.sales.cancel("so-fulfilled"));
+});
 test("invalid receipt is atomic and does not append movements", () => {
   const a = createDemoAdapter();
   a.purchasing.create(makeOrder("Purchase", "p"));

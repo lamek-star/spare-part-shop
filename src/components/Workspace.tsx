@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useState, useSyncExternalStore, ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  useMemo,
+  ReactNode,
+} from "react";
 import {
   LayoutDashboard,
   Package,
@@ -29,12 +35,17 @@ import Management from "./Management";
 import Dashboard from "./Dashboard";
 import CatalogueSource from "./CatalogueSource";
 import { SupersessionForm, CompatibilityForm, Gallery } from "./CatalogueTools";
+import ReferenceCatalogue from "./ReferenceCatalogue";
+import CatalogueAdmin from "./CatalogueAdmin";
+import { CatalogueClient } from "../catalogue/client";
+import { ReferenceHit, isCatalogueAdmin } from "../catalogue/models";
 const groups = [
   { name: "Dashboard", icon: LayoutDashboard, items: [] },
   {
     name: "Catalogue",
     icon: Package,
     items: [
+      "Reference Catalogue",
       "Parts",
       "Part Numbers",
       "Cross References",
@@ -58,6 +69,7 @@ const groups = [
     icon: Users,
     items: ["Customers", "Quotations", "Sales Orders", "Invoices", "Returns"],
   },
+  { name: "Catalogue Administration", icon: Settings, items: [] },
   { name: "Reports", icon: BarChart3, items: [] },
   { name: "Documents", icon: Files, items: [] },
   {
@@ -110,6 +122,38 @@ function App({ services }: { services: Services }) {
   const [group, setGroup] = useState("Catalogue");
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
+  const [referenceId, setReferenceId] = useState("");
+  const [referenceHits, setReferenceHits] = useState<ReferenceHit[]>([]);
+  const referenceClient = useMemo(
+    () => new CatalogueClient(persona),
+    [persona],
+  );
+  useEffect(() => {
+    let live = true;
+    const timer = setTimeout(() => {
+      if (query.trim().length >= 2)
+        referenceClient
+          .searchParts(query, 1)
+          .then((r) => {
+            if (live) setReferenceHits(r.items.slice(0, 5));
+          })
+          .catch(() => {
+            if (live) setReferenceHits([]);
+          });
+      else setReferenceHits([]);
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, referenceClient]);
+  const openReference = (id: string) => {
+    setReferenceId(id);
+    setPartId("");
+    setOrderId("");
+    setQuery("");
+    setPage("Reference Catalogue");
+  };
   const [filter, setFilter] = useState("All");
   const [partId, setPartId] = useState("");
   const [tab, setTab] = useState("Overview");
@@ -134,6 +178,7 @@ function App({ services }: { services: Services }) {
         : "In stock";
   const navigate = (p: string) => {
     setPage(p);
+    setReferenceId("");
     setPartId("");
     setOrderId("");
     setQuery("");
@@ -166,6 +211,19 @@ function App({ services }: { services: Services }) {
     const match = pages.find((p) => p.toLowerCase() === hash);
     if (match) setPage(match);
     setLogged(sessionStorage.getItem("parts-demo-session") === "yes");
+    const savedPersona = sessionStorage.getItem("parts-demo-persona");
+    if (
+      savedPersona &&
+      [
+        "Owner",
+        "Administrator",
+        "Manager",
+        "Sales",
+        "Storekeeper",
+        "Purchasing",
+      ].includes(savedPersona)
+    )
+      setPersona(savedPersona);
   }, []);
   useEffect(() => {
     if (message) {
@@ -458,6 +516,7 @@ function App({ services }: { services: Services }) {
           onSubmit={(e) => {
             e.preventDefault();
             sessionStorage.setItem("parts-demo-session", "yes");
+            sessionStorage.setItem("parts-demo-persona", persona);
             setLogged(true);
           }}
         >
@@ -496,9 +555,31 @@ function App({ services }: { services: Services }) {
       </main>
     );
   let content: ReactNode;
-  if (part) {
+  if (page === "Reference Catalogue")
+    content = (
+      <ReferenceCatalogue
+        services={services}
+        role={persona}
+        initialId={referenceId}
+        openCompany={openPart}
+      />
+    );
+  else if (page === "Catalogue Administration")
+    content = <CatalogueAdmin role={persona} />;
+  else if (part) {
     content = (
       <>
+        {part.preferredCataloguePartId && (
+          <div className="notice">
+            Linked reference: {part.referenceProvenance?.sourceProvider} /{" "}
+            {part.referenceProvenance?.sourceRecordId}{" "}
+            <button
+              onClick={() => openReference(part.preferredCataloguePartId!)}
+            >
+              Open reference catalogue record
+            </button>
+          </div>
+        )}
         <div className="part-hero">
           <button
             className="part-image-open"
@@ -785,6 +866,14 @@ function App({ services }: { services: Services }) {
                   Close purchase
                 </button>
               )}
+              {["Draft", "Confirmed"].includes(order.status) && (
+                <button
+                  className="danger"
+                  onClick={() => setModal("Cancel order")}
+                >
+                  Cancel purchase
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -823,6 +912,14 @@ function App({ services }: { services: Services }) {
               {["Fulfilled", "Invoiced"].includes(order.status) && (
                 <button onClick={() => setModal("Receive return")}>
                   Receive return
+                </button>
+              )}
+              {["Draft", "Quotation", "Confirmed"].includes(order.status) && (
+                <button
+                  className="danger"
+                  onClick={() => setModal("Cancel order")}
+                >
+                  Cancel sales order
                 </button>
               )}
             </>
@@ -875,14 +972,8 @@ function App({ services }: { services: Services }) {
           <small>{parts.length} parts</small>
         </div>
         <p className="catalogue-coverage">
-          Nengun coverage:{" "}
-          {s.parts.filter(
-            (p) =>
-              p.catalogueSource?.provider === "Nengun Performance" ||
-              p.catalogueSource?.provider === "Nengun",
-          ).length || s.parts.filter((p) => p.catalogueSource).length}{" "}
-          imported items · Mitsubishi headlamp assembly only. Full multi-brand
-          catalogue not yet imported.
+          My Products contains company-owned commercial records. Browse
+          Reference Catalogue to find components and explicitly add them here.
         </p>
         <Table
           headers={[
@@ -1358,47 +1449,53 @@ function App({ services }: { services: Services }) {
           )}
         </div>
         <nav aria-label="Main navigation">
-          {groups.map((g) => (
-            <div className="nav-group" key={g.name}>
-              <button
-                className={`nav-item ${page === g.name || g.items.includes(page) ? "active" : ""}`}
-                title={g.name}
-                onClick={() =>
-                  g.items.length
-                    ? (setGroup(group === g.name ? "" : g.name),
-                      collapsed && setCollapsed(false))
-                    : navigate(g.name)
-                }
-              >
-                <g.icon size={18} />
-                {!collapsed && (
-                  <>
-                    <span>{g.name}</span>
-                    {g.items.length > 0 && <ChevronRight size={14} />}
-                  </>
-                )}
-              </button>
-              {!collapsed &&
-                group === g.name &&
-                g.items.map((p) => (
-                  <button
-                    key={p}
-                    className={`nav-child ${page === p ? "active-child" : ""}`}
-                    onClick={() => navigate(p)}
-                  >
-                    {p}
-                    {p === "Low Stock" && (
-                      <span>
-                        {
-                          s.parts.filter((p) => available(p.id) < p.reorder)
-                            .length
-                        }
-                      </span>
-                    )}
-                  </button>
-                ))}
-            </div>
-          ))}
+          {groups
+            .filter(
+              (g) =>
+                g.name !== "Catalogue Administration" ||
+                isCatalogueAdmin(persona),
+            )
+            .map((g) => (
+              <div className="nav-group" key={g.name}>
+                <button
+                  className={`nav-item ${page === g.name || g.items.includes(page) ? "active" : ""}`}
+                  title={g.name}
+                  onClick={() =>
+                    g.items.length
+                      ? (setGroup(group === g.name ? "" : g.name),
+                        collapsed && setCollapsed(false))
+                      : navigate(g.name)
+                  }
+                >
+                  <g.icon size={18} />
+                  {!collapsed && (
+                    <>
+                      <span>{g.name}</span>
+                      {g.items.length > 0 && <ChevronRight size={14} />}
+                    </>
+                  )}
+                </button>
+                {!collapsed &&
+                  group === g.name &&
+                  g.items.map((p) => (
+                    <button
+                      key={p}
+                      className={`nav-child ${page === p ? "active-child" : ""}`}
+                      onClick={() => navigate(p)}
+                    >
+                      {p === "Parts" ? "My Products" : p}
+                      {p === "Low Stock" && (
+                        <span>
+                          {
+                            s.parts.filter((p) => available(p.id) < p.reorder)
+                              .length
+                          }
+                        </span>
+                      )}
+                    </button>
+                  ))}
+              </div>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           {!collapsed && (
@@ -1432,7 +1529,7 @@ function App({ services }: { services: Services }) {
             />
             {query && (
               <div className="search-results">
-                <small>Parts & references</small>
+                <small>My Products</small>
                 {services.catalogue
                   .search(query)
                   .slice(0, 6)
@@ -1442,6 +1539,16 @@ function App({ services }: { services: Services }) {
                       <small>{p.sku}</small>
                     </button>
                   ))}
+                {referenceHits.length > 0 && <small>Reference Catalogue</small>}
+                {referenceHits.map((h) => (
+                  <button
+                    key={h.part.id}
+                    onClick={() => openReference(h.part.id)}
+                  >
+                    {h.part.description}
+                    <small>Reference part · {h.numbers[0]?.original}</small>
+                  </button>
+                ))}
                 {s.contacts
                   .filter((c) =>
                     c.name.toLowerCase().includes(query.toLowerCase()),
@@ -1477,7 +1584,8 @@ function App({ services }: { services: Services }) {
                       {o.number}
                     </button>
                   ))}
-                {!services.catalogue.search(query).length &&
+                {!referenceHits.length &&
+                  !services.catalogue.search(query).length &&
                   !s.contacts.some((c) =>
                     c.name.toLowerCase().includes(query.toLowerCase()),
                   ) &&
@@ -1497,6 +1605,7 @@ function App({ services }: { services: Services }) {
             <button
               onClick={() => {
                 sessionStorage.removeItem("parts-demo-session");
+                sessionStorage.removeItem("parts-demo-persona");
                 setLogged(false);
               }}
             >
@@ -1527,7 +1636,9 @@ function App({ services }: { services: Services }) {
                       : "Order details"
                     : page === "Dashboard"
                       ? "Business overview"
-                      : page}
+                      : page === "Parts"
+                        ? "My Products"
+                        : page}
               </h1>
               <p>{subtitle}</p>
             </div>
@@ -1611,6 +1722,16 @@ function App({ services }: { services: Services }) {
                 setMessage("Stock movements posted successfully.");
               }}
             />
+          ) : modal === "Cancel order" ? (
+            <CancelOrderConfirm
+              order={order!}
+              services={services}
+              done={() => {
+                setModal("");
+                setMessage("Order cancelled.");
+              }}
+              cancel={() => setModal("")}
+            />
           ) : (
             <Forms
               type={modal}
@@ -1676,5 +1797,49 @@ function QuantityForm({
         {isReturn ? "Confirm return" : "Post goods receipt"}
       </button>
     </form>
+  );
+}
+function CancelOrderConfirm({
+  order,
+  services,
+  done,
+  cancel,
+}: {
+  order: Order;
+  services: Services;
+  done: () => void;
+  cancel: () => void;
+}) {
+  const [error, setError] = useState("");
+  return (
+    <div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <p>
+        Cancel {order.kind === "Purchase" ? "purchase" : "sales order"}{" "}
+        <strong>{order.number}</strong>? This cannot be undone.
+      </p>
+      <div className="actions">
+        <button
+          className="danger"
+          onClick={async () => {
+            try {
+              if (order.kind === "Purchase")
+                await services.purchasing.cancel(order.id);
+              else await services.sales.cancel(order.id);
+              done();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Yes, cancel order
+        </button>
+        <button onClick={cancel}>Keep order</button>
+      </div>
+    </div>
   );
 }
