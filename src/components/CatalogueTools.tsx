@@ -188,6 +188,7 @@ export function Gallery({
   const [selected, setSelected] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const replaceIndex = useRef<number | null>(null);
   const current = Math.min(selected, Math.max(0, part.images.length - 1));
@@ -335,6 +336,7 @@ export function Gallery({
             onClick={() => {
               setSelected(i);
               setZoom(1);
+              setConfirmRemove(false);
             }}
           >
             <img src={url} alt="" />
@@ -355,18 +357,25 @@ export function Gallery({
                 ...part.images.filter((_, i) => i !== current),
               ]);
               setSelected(0);
+              setConfirmRemove(false);
             }}
           >
             Make primary
           </button>
           <button
             disabled={busy}
+            className={confirmRemove ? "danger" : undefined}
             onClick={async () => {
+              if (!confirmRemove) {
+                setConfirmRemove(true);
+                return;
+              }
               await save(part.images.filter((_, i) => i !== current));
               setSelected(0);
+              setConfirmRemove(false);
             }}
           >
-            Remove selected image
+            {confirmRemove ? "Confirm remove image" : "Remove selected image"}
           </button>
         </div>
       )}

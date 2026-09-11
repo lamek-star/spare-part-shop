@@ -208,6 +208,10 @@ test("item image add, replace, primary selection and item edit persist", async (
     "Editable headlamp item",
   );
   await page.getByRole("button", { name: "Remove selected image" }).click();
+  await expect(
+    page.getByRole("button", { name: "Confirm remove image" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Confirm remove image" }).click();
   await expect(page.locator(".image-thumbnails button")).toHaveCount(1);
 });
 

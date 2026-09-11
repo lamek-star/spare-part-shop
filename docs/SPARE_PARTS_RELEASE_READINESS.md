@@ -43,6 +43,15 @@ original validation record.
 - Sales: Customer → Quotation/Draft → Confirm (reserves stock) → Fulfil →
   Invoice → Payment, plus customer returns, and **order cancellation** before
   fulfillment (added this milestone).
+- Confirmation before destructive actions (spec section 19): audited every
+  destructive control in `src/components/` this milestone. Order
+  cancellation uses the app's dialog-based confirm (`CancelOrderConfirm` in
+  `Workspace.tsx`); document removal (`Workspace.tsx`) and catalogue image
+  removal (`Gallery` in `CatalogueTools.tsx`) now use an in-place arm/
+  confirm pattern (button reads "Remove" → "Confirm remove" on first
+  click). Order-line removal while composing a draft (`Forms.tsx`) is
+  intentionally left unconfirmed — it edits an unsaved draft, not
+  persisted data.
 - Pricing centralized in `domain/models.ts totals()`; no per-screen
   duplicate tax/discount math.
 - Dashboard: stock valuation, monthly sales, open purchases, low-stock
@@ -82,13 +91,6 @@ original validation record.
 
 ## Partial
 
-- **Confirmation before destructive actions** (spec section 19): the new
-  order-cancellation action now requires confirmation
-  (`CancelOrderConfirm` modal in `Workspace.tsx`), but this was not
-  retrofitted across every existing destructive control — document removal
-  (`services.documents.remove`) still fires immediately with no confirm
-  step. A full audit of every destructive control in the app was not
-  performed this milestone.
 - **IntraForge platform-requirements table** now uses the exact 5-column
   format requested and covers all 19 named concepts, but it documents
   _intent_, not a verified contract — no IntraForge Core code was read or

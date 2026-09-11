@@ -159,6 +159,7 @@ function App({ services }: { services: Services }) {
   const [tab, setTab] = useState("Overview");
   const [orderId, setOrderId] = useState("");
   const [modal, setModal] = useState("");
+  const [confirmRemoveDoc, setConfirmRemoveDoc] = useState("");
   const [contactId, setContactId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -487,9 +488,17 @@ function App({ services }: { services: Services }) {
                 Download
               </a>
               <button
-                onClick={() => run(() => services.documents.remove(d.id))}
+                className={confirmRemoveDoc === d.id ? "danger" : undefined}
+                onClick={() => {
+                  if (confirmRemoveDoc !== d.id) {
+                    setConfirmRemoveDoc(d.id);
+                    return;
+                  }
+                  setConfirmRemoveDoc("");
+                  run(() => services.documents.remove(d.id));
+                }}
               >
-                Remove
+                {confirmRemoveDoc === d.id ? "Confirm remove" : "Remove"}
               </button>
             </div>,
           ])}
