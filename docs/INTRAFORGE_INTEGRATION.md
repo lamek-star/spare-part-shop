@@ -33,7 +33,16 @@ below is a mapping intent, not an implemented contract.
 
 ## Adapter contract notes
 
-`src/integrations/intraforge` is the only future integration boundary.
+`src/integrations/intraforge` is the only future _platform_ integration
+boundary — it replaces this application's persistence and identity, not its
+catalogue data. Catalogue _source_ providers (CSV today; Nengun and any
+future TecDoc/manufacturer/supplier feed) live separately under
+`src/integrations/catalogues/<provider>/` and implement
+`CatalogueProvider`/`FeedProvider` from `src/catalogue/providers.ts`,
+independent of whichever platform ultimately hosts the application. See
+[NENGUN_FIELD_MAP.md](catalogues/NENGUN_FIELD_MAP.md) for that boundary's
+field-level mapping.
+
 Reads come from a stable subscribed snapshot; mutations support either void
 (local demo) or `Promise<void>` (future remote commands). A remote adapter
 should await its API command, refresh or reconcile the cached snapshot and

@@ -1,10 +1,11 @@
 # Spare parts release readiness
 
-Snapshot as of 2026-09-11, branch `codex/spareparts-reference`. This tracks
-completion against the standalone-application milestone (finish the app
-before any IntraForge integration work begins). It supersedes the narrower
-[READINESS.md](READINESS.md) for scope tracking; READINESS.md remains as the
-original validation record.
+Snapshot as of 2026-09-12 (updated from 2026-09-11), branch
+`codex/spareparts-reference`. Tracks completion against two milestones: the
+standalone-application build-out, and the Nengun catalogue-source analysis
+and import-preparation milestone that followed it. It supersedes the
+narrower [READINESS.md](READINESS.md) for scope tracking; READINESS.md
+remains as the original validation record.
 
 ## Completed
 
@@ -86,8 +87,38 @@ original validation record.
 - Demo data: 48 company parts across 4 warehouses/3 branches, 7 customers,
   5 suppliers, order/movement history; reference catalogue now spans 2
   makes/models/variants (Mitsubishi Lancer Evolution IX, Toyota Corolla),
-  5 reference parts, 1 original diagram with 3 synced callouts (broadened
-  this milestone — see Known limitations).
+  5 reference parts, 1 original diagram with 3 synced callouts.
+- **Nengun catalogue-source analysis (2026-09-12 milestone):** robots.txt
+  confirmed disallowing ClaudeBot site-wide and `/oem/parts/`,
+  `/oem/variant/`, `/oem/group/`, `/catalogue/vehicle/` for all bots — no
+  page was fetched; see `docs/catalogues/NENGUN_SOURCE_REVIEW.md`.
+  `docs/catalogues/NENGUN_FIELD_MAP.md` documents the observable structure
+  from what was already reviewed/described, marked by source.
+- **Nengun provider architecture:** `src/integrations/catalogues/nengun/`
+  implements the `CatalogueProvider` contract (`provider.ts`), a pure
+  mapper from a Nengun-shaped page into the generic catalogue model
+  (`mapper.ts`) that keeps diagram-callout numbers and OEM part numbers in
+  separate fields end to end and never fabricates a missing OEM number,
+  and an import-mode gate (`config.ts`, `NENGUN_IMPORT_MODE`) that is
+  disabled by default and still refuses even when set, since no fetch
+  transport exists. No network call to nengun.com exists anywhere in this
+  package.
+- Reference-catalogue staging (`ReferenceRepository.stage`/`.publish`) is
+  now provider-parameterized instead of hardcoding `"company-csv"`, so a
+  future authorized provider can reuse the same staging/duplicate-identity
+  pipeline without a redesign — duplicate identity already includes source
+  provider, record ID, manufacturer and vehicle context (existing CSV
+  behavior; unchanged for CSV callers, which still default to
+  `"company-csv"`).
+- `DiagramCallout.quantity` and `VehicleVariant.grade` added — fields the
+  field map identified as present in the described source structure but
+  previously unmodeled (or misfiled into `bodyType`).
+- Diagram UI rebuilt into an EPC-style two-column layout (diagram left,
+  "Parts in this diagram" panel right, with quantity column, fullscreen
+  toggle, and an inline selected-callout card showing description/OEM
+  numbers/quantity/applicability/verification plus [View Part] and
+  [Add to My Products]/[My Product] actions) — see
+  `src/components/ReferenceCatalogue.tsx`.
 
 ## Partial
 
@@ -95,6 +126,11 @@ original validation record.
   format requested and covers all 19 named concepts, but it documents
   _intent_, not a verified contract — no IntraForge Core code was read or
   consulted, per the isolation requirement.
+- **Nengun catalogue integration** is architecture-complete but data-empty
+  by design: no live transport exists, and none will until written
+  authorization or a licensed feed is supplied (see
+  `docs/catalogues/NENGUN_SOURCE_REVIEW.md`, "What would unblock authorized
+  import"). This is the expected/intended state, not an oversight.
 
 ## Missing / deliberately deferred
 
@@ -113,15 +149,23 @@ original validation record.
 ## Test evidence
 
 - `npm run typecheck` — strict TypeScript, passes clean.
-- `npm test` — 31/31 Node test-runner assertions pass (`tests/*.test.ts`):
-  adapter/business-logic invariants (11 → 12 with the new cancellation
-  test), catalogue/import invariants (13 → 14 with the new multi-make
-  seed-breadth test), 2 component tests, 3 Nengun-migration tests.
+- `npm test` — **41/41** Node test-runner assertions pass (`tests/*.test.ts`):
+  adapter/business-logic invariants (12, including order cancellation),
+  catalogue/import invariants (14, including multi-make seed breadth), 2
+  component tests, 3 historical-Nengun-migration-fixture tests, and 10 new
+  `tests/nengun-provider.test.ts` tests covering vehicle hierarchy parsing,
+  diagram metadata, callout parsing, the callout/OEM-number distinction, a
+  row with no OEM number producing no fabricated one, supersession
+  mapping, provenance on every record, idempotent identifiers, commercial-
+  field absence (source/company separation), and both the disabled and
+  the licensed-but-no-transport provider states.
 - `npm run format:check` — Prettier clean.
 - `npm run build` — production build succeeds.
-- `npm run test:e2e` — 8/9 → **9/9** Playwright browser tests pass,
-  including the new purchase-cancellation-with-confirmation test. Covers
-  workflow letters A–H from the milestone brief:
+- `npm run test:e2e` — **10/10** Playwright browser tests pass, including a
+  new EPC-panel test (`EPC diagram panel shows callout details, quick
+adoption and fullscreen`) exercising interactive callout selection, the
+  inline part panel, fullscreen toggle, and quick "Add to My Products".
+  Covers workflow letters A–H from the standalone-app milestone brief:
   - A (catalogue: vehicle → category → diagram → callout → part → number):
     `vehicle catalogue diagram adoption and OEM company search`.
   - B (catalogue adoption → SKU/price/supplier → visible under My
@@ -141,9 +185,8 @@ permission boundary`.
   - H (permissions: unauthorized action unavailable/denied):
     `sales persona remains outside import administration after reload`,
     plus the CSV test's import-permission-boundary assertions.
-  - New this milestone: `purchase cancellation requires confirmation and
-blocks further receiving` — exercises the section-19 confirmation-
-    dialog requirement end to end.
+  - Also covered: `purchase cancellation requires confirmation and blocks
+further receiving` (order-cancellation confirmation dialog).
 
 ## Integration prerequisites (before connecting to IntraForge)
 
@@ -178,6 +221,11 @@ and the concept mapping in
 - The built-in `original-demo` and `company-csv` catalogue sources and all
   seed fixtures (`src/adapters/seed.ts`, `src/catalogue/seed.ts`) — demo
   data only, not to be treated as real catalogue content.
+- `src/integrations/catalogues/nengun/` is **not** temporary — it is
+  designed to remain and gain a real transport once authorized. What is
+  temporary is its current state: `reference_only` mode and the absence of
+  any fetch implementation, both of which persist until the prerequisites
+  in `docs/catalogues/NENGUN_SOURCE_REVIEW.md` are met.
 
 ## Known limitations
 
@@ -189,8 +237,13 @@ and the concept mapping in
   browsing, non-diagram categories) but not representative of production
   data volume; that arrives via the real import pipeline or licensed feeds
   post-integration.
-- Document/destructive-action confirmation is not uniformly applied across
-  every delete control (see Partial, above).
 - This remains a single-user local browser demo; no concurrency, no
   multi-tenant isolation, no real authentication — all by design pending
   IntraForge integration.
+- Callout numbers are intentionally excluded from the global cross-vehicle
+  number search index (they are not globally unique OEM identifiers);
+  callout lookup is scoped by navigating to a specific diagram instead.
+  See "Search" in `docs/catalogues/NENGUN_FIELD_MAP.md`.
+- "Diagram group" and "Color" fields described in the integration request
+  have no observed example from any reviewed source and were not added —
+  see "Known limitations" in `docs/catalogues/NENGUN_FIELD_MAP.md`.
