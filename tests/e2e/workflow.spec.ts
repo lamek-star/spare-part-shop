@@ -299,6 +299,57 @@ test("vehicle catalogue diagram adoption and OEM company search", async ({
   ).toBeVisible();
 });
 
+test("EPC diagram panel shows callout details, quick adoption and fullscreen", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page
+    .getByRole("button", { name: "Reference Catalogue", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: /Open diagram: Headlamp assembly/ })
+    .click();
+  await expect(
+    page.getByRole("columnheader", { name: "Qty", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Callout C02", exact: true }).click();
+  const panel = page.locator(".epc-selected-callout");
+  await expect(panel).toContainText("Callout C02");
+  await expect(panel).toContainText("Headlamp housing");
+  await expect(panel).toContainText("DEMO-OE-HL-2");
+  await expect(panel).toContainText("UNVERIFIED");
+  await expect(
+    panel.getByRole("button", { name: "Add to My Products", exact: true }),
+  ).toBeVisible();
+  const fullscreenButton = page.getByRole("button", {
+    name: "Fullscreen",
+    exact: true,
+  });
+  await fullscreenButton.click();
+  await expect(
+    page.getByRole("button", { name: "Exit fullscreen", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".epc-fullscreen")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Exit fullscreen", exact: true })
+    .click();
+  await expect(page.locator(".epc-fullscreen")).toHaveCount(0);
+  await panel
+    .getByRole("button", { name: "Add to My Products", exact: true })
+    .click();
+  await page
+    .getByLabel("Internal SKU", { exact: true })
+    .fill("CAT-E2E-HOUSING");
+  await page.getByLabel("Cost (AED)", { exact: true }).fill("60");
+  await page.getByLabel("Selling price (AED)", { exact: true }).fill("110");
+  await page
+    .getByRole("button", { name: "Create My Product", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Open My Product", exact: true }),
+  ).toBeVisible();
+});
 test("CSV mapping staging publish and import permission boundary", async ({
   page,
   request,

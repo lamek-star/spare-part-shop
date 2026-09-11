@@ -37,6 +37,7 @@ export default function ReferenceCatalogue({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
   const company = services
     .snapshot()
     .parts.find((p) => p.preferredCataloguePartId === detail?.part.id);
@@ -112,9 +113,14 @@ export default function ReferenceCatalogue({
       setDetail(undefined);
       setSelected("");
       setZoom(1);
+      setFullscreen(false);
     } catch (e) {
       setError((e as Error).message);
     }
+  };
+  const quickAdopt = async (id: string) => {
+    await loadPart(id);
+    setAdopting(true);
   };
   return (
     <>
@@ -396,108 +402,230 @@ export default function ReferenceCatalogue({
               ))}
             </div>
           </section>
-          {diagram && (
-            <section className="panel">
-              <div className="panel-head">
-                <div>
-                  <h3>{diagram.diagram.title}</h3>
-                  <small>
-                    {diagram.diagram.code} · Revision {diagram.diagram.revision}
-                  </small>
-                </div>
-                <div className="actions">
-                  <button onClick={() => setZoom(Math.max(1, zoom - 0.5))}>
-                    Zoom out
-                  </button>
-                  <span>{zoom * 100}%</span>
-                  <button onClick={() => setZoom(Math.min(3, zoom + 0.5))}>
-                    Zoom in
-                  </button>
-                  <button onClick={() => setZoom(1)}>Fit</button>
-                </div>
-              </div>
-              {canDisplayImage(diagram.diagram.image) ? (
-                <div className="exploded-scroll">
-                  <div
-                    className="exploded-image"
-                    style={{ width: zoom * 100 + "%" }}
-                  >
-                    <img
-                      src={diagram.diagram.image.url}
-                      alt={diagram.diagram.title}
-                    />
-                    {diagram.callouts
-                      .filter((c) => c.x !== undefined && c.y !== undefined)
-                      .map((c) => (
-                        <button
-                          key={c.id}
-                          aria-label={`Callout ${c.display}`}
-                          aria-pressed={selected === c.id}
-                          className="diagram-hotspot"
-                          style={{ left: c.x + "%", top: c.y + "%" }}
-                          onClick={() => setSelected(c.id)}
-                        >
-                          {c.display}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="empty">
-                  External catalogue image — display permission not confirmed
-                </p>
-              )}
-              <small>{diagram.diagram.image.attribution}</small>
-              <h3>Parts in this diagram</h3>
-              <Table
-                selectedRow={diagram.callouts
-                  .flatMap((c) => c.partIds.map(() => c.id))
-                  .indexOf(selected)}
-                onRowClick={(i) =>
-                  setSelected(
-                    diagram.callouts.flatMap((c) => c.partIds.map(() => c.id))[
-                      i
-                    ],
-                  )
-                }
-                headers={[
-                  "Callout",
-                  "OEM/reference number",
-                  "Description",
-                  "Company availability",
-                  "",
-                ]}
-                rows={diagram.callouts.flatMap((c) =>
-                  c.partIds.map((id) => {
-                    const hit = diagram.parts.find((p) => p.part.id === id)!;
-                    const product = services
-                      .snapshot()
-                      .parts.find((p) => p.preferredCataloguePartId === id);
-                    return [
+          {diagram &&
+            (() => {
+              const selectedCallout = diagram.callouts.find(
+                (c) => c.id === selected,
+              );
+              const selectedHit =
+                selectedCallout &&
+                diagram.parts.find(
+                  (p) => p.part.id === selectedCallout.partIds[0],
+                );
+              const selectedCompany = selectedHit
+                ? services
+                    .snapshot()
+                    .parts.find(
+                      (p) => p.preferredCataloguePartId === selectedHit.part.id,
+                    )
+                : undefined;
+              return (
+                <section
+                  className={`panel epc-diagram-panel${fullscreen ? " epc-fullscreen" : ""}`}
+                >
+                  <div className="panel-head">
+                    <div>
+                      <small>
+                        {[
+                          options?.makes.find((m) => m.id === filters.make)
+                            ?.name,
+                          options?.models.find((m) => m.id === filters.model)
+                            ?.name,
+                          options?.variants.find(
+                            (v) => v.id === filters.variant,
+                          )?.chassis,
+                          options?.variants.find(
+                            (v) => v.id === filters.variant,
+                          )?.engineCode,
+                          options?.categories.find(
+                            (c) => c.id === diagram.diagram.categoryId,
+                          )?.name,
+                        ]
+                          .filter(Boolean)
+                          .join(" / ")}
+                      </small>
+                      <h3>{diagram.diagram.title}</h3>
+                      <small>
+                        {diagram.diagram.code} · Revision{" "}
+                        {diagram.diagram.revision}
+                      </small>
+                    </div>
+                    <div className="actions">
+                      <button onClick={() => setZoom(Math.max(1, zoom - 0.5))}>
+                        Zoom out
+                      </button>
+                      <span>{zoom * 100}%</span>
+                      <button onClick={() => setZoom(Math.min(3, zoom + 0.5))}>
+                        Zoom in
+                      </button>
+                      <button onClick={() => setZoom(1)}>Fit</button>
                       <button
-                        className={selected === c.id ? "primary" : ""}
-                        aria-pressed={selected === c.id}
-                        onClick={() => setSelected(c.id)}
+                        aria-pressed={fullscreen}
+                        onClick={() => setFullscreen(!fullscreen)}
                       >
-                        {c.display}
-                      </button>,
-                      hit.numbers.find((n) => n.type === "OEM_OE")?.original,
-                      hit.part.description,
-                      product
-                        ? `${product.sku} · ${services.inventory
-                            .list()
-                            .filter((x) => x.partId === product.id)
-                            .reduce((n, x) => n + x.available, 0)} available`
-                        : "Not in My Products",
-                      <button onClick={() => loadPart(id)}>
-                        View reference part
-                      </button>,
-                    ];
-                  }),
-                )}
-              />
-            </section>
-          )}
+                        {fullscreen ? "Exit fullscreen" : "Fullscreen"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="epc-layout">
+                    <div className="epc-diagram-column">
+                      {canDisplayImage(diagram.diagram.image) ? (
+                        <div className="exploded-scroll">
+                          <div
+                            className="exploded-image"
+                            style={{ width: zoom * 100 + "%" }}
+                          >
+                            <img
+                              src={diagram.diagram.image.url}
+                              alt={diagram.diagram.title}
+                            />
+                            {diagram.callouts
+                              .filter(
+                                (c) => c.x !== undefined && c.y !== undefined,
+                              )
+                              .map((c) => (
+                                <button
+                                  key={c.id}
+                                  aria-label={`Callout ${c.display}`}
+                                  aria-pressed={selected === c.id}
+                                  className="diagram-hotspot"
+                                  style={{ left: c.x + "%", top: c.y + "%" }}
+                                  onClick={() => setSelected(c.id)}
+                                >
+                                  {c.display}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="empty">
+                          External catalogue image — display permission not
+                          confirmed
+                        </p>
+                      )}
+                      <small>{diagram.diagram.image.attribution}</small>
+                    </div>
+                    <div className="epc-parts-column">
+                      <h3>Parts in this diagram</h3>
+                      {selectedCallout && selectedHit && (
+                        <div className="epc-selected-callout">
+                          <strong>Callout {selectedCallout.display}</strong>
+                          <p>{selectedHit.part.description}</p>
+                          <dl>
+                            <div>
+                              <dt>OEM/OE number(s)</dt>
+                              <dd>
+                                {selectedHit.numbers
+                                  .filter((n) => n.type === "OEM_OE")
+                                  .map((n) => n.original)
+                                  .join(", ") || "Not listed"}
+                              </dd>
+                            </div>
+                            {selectedCallout.quantity !== undefined && (
+                              <div>
+                                <dt>Quantity</dt>
+                                <dd>{selectedCallout.quantity}</dd>
+                              </div>
+                            )}
+                            <div>
+                              <dt>Applicability</dt>
+                              <dd>
+                                {selectedHit.part.notes || "Not specified"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Verification</dt>
+                              <dd>
+                                {selectedHit.part.provenance.verification}
+                              </dd>
+                            </div>
+                          </dl>
+                          <div className="actions">
+                            <button
+                              onClick={() => loadPart(selectedHit.part.id)}
+                            >
+                              View Part
+                            </button>
+                            {selectedCompany ? (
+                              <button
+                                className="primary"
+                                onClick={() => openCompany(selectedCompany.id)}
+                              >
+                                My Product · {selectedCompany.sku}
+                              </button>
+                            ) : (
+                              <button
+                                className="primary"
+                                onClick={() => quickAdopt(selectedHit.part.id)}
+                              >
+                                Add to My Products
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <Table
+                        selectedRow={diagram.callouts
+                          .flatMap((c) => c.partIds.map(() => c.id))
+                          .indexOf(selected)}
+                        onRowClick={(i) =>
+                          setSelected(
+                            diagram.callouts.flatMap((c) =>
+                              c.partIds.map(() => c.id),
+                            )[i],
+                          )
+                        }
+                        headers={[
+                          "Callout",
+                          "OEM/reference number",
+                          "Description",
+                          "Qty",
+                          "Company availability",
+                          "",
+                        ]}
+                        rows={diagram.callouts.flatMap((c) =>
+                          c.partIds.map((id) => {
+                            const hit = diagram.parts.find(
+                              (p) => p.part.id === id,
+                            )!;
+                            const product = services
+                              .snapshot()
+                              .parts.find(
+                                (p) => p.preferredCataloguePartId === id,
+                              );
+                            return [
+                              <button
+                                className={selected === c.id ? "primary" : ""}
+                                aria-pressed={selected === c.id}
+                                onClick={() => setSelected(c.id)}
+                              >
+                                {c.display}
+                              </button>,
+                              hit.numbers.find((n) => n.type === "OEM_OE")
+                                ?.original,
+                              hit.part.description,
+                              c.quantity ?? "—",
+                              product
+                                ? `${product.sku} · ${services.inventory
+                                    .list()
+                                    .filter((x) => x.partId === product.id)
+                                    .reduce(
+                                      (n, x) => n + x.available,
+                                      0,
+                                    )} available`
+                                : "Not in My Products",
+                              <button onClick={() => loadPart(id)}>
+                                View reference part
+                              </button>,
+                            ];
+                          }),
+                        )}
+                      />
+                    </div>
+                  </div>
+                </section>
+              );
+            })()}
           <section className="panel">
             <div className="panel-head">
               <h3>Reference parts</h3>

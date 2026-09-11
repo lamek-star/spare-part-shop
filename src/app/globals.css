@@ -1367,6 +1367,58 @@ button:disabled {
   color: white;
   outline: 5px solid #90d9c988;
 }
+.epc-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+.epc-diagram-column .exploded-scroll {
+  max-height: 560px;
+}
+.epc-parts-column {
+  min-width: 0;
+}
+.epc-selected-callout {
+  border: 1px solid var(--teal);
+  background: #eff7f5;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.epc-selected-callout dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 10px 0;
+}
+.epc-selected-callout dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.epc-selected-callout dd {
+  margin: 0;
+  font-weight: 600;
+}
+.epc-fullscreen {
+  position: fixed;
+  inset: 12px;
+  z-index: 40;
+  overflow: auto;
+  background: white;
+  box-shadow: 0 12px 40px rgba(23, 44, 64, 0.35);
+}
+.epc-fullscreen .epc-diagram-column .exploded-scroll {
+  max-height: calc(100vh - 260px);
+}
+@media (max-width: 900px) {
+  .epc-layout {
+    grid-template-columns: 1fr;
+  }
+  .epc-fullscreen {
+    inset: 0;
+  }
+}
 .batch-review {
   border-top: 1px solid var(--line);
   margin-top: 24px;
