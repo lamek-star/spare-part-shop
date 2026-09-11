@@ -24,3 +24,9 @@ Quick walkthrough: enter the demo, search `044650K290`, inspect references and s
 Validation: 13 service/component tests and four Playwright browser tests, plus strict type checking and production build.
 
 Use `npm ci` to reproduce the locked dependency installation. For a production build locally, run `npm run build` then `npm start`. The local server binds to 127.0.0.1.
+
+## Catalogue foundation extension
+
+Reference catalogue/import architecture is documented in [docs/catalogues/FOUNDATION.md](docs/catalogues/FOUNDATION.md). Open Reference Catalogue for vehicle/number browsing and Add to My Products. Owner/Administrator can open Catalogue Administration for the CSV pipeline. Source collection from Nengun is disabled pending permission; its former copied image is no longer served.
+
+Future platform capability requirements are recorded in [docs/INTRAFORGE_PLATFORM_REQUIREMENTS.md](docs/INTRAFORGE_PLATFORM_REQUIREMENTS.md). The reference backend is a local development adapter; it is not a production million-record store or authentication service.

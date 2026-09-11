@@ -4,6 +4,7 @@ import { Part } from "../domain/models";
 import { Services } from "../services/contracts";
 import { uid } from "../adapters/demo";
 import { Field } from "./ui";
+import { readCompanyImage } from "../catalogue/assets";
 export function SupersessionForm({
   part,
   services,
@@ -190,12 +191,19 @@ export function Gallery({
   const fileInput = useRef<HTMLInputElement>(null);
   const replaceIndex = useRef<number | null>(null);
   const current = Math.min(selected, Math.max(0, part.images.length - 1));
-  const save = async (images: string[]) => {
+  const save = async (
+    images: string[],
+    metadata: Part["imageMetadata"] = part.imageMetadata,
+  ) => {
     setBusy(true);
     try {
       const latest = services.snapshot().parts.find((p) => p.id === part.id);
       if (!latest) throw new Error("Part no longer exists.");
-      await services.catalogue.save({ ...latest, images });
+      await services.catalogue.save({
+        ...latest,
+        images,
+        imageMetadata: metadata,
+      });
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -247,29 +255,35 @@ export function Gallery({
           const file = e.target.files?.[0];
           e.target.value = "";
           if (!file) return;
-          if (
-            file.size > 1_000_000 ||
-            !["image/png", "image/jpeg", "image/webp"].includes(file.type)
-          ) {
-            setError("Choose a PNG, JPEG or WebP image smaller than 1 MB.");
-            return;
-          }
           const index = replaceIndex.current;
-          const reader = new FileReader();
-          reader.onload = async () => {
+          setBusy(true);
+          try {
+            const asset = await readCompanyImage(file);
             const latest = services
               .snapshot()
               .parts.find((p) => p.id === part.id)!;
             const images = [...latest.images];
             if (index === null) {
-              images.push(String(reader.result));
+              images.push(asset.url);
               setSelected(images.length - 1);
-            } else images[index] = String(reader.result);
-            await save(images);
+            } else images[index] = asset.url;
+            await save(images, {
+              ...latest.imageMetadata,
+              [asset.url]: {
+                mime: asset.mime,
+                size: asset.size,
+                width: asset.width,
+                height: asset.height,
+                rights: asset.rights,
+                source: "Company supplied upload",
+              },
+            });
             setZoom(1);
-          };
-          reader.onerror = () => setError("Image could not be read.");
-          reader.readAsDataURL(file);
+          } catch (e) {
+            setError((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
         }}
       />
       <div className="diagram-toolbar">

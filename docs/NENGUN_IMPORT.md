@@ -1,3 +1,5 @@
+> Historical implementation record. Superseded by [Catalogue foundation](catalogues/FOUNDATION.md) on 10 September 2026. Automatic Nengun insertion and public diagram/exports are now disabled; existing saved business records are preserved. The behavior described below is historical, not the current runtime.
+
 # Nengun headlamp import — 10 September 2026
 
 Source product: https://www.nengun.com/oem/mitsubishi/8301a619

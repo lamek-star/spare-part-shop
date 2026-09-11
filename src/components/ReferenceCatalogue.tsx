@@ -1,0 +1,627 @@
+"use client";
+import { useState, useEffect, useMemo } from "react";
+import { CatalogueClient } from "../catalogue/client";
+import {
+  BrowseOptions,
+  Page,
+  ReferenceHit,
+  ReferenceDetail,
+  DiagramDetail,
+  canDisplayImage,
+} from "../catalogue/models";
+import { Services } from "../services/contracts";
+import { Field, Table, Badge, Modal } from "./ui";
+import { money } from "../domain/models";
+export default function ReferenceCatalogue({
+  services,
+  role,
+  initialId = "",
+  openCompany,
+}: {
+  services: Services;
+  role: string;
+  initialId?: string;
+  openCompany: (id: string) => void;
+}) {
+  const client = useMemo(() => new CatalogueClient(role), [role]);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [results, setResults] = useState<Page<ReferenceHit>>();
+  const [options, setOptions] = useState<BrowseOptions>();
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [detail, setDetail] = useState<ReferenceDetail>();
+  const [diagram, setDiagram] = useState<DiagramDetail>();
+  const [selected, setSelected] = useState("");
+  const [tab, setTab] = useState("Overview");
+  const [adopting, setAdopting] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const company = services
+    .snapshot()
+    .parts.find((p) => p.preferredCataloguePartId === detail?.part.id);
+  const loadPart = async (id: string) => {
+    setLoading(true);
+    try {
+      setDetail(await client.getPart(id));
+      setTab("Overview");
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (initialId)
+      void client
+        .getPart(initialId)
+        .then(setDetail)
+        .catch((e) => setError(e.message));
+  }, [initialId, client]);
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    Promise.all([
+      client.browse(filters),
+      client.searchParts(
+        query,
+        page,
+        filters.variant,
+        filters.category,
+        filters.year,
+        filters.engine,
+        filters.model,
+        filters.make,
+      ),
+    ])
+      .then(([o, r]) => {
+        if (live) {
+          setOptions(o);
+          setResults(r);
+          setError("");
+        }
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [client, query, page, filters]);
+  const change = (name: string, value: string) => {
+    setFilters((f): Record<string, string> =>
+      name === "make"
+        ? { make: value }
+        : name === "model"
+          ? { make: f.make, model: value }
+          : name === "variant"
+            ? { make: f.make, model: f.model, variant: value }
+            : { ...f, [name]: value },
+    );
+    setPage(1);
+    setDiagram(undefined);
+    setSelected("");
+  };
+  const openDiagram = async (id: string) => {
+    try {
+      setDiagram(await client.getDiagram(id));
+      setDetail(undefined);
+      setSelected("");
+      setZoom(1);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <>
+      <p className="notice">
+        Reference catalogue data is separate from My Products. The original demo
+        drawing and fitments are illustrative and unverified.
+      </p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+          <button
+            onClick={() => {
+              setFilters({ ...filters });
+            }}
+          >
+            Retry
+          </button>
+        </p>
+      )}
+      {loading && <p role="status">Loading catalogue…</p>}
+      {detail ? (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <button onClick={() => setDetail(undefined)}>
+                ← Back to catalogue
+              </button>
+              <h2>{detail.part.description}</h2>
+              <Badge>Reference part</Badge>{" "}
+              <Badge>{detail.part.provenance.verification}</Badge>
+            </div>
+            {company ? (
+              <button
+                className="primary"
+                onClick={() => openCompany(company.id)}
+              >
+                Open My Product
+              </button>
+            ) : (
+              <button className="primary" onClick={() => setAdopting(true)}>
+                Add to My Products
+              </button>
+            )}
+          </div>
+          <div className="tabs">
+            {[
+              "Overview",
+              "Part Numbers",
+              "Cross References",
+              "Vehicle Compatibility",
+              "Diagrams",
+              "Source Information",
+            ].map((t) => (
+              <button
+                key={t}
+                className={tab === t ? "selected" : ""}
+                onClick={() => setTab(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {tab === "Overview" ? (
+            <>
+              <p>{detail.part.catalogueDescription}</p>
+              <dl>
+                <div>
+                  <dt>Manufacturer</dt>
+                  <dd>{detail.part.manufacturer}</dd>
+                </div>
+                <div>
+                  <dt>Record status</dt>
+                  <dd>{detail.part.status}</dd>
+                </div>
+                <div>
+                  <dt>Company product</dt>
+                  <dd>
+                    {company
+                      ? `${company.sku} · ${money(company.price)}`
+                      : "Not added to My Products"}
+                  </dd>
+                </div>
+              </dl>
+              <p>{detail.part.notes}</p>
+            </>
+          ) : tab === "Part Numbers" ? (
+            <Table
+              headers={[
+                "Original number",
+                "Normalized search key",
+                "Type",
+                "Manufacturer",
+                "Source record",
+              ]}
+              rows={detail.numbers.map((n) => [
+                n.original,
+                n.normalized,
+                n.type,
+                n.manufacturer,
+                n.provenance.sourceRecordId,
+              ])}
+            />
+          ) : tab === "Cross References" ? (
+            <Table
+              headers={[
+                "Source number",
+                "Relationship",
+                "Target number",
+                "Verification",
+                "Notes",
+                "",
+              ]}
+              rows={detail.crossReferences.map((r) => [
+                r.source,
+                r.type,
+                r.target,
+                r.provenance.verification,
+                r.notes,
+                <button onClick={() => loadPart(r.targetPartId)}>
+                  Open related part
+                </button>,
+              ])}
+            />
+          ) : tab === "Vehicle Compatibility" ? (
+            <Table
+              headers={[
+                "Vehicle / chassis / engine",
+                "Production",
+                "Transmission",
+                "Market",
+                "Position",
+                "Verification",
+              ]}
+              rows={detail.fitments.map((f) => [
+                f.vehicle,
+                `${f.yearFrom}–${f.yearTo}`,
+                f.transmission,
+                f.market,
+                f.position,
+                f.provenance.verification,
+              ])}
+            />
+          ) : tab === "Diagrams" ? (
+            <div className="reference-diagrams">
+              {detail.diagrams.map((d) => (
+                <button key={d.id} onClick={() => openDiagram(d.id)}>
+                  {d.title} · {d.code}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <dl>
+              {Object.entries(detail.part.provenance).map(([k, v]) => (
+                <div key={k}>
+                  <dt>{k}</dt>
+                  <dd>
+                    {k === "sourceUrl" && v ? (
+                      <a href={v} target="_blank" rel="noreferrer">
+                        Open source
+                      </a>
+                    ) : (
+                      v || "Not supplied"
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {company && (
+            <div className="notice">
+              My Product: {company.sku} · Available{" "}
+              {services.inventory
+                .list()
+                .filter((x) => x.partId === company.id)
+                .reduce((n, x) => n + x.available, 0)}{" "}
+              · {money(company.price)}.{" "}
+              <button onClick={() => openCompany(company.id)}>
+                Inventory, suppliers, purchases, sales & documents
+              </button>
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="panel">
+            <div className="toolbar">
+              <Field label="Search OEM, reference or description">
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Try DEMO-OE-HL-1"
+                />
+              </Field>
+              <Field label="Make">
+                <select
+                  value={filters.make ?? ""}
+                  onChange={(e) => change("make", e.target.value)}
+                >
+                  <option value="">All makes</option>
+                  {options?.makes.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Model">
+                <select
+                  value={filters.model ?? ""}
+                  onChange={(e) => change("model", e.target.value)}
+                >
+                  <option value="">All models</option>
+                  {options?.models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Variant">
+                <select
+                  value={filters.variant ?? ""}
+                  onChange={(e) => change("variant", e.target.value)}
+                >
+                  <option value="">All variants</option>
+                  {options?.variants.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.chassis} / {v.engineCode} / {v.yearFrom}–{v.yearTo} /{" "}
+                      {v.market}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Year">
+                <input
+                  type="number"
+                  min="1900"
+                  max="2100"
+                  value={filters.year ?? ""}
+                  onChange={(e) => change("year", e.target.value)}
+                />
+              </Field>
+              <Field label="Engine">
+                <select
+                  value={filters.engine ?? ""}
+                  onChange={(e) => change("engine", e.target.value)}
+                >
+                  <option value="">All engines</option>
+                  {[...new Set(options?.variants.map((v) => v.engineCode))].map(
+                    (e) => (
+                      <option key={e}>{e}</option>
+                    ),
+                  )}
+                </select>
+              </Field>
+              <Field label="Category">
+                <select
+                  value={filters.category ?? ""}
+                  onChange={(e) => change("category", e.target.value)}
+                >
+                  <option value="">All categories</option>
+                  {options?.categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.parentId ? "↳ " : ""}
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="reference-diagrams">
+              {options?.diagrams.map((d) => (
+                <button key={d.id} onClick={() => openDiagram(d.id)}>
+                  Open diagram: {d.title}
+                </button>
+              ))}
+            </div>
+          </section>
+          {diagram && (
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>{diagram.diagram.title}</h3>
+                  <small>
+                    {diagram.diagram.code} · Revision {diagram.diagram.revision}
+                  </small>
+                </div>
+                <div className="actions">
+                  <button onClick={() => setZoom(Math.max(1, zoom - 0.5))}>
+                    Zoom out
+                  </button>
+                  <span>{zoom * 100}%</span>
+                  <button onClick={() => setZoom(Math.min(3, zoom + 0.5))}>
+                    Zoom in
+                  </button>
+                  <button onClick={() => setZoom(1)}>Fit</button>
+                </div>
+              </div>
+              {canDisplayImage(diagram.diagram.image) ? (
+                <div className="exploded-scroll">
+                  <div
+                    className="exploded-image"
+                    style={{ width: zoom * 100 + "%" }}
+                  >
+                    <img
+                      src={diagram.diagram.image.url}
+                      alt={diagram.diagram.title}
+                    />
+                    {diagram.callouts
+                      .filter((c) => c.x !== undefined && c.y !== undefined)
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          aria-label={`Callout ${c.display}`}
+                          aria-pressed={selected === c.id}
+                          className="diagram-hotspot"
+                          style={{ left: c.x + "%", top: c.y + "%" }}
+                          onClick={() => setSelected(c.id)}
+                        >
+                          {c.display}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="empty">
+                  External catalogue image — display permission not confirmed
+                </p>
+              )}
+              <small>{diagram.diagram.image.attribution}</small>
+              <h3>Parts in this diagram</h3>
+              <Table
+                selectedRow={diagram.callouts
+                  .flatMap((c) => c.partIds.map(() => c.id))
+                  .indexOf(selected)}
+                onRowClick={(i) =>
+                  setSelected(
+                    diagram.callouts.flatMap((c) => c.partIds.map(() => c.id))[
+                      i
+                    ],
+                  )
+                }
+                headers={[
+                  "Callout",
+                  "OEM/reference number",
+                  "Description",
+                  "Company availability",
+                  "",
+                ]}
+                rows={diagram.callouts.flatMap((c) =>
+                  c.partIds.map((id) => {
+                    const hit = diagram.parts.find((p) => p.part.id === id)!;
+                    const product = services
+                      .snapshot()
+                      .parts.find((p) => p.preferredCataloguePartId === id);
+                    return [
+                      <button
+                        className={selected === c.id ? "primary" : ""}
+                        aria-pressed={selected === c.id}
+                        onClick={() => setSelected(c.id)}
+                      >
+                        {c.display}
+                      </button>,
+                      hit.numbers.find((n) => n.type === "OEM_OE")?.original,
+                      hit.part.description,
+                      product
+                        ? `${product.sku} · ${services.inventory
+                            .list()
+                            .filter((x) => x.partId === product.id)
+                            .reduce((n, x) => n + x.available, 0)} available`
+                        : "Not in My Products",
+                      <button onClick={() => loadPart(id)}>
+                        View reference part
+                      </button>,
+                    ];
+                  }),
+                )}
+              />
+            </section>
+          )}
+          <section className="panel">
+            <div className="panel-head">
+              <h3>Reference parts</h3>
+              <small>{results?.total ?? 0} matches</small>
+            </div>
+            <Table
+              headers={[
+                "Part",
+                "Manufacturer",
+                "Identifiers",
+                "Verification",
+                "",
+              ]}
+              rows={(results?.items ?? []).map((h) => [
+                h.part.description,
+                h.part.manufacturer,
+                h.numbers.map((n) => n.original).join(" · "),
+                <Badge>{h.part.provenance.verification}</Badge>,
+                <button onClick={() => loadPart(h.part.id)}>
+                  Open reference
+                </button>,
+              ])}
+            />
+            <div className="pagination">
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                Previous
+              </button>
+              <span>Page {page}</span>
+              <button
+                disabled={!results || page * results.pageSize >= results.total}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </section>
+        </>
+      )}
+      {adopting && detail && (
+        <Modal title="Add to My Products" onClose={() => setAdopting(false)}>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              try {
+                await services.catalogue.adopt(detail, {
+                  sku: String(f.get("sku")),
+                  supplierId: String(f.get("supplier")),
+                  warehouseId: String(f.get("warehouse")),
+                  cost: Number(f.get("cost")),
+                  price: Number(f.get("price")),
+                  reorder: Number(f.get("reorder")),
+                  currency: "AED",
+                });
+                setAdopting(false);
+                setError("");
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            }}
+          >
+            {error && (
+              <p role="alert" className="error">
+                {error}
+              </p>
+            )}
+            <Field label="Internal SKU">
+              <input name="sku" required />
+            </Field>
+            <Field label="Supplier">
+              <select name="supplier">
+                {services
+                  .snapshot()
+                  .contacts.filter((c) => c.kind === "Supplier")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <div className="form-grid">
+              {["cost", "price", "reorder"].map((k) => (
+                <Field
+                  key={k}
+                  label={
+                    k === "cost"
+                      ? "Cost (AED)"
+                      : k === "price"
+                        ? "Selling price (AED)"
+                        : "Reorder level"
+                  }
+                >
+                  <input
+                    name={k}
+                    type="number"
+                    min={0}
+                    step={k === "reorder" ? 1 : 0.01}
+                    required
+                    defaultValue={0}
+                  />
+                </Field>
+              ))}
+              <Field label="Currency">
+                <input value="AED" readOnly />
+              </Field>
+            </div>
+            <Field label="Default warehouse">
+              <select name="warehouse">
+                {services.snapshot().warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <p className="muted">
+              Creates a company product with zero stock. Receive or adjust stock
+              through normal inventory workflows.
+            </p>
+            <button className="primary">Create My Product</button>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}

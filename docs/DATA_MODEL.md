@@ -13,3 +13,7 @@
 - Audit: action, actor label, timestamp and detail; the platform must supply trustworthy audit records later.
 
 All IDs are opaque. Referential checks and business invariants live in the adapter. Monetary values are rounded to two decimals, in AED. Current demo costs are used for estimated margin reports; this is not historical cost accounting.
+
+## Reference catalogue extension
+
+The reference entities and relationships are defined in src/catalogue/models.ts and documented in [Catalogue foundation](catalogues/FOUNDATION.md). Existing Part is the company product; preferredCataloguePartId links an adopted product to its reference without sharing commercial values.

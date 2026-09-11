@@ -5,6 +5,7 @@ Reviewed: 2026-09-10.
 Public structure: OEM landing page → manufacturer → vehicle/model/variant → sections → diagram → callout rows → orderable OEM numbers. A callout may identify several rows across production periods. Diagram codes are not orderable OEM identifiers. Potential fields include source row ID, number, description, quantity, production range, specification, replacement reference, quote status and quoted currency.
 
 Sources:
+
 - https://www.nengun.com/oem
 - https://www.nengun.com/info/terms-and-conditions
 - https://www.nengun.com/enquiry

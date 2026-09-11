@@ -10,6 +10,7 @@ import {
 } from "../domain/models";
 import { uid } from "../adapters/demo";
 import { Field } from "./ui";
+import { readCompanyImage } from "../catalogue/assets";
 export default function Forms({
   type,
   services,
@@ -28,6 +29,7 @@ export default function Forms({
   const [review, setReview] = useState(false);
   const [draftImages, setDraftImages] = useState(part?.images ?? ["/part.svg"]);
   const [readingImage, setReadingImage] = useState(false);
+  const [draftMetadata, setDraftMetadata] = useState(part?.imageMetadata ?? {});
   const [lines, setLines] = useState([
     {
       partId: part?.id ?? s.parts[0].id,
@@ -80,6 +82,7 @@ export default function Forms({
           minimum: n("minimum"),
           status: v("status") as Part["status"],
           images: draftImages,
+          imageMetadata: draftMetadata,
           notes: v("notes"),
         });
       else if (type === "Part number")
@@ -430,33 +433,30 @@ export default function Forms({
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              onChange={(e) => {
+              onChange={async (e) => {
                 e.stopPropagation();
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (
-                  file.size > 1_000_000 ||
-                  !["image/png", "image/jpeg", "image/webp"].includes(file.type)
-                ) {
-                  setError(
-                    "Choose a PNG, JPEG or WebP image smaller than 1 MB.",
-                  );
-                  return;
-                }
                 setReadingImage(true);
-                const reader = new FileReader();
-                reader.onload = () => {
-                  setDraftImages((images) => [
-                    String(reader.result),
-                    ...images.slice(1),
-                  ]);
+                try {
+                  const asset = await readCompanyImage(file);
+                  setDraftImages((images) => [asset.url, ...images.slice(1)]);
+                  setDraftMetadata((m) => ({
+                    ...m,
+                    [asset.url]: {
+                      mime: asset.mime,
+                      size: asset.size,
+                      width: asset.width,
+                      height: asset.height,
+                      rights: asset.rights,
+                      source: "Company supplied upload",
+                    },
+                  }));
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
                   setReadingImage(false);
-                };
-                reader.onerror = () => {
-                  setError("Image could not be read.");
-                  setReadingImage(false);
-                };
-                reader.readAsDataURL(file);
+                }
               }}
             />
           </Field>

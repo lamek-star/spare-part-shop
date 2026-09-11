@@ -18,3 +18,7 @@ Navy #172C40 navigation, teal #087F75 actions, slate #526478 text, white #FFFFFF
 
 Layout: sidebar | breadcrumb/search header | title/actions | filters | operational content.
 The catalogue number provenance and warehouse availability are emphasized over generic dashboard decoration.
+
+## Reference catalogue extension
+
+See [Catalogue foundation](catalogues/FOUNDATION.md) for the current server-side reference repository, paged API, import lifecycle and company adoption boundary. Company browser state remains separate. Legacy Nengun automatic seeding is disabled.

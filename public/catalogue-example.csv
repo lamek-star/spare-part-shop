@@ -1,0 +1,3 @@
+source_record_id,manufacturer,part_number,part_number_type,description,vehicle_make,vehicle_model,chassis,engine,engine_code,year_from,year_to,category,source,source_url,catalogue,market
+sample-clip,Aster Demo,DEMO-CLIP-900,OEM_OE,"Headlamp clip, original sample",Mitsubishi,Lancer Evolution IX,CT9A,2.0 demo,4G63,2005,2007,Lighting,Original demonstration,,CSV example,Demo
+sample-gasket,Aster Demo,DEMO-GASKET-901,AFTERMARKET,Headlamp gasket sample,Mitsubishi,Lancer Evolution IX,CT9A,2.0 demo,4G63,2005,2007,Lighting,Original demonstration,,CSV example,Demo
