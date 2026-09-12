@@ -1,11 +1,11 @@
 # Spare parts release readiness
 
-Snapshot as of 2026-09-12 (updated from 2026-09-11), branch
-`codex/spareparts-reference`. Tracks completion against two milestones: the
-standalone-application build-out, and the Nengun catalogue-source analysis
-and import-preparation milestone that followed it. It supersedes the
-narrower [READINESS.md](READINESS.md) for scope tracking; READINESS.md
-remains as the original validation record.
+Snapshot as of 2026-09-12, branch `codex/spareparts-reference`. Tracks
+completion against three milestones in sequence: the standalone-application
+build-out, the Nengun catalogue-source analysis and import-preparation
+milestone, and the EPC part-number-linked diagram rebuild that followed it.
+It supersedes the narrower [READINESS.md](READINESS.md) for scope tracking;
+READINESS.md remains as the original validation record.
 
 ## Completed
 
@@ -119,6 +119,37 @@ remains as the original validation record.
   numbers/quantity/applicability/verification plus [View Part] and
   [Add to My Products]/[My Product] actions) — see
   `src/components/ReferenceCatalogue.tsx`.
+- **EPC part-number-linked rebuild (2026-09-12, third milestone):**
+  `DiagramCallout.display` (e.g. `"15601"`) and `ReferenceNumber.original`
+  (e.g. `"DEMO-15601-0T001"`) are enforced as genuinely separate fields
+  throughout the model, repository and UI — see "EPC data model" in
+  `docs/catalogues/FOUNDATION.md`. A `CataloguePart` may now carry multiple
+  `OEM_OE` numbers, each with its own `applicability` (production-window)
+  text and linked by a `SUPERSEDES` cross-reference; the parts table shows
+  "N variants available" with an expand toggle instead of collapsing them.
+  Added `CataloguePart.position` and `ReferenceNumber.applicability` fields.
+- The Toyota engine/filtration demo diagram was rebuilt from 2 to 8
+  callouts (air cleaner housing, air filter element, intake hose, clamp,
+  oil filter, bracket, mounting bolt, grommet) with realistic-looking but
+  explicitly `DEMO-`-prefixed OEM numbers, all in one new original SVG
+  (`public/diagrams/demo-filtration.svg`).
+- Selecting a callout now auto-scrolls its row into view in the (now
+  independently scrollable) parts panel; `ReferenceDetail.diagrams` was
+  enriched to return the specific `{ diagram, callout }` pair a part
+  appears in, so a part's "Diagrams" tab can say "Found in diagram: X ·
+  Callout: Y" and clicking it opens that diagram with the callout
+  pre-selected — closing the search-to-diagram loop end to end.
+- Diagram callout numbers are confirmed excluded from the repository's
+  exact-match number index (only `ReferenceNumber.normalized` is indexed),
+  so a bare callout search is never treated as an authoritative
+  globally-unique OEM lookup — tested explicitly.
+- Fixed a real staleness bug found while verifying this work: the
+  reference-catalogue file cache and the in-process singleton in
+  `src/catalogue/server.ts` were both still serving pre-rebuild seed data
+  after the schema version wasn't bumped for this change. Bumped
+  `referenceSchemaVersion` to 3 and documented that a dev-server restart
+  (not just deleting the cache file) is required after a `seed.ts` shape
+  change, since the in-memory singleton survives Next.js HMR by design.
 
 ## Partial
 
@@ -149,10 +180,15 @@ remains as the original validation record.
 ## Test evidence
 
 - `npm run typecheck` — strict TypeScript, passes clean.
-- `npm test` — **41/41** Node test-runner assertions pass (`tests/*.test.ts`):
+- `npm test` — **49/49** Node test-runner assertions pass (`tests/*.test.ts`):
   adapter/business-logic invariants (12, including order cancellation),
-  catalogue/import invariants (14, including multi-make seed breadth), 2
-  component tests, 3 historical-Nengun-migration-fixture tests, and 10 new
+  catalogue/import invariants (21, including multi-make seed breadth and
+  seven new EPC-model tests — callout/OEM distinction, the full
+  Diagram→Callout→Part→Number[] chain, multi-number applicability, part→
+  diagram/callout reverse lookup, normalized-number search, the bare-
+  callout-is-not-an-identifier proof, and reference/company separation
+  under the enriched detail shape), 2 component tests, 3
+  historical-Nengun-migration-fixture tests, and 10
   `tests/nengun-provider.test.ts` tests covering vehicle hierarchy parsing,
   diagram metadata, callout parsing, the callout/OEM-number distinction, a
   row with no OEM number producing no fabricated one, supersession
@@ -161,10 +197,18 @@ remains as the original validation record.
   the licensed-but-no-transport provider states.
 - `npm run format:check` — Prettier clean.
 - `npm run build` — production build succeeds.
-- `npm run test:e2e` — **10/10** Playwright browser tests pass, including a
-  new EPC-panel test (`EPC diagram panel shows callout details, quick
-adoption and fullscreen`) exercising interactive callout selection, the
-  inline part panel, fullscreen toggle, and quick "Add to My Products".
+- `npm run test:e2e` — **11/11** Playwright browser tests pass, including
+  an EPC-panel test (`EPC diagram panel shows callout details, quick
+adoption and fullscreen`, on the headlamp diagram) and a full
+  part-number-linked-catalogue test (`EPC part-number linked catalogue:
+diagram/list sync, zoom alignment and number search`, on the 8-callout
+  filtration diagram) exercising: 8 callouts present, row highlight on
+  callout selection with auto-scroll, callout vs. OEM number shown
+  separately, selection changing when a different row is clicked, the
+  multi-number "variants available" expansion with per-number
+  applicability, zoom, callout alignment/clickability surviving zoom,
+  searching by OEM number (not callout), and reaching the correct
+  diagram/callout from the found part.
   Covers workflow letters A–H from the standalone-app milestone brief:
   - A (catalogue: vehicle → category → diagram → callout → part → number):
     `vehicle catalogue diagram adoption and OEM company search`.
@@ -232,11 +276,16 @@ and the concept mapping in
 - All catalogue numbers, fitments, and the demo diagram are fictional/
   illustrative — not verified OEM data (unchanged from READINESS.md).
 - Reference catalogue breadth is still small relative to a real parts
-  catalogue (5 parts across 2 vehicles after this milestone's expansion) —
-  sufficient to exercise every UI path (multi-make filtering, diagram
-  browsing, non-diagram categories) but not representative of production
-  data volume; that arrives via the real import pipeline or licensed feeds
-  post-integration.
+  catalogue (11 parts across 2 vehicles and 2 diagrams, one with 8
+  callouts) — sufficient to exercise every UI path (multi-make filtering,
+  diagram browsing, non-diagram categories, multi-number applicability
+  variants) but not representative of production data volume; that
+  arrives via the real import pipeline or licensed feeds post-integration.
+- `CatalogueDiagram` "diagram group" and part "color" fields named in the
+  EPC rebuild request have no confirmed observed example from any
+  reviewed source and were intentionally left unmodeled rather than
+  invented — see "Known limitations" in
+  `docs/catalogues/NENGUN_FIELD_MAP.md`.
 - This remains a single-user local browser demo; no concurrency, no
   multi-tenant isolation, no real authentication — all by design pending
   IntraForge integration.

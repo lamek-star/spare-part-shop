@@ -14,7 +14,22 @@ The reference catalogue is server-side and separate from browser company state. 
 
 Catalogue navigation supports make → model → variant → year/engine → category → diagram. Manually defined callouts synchronize selection with table rows. Number-first search returns reference parts separately from My Products. Reference details show numbers, cross references, fitments, diagrams and source information. An adopted product links back to its reference and exposes the existing inventory, sales, purchases and document tabs.
 
-The original conceptual headlamp drawing has three callouts and three components with multiple identifiers. It is not a real Mitsubishi drawing or a verified fitment. No OCR-derived geometry is used.
+The original conceptual headlamp drawing has three callouts and three components with multiple identifiers; a second original drawing (engine filtration/intake assembly) has eight. Neither is a real manufacturer drawing or a verified fitment. No OCR-derived geometry is used.
+
+## EPC data model: callout number vs. OEM part number
+
+This is the single most important modeling rule in the catalogue: a diagram callout/reference number (`DiagramCallout.display`, e.g. `"15601"`) is never the same field as an OEM/OE part number (`ReferenceNumber.original`, e.g. `"DEMO-15601-0T001"`), even when the demo data deliberately embeds the callout digits inside the OEM string for realism. The chain is:
+
+```
+CatalogueDiagram
+  -> DiagramCallout (display, normalized, x/y/width/height, quantity)
+      -> CataloguePart (description, position, provenance)
+          -> ReferenceNumber[] (original, normalized, type, applicability, primary)
+```
+
+A callout's `partIds` points to exactly one `CataloguePart`, but that part may carry more than one `ReferenceNumber` of type `OEM_OE` — e.g. two numbers with different `applicability` text for different production windows, linked by a `SUPERSEDES` `CrossReference`. The UI never collapses these into one value; `ReferenceCatalogue.tsx`'s parts table shows "N variants available" with an expand toggle, and the inline selected-callout panel always lists every OEM number with its applicability.
+
+`DiagramCallout.normalized` is deliberately **not** added to `ReferenceRepository`'s exact-match `numberIndex` (built only from `ReferenceNumber.normalized`), so a bare callout search never carries the false implication of being a globally unique OEM identifier — callout numbers can and do repeat across unrelated diagrams. A callout is reachable reliably only in its actual context (open its diagram, or reach it from a part's "Diagrams" tab, which now returns the specific `{ diagram, callout }` pair via `ReferenceDetail.diagrams`), never by treating the bare number as a lookup key.
 
 ## CSV workflow
 
@@ -31,6 +46,8 @@ Only COMPANY_OWNED, LICENSED_FOR_DISPLAY and MANUFACTURER_AUTHORIZED reference i
 ## Deployment boundaries
 
 Reference persistence: `.catalogue-data/reference-v1.json`, atomic file replacement within one local process. Company state: existing browser storage. This is a replaceable development backend, not distributed infrastructure or a production database. The browser receives bounded reference results rather than the full catalogue. Real high-volume data requires the platform's indexed storage, authenticated permission context and concurrency controls.
+
+`src/catalogue/server.ts` caches the repository instance on `globalThis` so it survives Next.js dev-mode hot-module-reload; this also means a **running dev server keeps serving whatever seed shape was loaded at process start**, independent of later edits to `seed.ts`, until the process restarts. `ReferenceState.schema` (`referenceSchemaVersion` in `models.ts`) guards the _file_ against staleness — a persisted snapshot whose `schema` doesn't match the current version is discarded and reseeded — but it cannot invalidate the in-memory singleton. Bump `referenceSchemaVersion` whenever `seed.ts`'s shape changes, and restart the dev server (not just delete `.catalogue-data/reference-v1.json`) to see the change locally.
 
 The demo persona is retained across reloads. Administrative UI and commands reject Sales/Storekeeper roles, but the local role header is intentionally only a simulation. Do not expose this demo as a public authenticated service.
 
