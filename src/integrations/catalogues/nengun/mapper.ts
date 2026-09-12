@@ -112,6 +112,7 @@ export function mapNengunDiagramPage(
       categoryId,
       catalogueId,
       status: row.priceStatus === "discontinued" ? "Inactive" : "Active",
+      position: row.position,
       notes:
         row.applicability ??
         "Reference-only Nengun catalogue row; not independently verified.",

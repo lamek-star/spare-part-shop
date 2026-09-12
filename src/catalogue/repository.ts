@@ -249,13 +249,11 @@ export class ReferenceRepository {
             targetPartId: b.partId === partId ? a.partId : b.partId,
           };
         }),
-      diagrams: this.state.diagrams
-        .filter((d) =>
-          this.state.callouts.some(
-            (c) => c.diagramId === d.id && c.partIds.includes(partId),
-          ),
-        )
-        .map((d) => this.imageForDisplay(d)),
+      diagrams: this.state.diagrams.flatMap((d) =>
+        this.state.callouts
+          .filter((c) => c.diagramId === d.id && c.partIds.includes(partId))
+          .map((callout) => ({ diagram: this.imageForDisplay(d), callout })),
+      ),
     });
   }
   diagram(diagramId: string) {

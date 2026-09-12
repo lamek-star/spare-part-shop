@@ -1,1 +1,63 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 420"><rect width="700" height="420" fill="white"/><g fill="none" stroke="#172c40" stroke-width="3"><path d="M130 130Q130 110 160 110H230Q260 110 260 130V300Q260 320 230 320H160Q130 320 130 300Z"/><path d="M130 150H260M130 175H260M130 200H260M130 225H260M130 250H260M130 275H260"/><rect x="160" y="95" width="70" height="20" rx="4"/><path d="M175 320V345H215V320" /><ellipse cx="195" cy="345" rx="20" ry="8"/></g><g fill="none" stroke="#087f75" stroke-width="2.5" stroke-dasharray="6 6"><path d="M195 95V55H130"/></g><g fill="none" stroke="#172c40" stroke-width="3"><rect x="420" y="110" width="220" height="170"/><rect x="450" y="140" width="160" height="110"/><path d="M460 150L600 150M460 165L600 165M460 180L600 180M460 195L600 195M460 210L600 210M460 225L600 225M460 240L600 240" stroke="#9faeb7" stroke-width="1.5"/><path d="M420 165Q380 165 380 195Q380 225 420 225" /><rect x="335" y="182" width="50" height="26" rx="4"/></g><g fill="none" stroke="#087f75" stroke-width="2.5" stroke-dasharray="6 6"><path d="M530 110V55H610"/></g><g font-family="Arial,sans-serif" fill="#253e50"><text x="112" y="50" font-size="17">C01</text><text x="592" y="50" font-size="17">C02</text><text x="150" y="388" font-size="15">Oil filter</text><text x="480" y="388" font-size="15">Air filter</text><text x="30" y="411" font-size="13" fill="#687c8d">Original conceptual assembly diagram · demo only · not to scale · not a manufacturer drawing</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560">
+<rect width="900" height="560" fill="white"/>
+<g font-family="Arial,sans-serif" fill="#253e50" font-size="13">
+<text x="98" y="30">17700</text>
+<text x="318" y="30">17801</text>
+<text x="538" y="30">17881</text>
+<text x="758" y="30">96111</text>
+<text x="98" y="300">15601</text>
+<text x="318" y="300">12315</text>
+<text x="538" y="300">90119A</text>
+<text x="758" y="300">90080A</text>
+</g>
+<g fill="none" stroke="#087f75" stroke-width="2.5" stroke-dasharray="6 6">
+<path d="M120 35V60"/>
+<path d="M340 35V60"/>
+<path d="M560 35V60"/>
+<path d="M780 35V60"/>
+<path d="M120 305V330"/>
+<path d="M340 305V330"/>
+<path d="M578 305V330"/>
+<path d="M778 305V330"/>
+</g>
+<g fill="none" stroke="#172c40" stroke-width="3">
+<!-- 17700 Air cleaner housing -->
+<rect x="60" y="90" width="120" height="65" rx="8"/>
+<rect x="75" y="70" width="90" height="22" rx="4"/>
+<!-- 17801 Air filter element -->
+<rect x="278" y="90" width="124" height="65"/>
+<path d="M290 100L390 100M290 112L390 112M290 124L390 124M290 136L390 136M290 148L390 148" stroke="#9faeb7" stroke-width="1.5"/>
+<!-- 17881 Intake hose -->
+<path d="M500 155Q500 95 560 95Q620 95 620 140"/>
+<path d="M512 155Q512 108 560 108Q608 108 608 140" stroke="#9faeb7" stroke-width="1.5"/>
+<!-- 96111 Clamp -->
+<circle cx="778" cy="120" r="30"/>
+<circle cx="778" cy="120" r="17"/>
+<rect x="768" y="86" width="20" height="14" rx="3"/>
+<!-- 15601 Oil filter -->
+<path d="M65 335Q65 320 90 320H150Q175 320 175 335V450Q175 465 150 465H90Q65 465 65 450Z"/>
+<path d="M65 355H175M65 375H175M65 395H175M65 415H175M65 435H175"/>
+<rect x="95" y="305" width="50" height="16" rx="3"/>
+<!-- 12315 Bracket -->
+<path d="M290 460V400H340V350H400V460Z"/>
+<circle cx="310" cy="380" r="8"/>
+<circle cx="380" cy="435" r="8"/>
+<!-- 90119A Mounting bolt -->
+<path d="M578 350L602 364V392L578 406L554 392V364Z"/>
+<rect x="570" y="406" width="16" height="46"/>
+<!-- 90080A Grommet -->
+<circle cx="778" cy="400" r="34"/>
+<circle cx="778" cy="400" r="19"/>
+</g>
+<g font-family="Arial,sans-serif" fill="#253e50" font-size="14">
+<text x="65" y="185">Air cleaner housing</text>
+<text x="288" y="185">Air filter element</text>
+<text x="505" y="185">Intake hose</text>
+<text x="755" y="185">Clamp</text>
+<text x="70" y="490">Oil filter</text>
+<text x="300" y="490">Bracket</text>
+<text x="540" y="490">Mounting bolt</text>
+<text x="748" y="490">Grommet</text>
+</g>
+<text x="30" y="540" font-family="Arial,sans-serif" font-size="13" fill="#687c8d">Original conceptual assembly diagram · demo only · not to scale · not a manufacturer drawing</text>
+</svg>

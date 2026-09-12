@@ -140,6 +140,7 @@ export interface CataloguePart {
   categoryId: string;
   catalogueId: string;
   status: string;
+  position?: string;
   notes: string;
   version: number;
   provenance: Provenance;
@@ -155,6 +156,10 @@ export interface ReferenceNumber {
   market: string;
   primary: boolean;
   active: boolean;
+  /** Structured applicability for this specific number option — e.g. a
+   * production-date range or trim that distinguishes it from sibling
+   * numbers on the same part. Free text; not parsed. */
+  applicability?: string;
   notes: string;
   provenance: Provenance;
 }
@@ -269,7 +274,7 @@ export interface ImportBatch {
   attempts: number;
   history: { at: string; status: BatchStatus }[];
 }
-export const referenceSchemaVersion = 2;
+export const referenceSchemaVersion = 3;
 export interface ReferenceState {
   schema: typeof referenceSchemaVersion;
   sources: CatalogueSource[];
@@ -303,7 +308,7 @@ export interface ReferenceDetail extends ReferenceHit {
     target: string;
     targetPartId: string;
   })[];
-  diagrams: CatalogueDiagram[];
+  diagrams: { diagram: CatalogueDiagram; callout: DiagramCallout }[];
   source: CatalogueSource;
 }
 export interface BrowseOptions {

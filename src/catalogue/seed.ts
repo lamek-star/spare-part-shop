@@ -1,4 +1,9 @@
-import { ReferenceState, Provenance, referenceSchemaVersion } from "./models";
+import {
+  ReferenceState,
+  Provenance,
+  CrossReference,
+  referenceSchemaVersion,
+} from "./models";
 import { normalizeNumber } from "../domain/models";
 export function referenceSeed(): ReferenceState {
   const provenance: Provenance = {
@@ -200,16 +205,16 @@ export function referenceSeed(): ReferenceState {
           url: "/diagrams/demo-filtration.svg",
           rights: "COMPANY_OWNED",
           mime: "image/svg+xml",
-          width: 700,
-          height: 420,
-          size: 1506,
+          width: 900,
+          height: 560,
+          size: 2629,
           attribution:
             "Original schematic created for this application. Not a manufacturer drawing.",
           provenance: p("image-demo-filtration"),
         },
         revision: "1",
         notes:
-          "Manual coordinates identify the oil filter and air filter. Not to scale.",
+          "Manual coordinates identify eight intake/oil-filtration components. Not to scale.",
         provenance: p("demo-filtration"),
       },
     ],
@@ -228,7 +233,19 @@ export function referenceSeed(): ReferenceState {
         provenance: p(`component-${i + 1}`),
       }))
       .concat(
-        ["Oil filter", "Air filter"].map((name, i) => ({
+        [
+          {
+            name: "Air cleaner housing",
+            position: "Engine bay, intake side",
+          },
+          { name: "Air filter element", position: "Inside air cleaner" },
+          { name: "Intake hose", position: "Air cleaner to throttle body" },
+          { name: "Clamp", position: "Intake hose, both ends" },
+          { name: "Oil filter", position: "Engine block, lower right" },
+          { name: "Bracket", position: "Oil filter mounting" },
+          { name: "Mounting bolt", position: "Bracket to engine block" },
+          { name: "Grommet", position: "Bracket isolation mount" },
+        ].map(({ name, position }, i) => ({
           id: `reference-${i + 4}`,
           manufacturer: "Toyota (demo)",
           description: `Engine ${name.toLowerCase()} · demo`,
@@ -236,6 +253,7 @@ export function referenceSeed(): ReferenceState {
           categoryId: "filtration",
           catalogueId: "demo-e210",
           status: "Active",
+          position,
           notes:
             "Unverified fictional reference. Not an orderable real OEM number.",
           version: 1,
@@ -272,32 +290,60 @@ export function referenceSeed(): ReferenceState {
         },
       ])
       .concat(
-        ["Oil filter", "Air filter"].flatMap((_, i) => [
+        [
+          { callout: "17700", i: 4 },
+          { callout: "17801", i: 5 },
+          { callout: "17881", i: 6 },
+          { callout: "96111", i: 7 },
+          { callout: "15601", i: 8 },
+          { callout: "12315", i: 9 },
+          { callout: "90119A", i: 10 },
+          { callout: "90080A", i: 11 },
+        ].flatMap(({ callout, i }) => [
           {
-            id: `ref-oe-${i + 4}`,
-            partId: `reference-${i + 4}`,
-            original: `DEMO-OE-ENG-${i + 4}`,
-            normalized: normalizeNumber(`DEMO-OE-ENG-${i + 4}`),
+            id: `ref-oe-${i}`,
+            partId: `reference-${i}`,
+            original: `DEMO-${callout}-0T001`,
+            normalized: normalizeNumber(`DEMO-${callout}-0T001`),
             type: "OEM_OE" as const,
             manufacturer: "Toyota (demo)",
             market: "Demo",
             primary: true,
             active: true,
+            applicability: i === 9 ? "Production 01/2019–12/2020" : undefined,
             notes: "Fictional OEM-format example.",
-            provenance: p(`oe-${i + 4}`),
+            provenance: p(`oe-${i}`),
           },
+          ...(i === 9
+            ? [
+                {
+                  id: "ref-oe-9b",
+                  partId: "reference-9",
+                  original: "DEMO-12315-0T011",
+                  normalized: normalizeNumber("DEMO-12315-0T011"),
+                  type: "OEM_OE" as const,
+                  manufacturer: "Toyota (demo)",
+                  market: "Demo",
+                  primary: false,
+                  active: true,
+                  applicability: "Production 01/2021–12/2023",
+                  notes: "Later-production replacement number.",
+                  provenance: p("oe-9b"),
+                },
+              ]
+            : []),
           {
-            id: `ref-alt-${i + 4}`,
-            partId: `reference-${i + 4}`,
-            original: `DEMO-ALT-${i + 4}`,
-            normalized: normalizeNumber(`DEMO-ALT-${i + 4}`),
+            id: `ref-alt-${i}`,
+            partId: `reference-${i}`,
+            original: `DEMO-ALT-ENG-${i}`,
+            normalized: normalizeNumber(`DEMO-ALT-ENG-${i}`),
             type: "AFTERMARKET" as const,
             manufacturer: "Aster (demo)",
             market: "Demo",
             primary: false,
             active: true,
             notes: "Illustrative alternative; not a verified interchange.",
-            provenance: p(`alt-${i + 4}`),
+            provenance: p(`alt-${i}`),
           },
         ]),
       ),
@@ -323,21 +369,28 @@ export function referenceSeed(): ReferenceState {
       }))
       .concat(
         [
-          { x: 19, y: 13 },
-          { x: 87, y: 13 },
-        ].map((xy, i) => ({
+          { display: "17700", x: 13, y: 6, quantity: 1 },
+          { display: "17801", x: 38, y: 6, quantity: 1 },
+          { display: "17881", x: 62, y: 6, quantity: 1 },
+          { display: "96111", x: 87, y: 6, quantity: 2 },
+          { display: "15601", x: 13, y: 55, quantity: 1 },
+          { display: "12315", x: 38, y: 55, quantity: 1 },
+          { display: "90119A", x: 64, y: 55, quantity: 4 },
+          { display: "90080A", x: 86, y: 55, quantity: 2 },
+        ].map(({ display, x, y, quantity }, i) => ({
           id: `callout-${i + 4}`,
           diagramId: "demo-filtration",
-          display: `C0${i + 1}`,
-          normalized: `C0${i + 1}`,
+          display,
+          normalized: normalizeNumber(display),
           partIds: [`reference-${i + 4}`],
-          ...xy,
+          x,
+          y,
           width: 9,
           height: 10,
-          quantity: 1,
+          quantity,
           sequence: i + 1,
           notes:
-            "Manually mapped original demo drawing. Callout is not an OEM number.",
+            "Manually mapped original demo drawing. Callout is a diagram reference, not an OEM number — see the linked part's numbers.",
           provenance: p(`callout-${i + 4}`),
         })),
       ),
@@ -358,7 +411,7 @@ export function referenceSeed(): ReferenceState {
         provenance: p(`fit-ref-${i}`),
       }))
       .concat(
-        [4, 5].map((i) => ({
+        [4, 5, 6, 7, 8, 9, 10, 11].map((i) => ({
           id: `fit-ref-${i}`,
           partId: `reference-${i}`,
           variantId: "variant-e210",
@@ -374,16 +427,29 @@ export function referenceSeed(): ReferenceState {
           provenance: p(`fit-ref-${i}`),
         })),
       ),
-    crossReferences: [1, 2, 3, 4, 5].map((i) => ({
-      id: `xref-${i}`,
-      sourceNumberId: `ref-oe-${i}`,
-      targetNumberId: `ref-alt-${i}`,
-      type: "ALTERNATIVE",
-      confidence: "Unverified demo",
-      notes:
-        "Relationship explicitly declared in the fixture, not inferred from strings.",
-      provenance: p(`xref-${i}`),
-    })),
+    crossReferences: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      .map((i): CrossReference => ({
+        id: `xref-${i}`,
+        sourceNumberId: `ref-oe-${i}`,
+        targetNumberId: `ref-alt-${i}`,
+        type: "ALTERNATIVE",
+        confidence: "Unverified demo",
+        notes:
+          "Relationship explicitly declared in the fixture, not inferred from strings.",
+        provenance: p(`xref-${i}`),
+      }))
+      .concat([
+        {
+          id: "xref-9b",
+          sourceNumberId: "ref-oe-9b",
+          targetNumberId: "ref-oe-9",
+          type: "SUPERSEDES",
+          confidence: "Unverified demo",
+          notes:
+            "Later-production number supersedes the earlier one; both remain listed with their applicable production range.",
+          provenance: p("xref-9b"),
+        },
+      ]),
     batches: [],
   };
 }

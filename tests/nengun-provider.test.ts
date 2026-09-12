@@ -96,6 +96,7 @@ test("callout numbers are parsed as diagram references, distinct from OEM number
   assert.equal(c1.quantity, 1);
   assert.equal(c1.normalized, "74004");
   const part1 = mapped.parts.find((p) => p.id === c1.partIds[0])!;
+  assert.equal(part1.position, "Front right");
   const numbers1 = mapped.numbers.filter((n) => n.partId === part1.id);
   assert.equal(numbers1.length, 1);
   assert.equal(numbers1[0].original, "MB123456");

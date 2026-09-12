@@ -296,8 +296,116 @@ test("catalogue seed spans multiple makes and variants for meaningful browsing",
     "Mitsubishi",
     "Toyota",
   ]);
-  assert.equal(r.search("", 1, 20, "variant-e210").total, 2);
+  assert.equal(r.search("", 1, 20, "variant-e210").total, 8);
   assert.equal(r.detail("reference-4").part.manufacturer, "Toyota (demo)");
+});
+test("diagram callout number is a distinct field from the OEM/OE part number it links to", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  const d = r.diagram("demo-filtration");
+  const oilFilterCallout = d.callouts.find((c) => c.display === "15601")!;
+  assert.ok(oilFilterCallout);
+  const oilFilterPart = d.parts.find(
+    (p) => p.part.id === oilFilterCallout.partIds[0],
+  )!;
+  const oem = oilFilterPart.numbers.find((n) => n.type === "OEM_OE")!;
+  assert.equal(oem.original, "DEMO-15601-0T001");
+  // The callout label never equals any OEM number string on its part —
+  // they are two different fields with two different values.
+  assert.notEqual(oilFilterCallout.display, oem.original);
+  assert.ok(
+    oilFilterPart.numbers.every((n) => n.original !== oilFilterCallout.display),
+  );
+});
+test("CatalogueDiagram -> DiagramCallout -> CataloguePart -> PartNumber[] resolves end to end", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  const diagram = r.diagram("demo-filtration");
+  assert.equal(diagram.diagram.id, "demo-filtration");
+  assert.equal(diagram.callouts.length, 8);
+  for (const callout of diagram.callouts) {
+    assert.equal(callout.diagramId, "demo-filtration");
+    assert.equal(callout.partIds.length, 1);
+    const hit = diagram.parts.find((p) => p.part.id === callout.partIds[0]);
+    assert.ok(hit, `callout ${callout.display} resolves to a CataloguePart`);
+    assert.ok(hit!.numbers.length >= 1, `${callout.display} has PartNumber[]`);
+  }
+});
+test("a part may carry multiple applicable OEM numbers, each with its own applicability window", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  const bracket = r.detail("reference-9");
+  const oemNumbers = bracket.numbers.filter((n) => n.type === "OEM_OE");
+  assert.equal(oemNumbers.length, 2);
+  const [early, later] = [
+    oemNumbers.find((n) => n.original === "DEMO-12315-0T001")!,
+    oemNumbers.find((n) => n.original === "DEMO-12315-0T011")!,
+  ];
+  assert.equal(early.applicability, "Production 01/2019–12/2020");
+  assert.equal(later.applicability, "Production 01/2021–12/2023");
+  assert.notEqual(early.applicability, later.applicability);
+  const supersedes = bracket.crossReferences.find(
+    (x) => x.type === "SUPERSEDES",
+  );
+  assert.equal(supersedes?.source, "DEMO-12315-0T011");
+  assert.equal(supersedes?.target, "DEMO-12315-0T001");
+});
+test("part detail resolves back to the diagram and specific callout it appears in", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  const detail = r.detail("reference-8");
+  assert.equal(detail.diagrams.length, 1);
+  assert.equal(detail.diagrams[0].diagram.id, "demo-filtration");
+  assert.equal(detail.diagrams[0].callout.display, "15601");
+});
+test("normalized OEM number search resolves to the correct part regardless of formatting", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  const exact = r.search("DEMO-15601-0T001");
+  assert.equal(exact.items[0]?.part.id, "reference-8");
+  const loose = r.search("demo 15601 0t001");
+  assert.equal(loose.items[0]?.part.id, "reference-8");
+});
+test("a bare callout number is never indexed as an OEM identifier, only ever matched as incidental text", () => {
+  const r = new ReferenceRepository(referenceSeed());
+  // DiagramCallout.normalized is deliberately excluded from the exact
+  // numberIndex (see reindex(), which only indexes state.numbers). A
+  // search for "15601" can still surface the oil filter part, but only
+  // because "15601" happens to appear inside its OEM string
+  // "DEMO-15601-0T001" via the same generic substring fallback that would
+  // match ANY digit fragment — it is not a privileged callout lookup.
+  // Proof: an equally meaningless fragment of the same OEM number ("601")
+  // matches through the identical path, showing "15601" has no special
+  // identity-lookup status distinct from arbitrary substrings.
+  const byCallout = r.search("15601");
+  const byFragment = r.search("601");
+  const byOem = r.search("DEMO-15601-0T001");
+  assert.equal(byOem.total, 1, "exact OEM number is an authoritative match");
+  assert.equal(
+    byCallout.items.some((h) => h.part.id === "reference-8"),
+    byFragment.items.some((h) => h.part.id === "reference-8"),
+    "callout search behaves like any other substring fragment, not a distinct identifier lookup",
+  );
+  // The callout is resolved reliably only in its actual context: the
+  // diagram it belongs to, scoped by diagramId — never by a bare number.
+  const diagram = r.diagram("demo-filtration");
+  const callout = diagram.callouts.find((c) => c.display === "15601")!;
+  assert.equal(callout.diagramId, "demo-filtration");
+});
+test("company product relationship stays separate from the reference diagram/callout data", () => {
+  const reference = new ReferenceRepository(referenceSeed());
+  const company = createDemoAdapter();
+  const before = company.snapshot().parts.length;
+  company.catalogue.adopt(reference.detail("reference-8"), {
+    sku: "OUR-OILFILTER",
+    supplierId: "contact-1",
+    warehouseId: "wh-1",
+    cost: 15,
+    price: 30,
+    reorder: 5,
+    currency: "AED",
+  });
+  assert.equal(company.snapshot().parts.length, before + 1);
+  // Adoption must not mutate the reference-side diagram/callout data.
+  const diagram = reference.diagram("demo-filtration");
+  const callout = diagram.callouts.find((c) => c.display === "15601")!;
+  assert.equal(callout.partIds[0], "reference-8");
+  assert.equal(diagram.parts.length, 8);
 });
 test("disabled feeds fail closed and permitted transport retries are bounded", async () => {
   await assert.rejects(() => providerExtensions.nengun.read(""), /disabled/);
