@@ -38,6 +38,9 @@ export default function ReferenceCatalogue({
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
+  const [expandedNumbers, setExpandedNumbers] = useState<Set<string>>(
+    new Set(),
+  );
   const company = services
     .snapshot()
     .parts.find((p) => p.preferredCataloguePartId === detail?.part.id);
@@ -107,11 +110,11 @@ export default function ReferenceCatalogue({
     setDiagram(undefined);
     setSelected("");
   };
-  const openDiagram = async (id: string) => {
+  const openDiagram = async (id: string, calloutId = "") => {
     try {
       setDiagram(await client.getDiagram(id));
       setDetail(undefined);
-      setSelected("");
+      setSelected(calloutId);
       setZoom(1);
       setFullscreen(false);
     } catch (e) {
@@ -122,6 +125,28 @@ export default function ReferenceCatalogue({
     await loadPart(id);
     setAdopting(true);
   };
+  useEffect(() => {
+    if (!selected) return;
+    document
+      .querySelector(".epc-parts-column .selected-table-row")
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selected]);
+  const companyProduct = (partId: string) =>
+    services
+      .snapshot()
+      .parts.find((p) => p.preferredCataloguePartId === partId);
+  const stockOf = (companyPartId: string) =>
+    services.inventory
+      .list()
+      .filter((x) => x.partId === companyPartId)
+      .reduce((n, x) => n + x.available, 0);
+  const toggleExpanded = (key: string) =>
+    setExpandedNumbers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   return (
     <>
       <p className="notice">
@@ -265,9 +290,14 @@ export default function ReferenceCatalogue({
             />
           ) : tab === "Diagrams" ? (
             <div className="reference-diagrams">
-              {detail.diagrams.map((d) => (
-                <button key={d.id} onClick={() => openDiagram(d.id)}>
-                  {d.title} · {d.code}
+              {detail.diagrams.map(({ diagram: d, callout: c }) => (
+                <button
+                  key={d.id + c.id}
+                  onClick={() => openDiagram(d.id, c.id)}
+                >
+                  Found in diagram: {d.title} · {d.code}
+                  <br />
+                  Callout: {c.display}
                 </button>
               ))}
             </div>
@@ -413,12 +443,10 @@ export default function ReferenceCatalogue({
                   (p) => p.part.id === selectedCallout.partIds[0],
                 );
               const selectedCompany = selectedHit
-                ? services
-                    .snapshot()
-                    .parts.find(
-                      (p) => p.preferredCataloguePartId === selectedHit.part.id,
-                    )
+                ? companyProduct(selectedHit.part.id)
                 : undefined;
+              const selectedOemNumbers =
+                selectedHit?.numbers.filter((n) => n.type === "OEM_OE") ?? [];
               return (
                 <section
                   className={`panel epc-diagram-panel${fullscreen ? " epc-fullscreen" : ""}`}
@@ -515,16 +543,35 @@ export default function ReferenceCatalogue({
                             <div>
                               <dt>OEM/OE number(s)</dt>
                               <dd>
-                                {selectedHit.numbers
-                                  .filter((n) => n.type === "OEM_OE")
-                                  .map((n) => n.original)
-                                  .join(", ") || "Not listed"}
+                                {selectedOemNumbers.length === 0 ? (
+                                  "Not listed"
+                                ) : (
+                                  <ul className="epc-number-list">
+                                    {selectedOemNumbers.map((n) => (
+                                      <li key={n.id}>
+                                        <strong>{n.original}</strong>
+                                        {n.applicability && (
+                                          <span className="muted">
+                                            {" "}
+                                            · {n.applicability}
+                                          </span>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
                               </dd>
                             </div>
                             {selectedCallout.quantity !== undefined && (
                               <div>
                                 <dt>Quantity</dt>
                                 <dd>{selectedCallout.quantity}</dd>
+                              </div>
+                            )}
+                            {selectedHit.part.position && (
+                              <div>
+                                <dt>Position</dt>
+                                <dd>{selectedHit.part.position}</dd>
                               </div>
                             )}
                             <div>
@@ -540,6 +587,13 @@ export default function ReferenceCatalogue({
                               </dd>
                             </div>
                           </dl>
+                          {selectedCompany && (
+                            <p className="epc-company-line">
+                              <Badge>My Product</Badge> {selectedCompany.sku} ·{" "}
+                              {stockOf(selectedCompany.id)} in stock ·{" "}
+                              {money(selectedCompany.price)}
+                            </p>
+                          )}
                           <div className="actions">
                             <button
                               onClick={() => loadPart(selectedHit.part.id)}
@@ -551,7 +605,7 @@ export default function ReferenceCatalogue({
                                 className="primary"
                                 onClick={() => openCompany(selectedCompany.id)}
                               >
-                                My Product · {selectedCompany.sku}
+                                Open My Product
                               </button>
                             ) : (
                               <button
@@ -588,32 +642,64 @@ export default function ReferenceCatalogue({
                             const hit = diagram.parts.find(
                               (p) => p.part.id === id,
                             )!;
-                            const product = services
-                              .snapshot()
-                              .parts.find(
-                                (p) => p.preferredCataloguePartId === id,
-                              );
+                            const oem = hit.numbers.filter(
+                              (n) => n.type === "OEM_OE",
+                            );
+                            const product = companyProduct(id);
                             return [
                               <button
-                                className={selected === c.id ? "primary" : ""}
+                                className={
+                                  "diagram-hotspot-row" +
+                                  (selected === c.id ? " primary" : "")
+                                }
                                 aria-pressed={selected === c.id}
                                 onClick={() => setSelected(c.id)}
                               >
                                 {c.display}
                               </button>,
-                              hit.numbers.find((n) => n.type === "OEM_OE")
-                                ?.original,
+                              oem.length <= 1 ? (
+                                (oem[0]?.original ?? "Not listed")
+                              ) : (
+                                <div className="epc-number-options">
+                                  <button
+                                    className="text-link"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleExpanded(c.id);
+                                    }}
+                                  >
+                                    {oem.length} variants available ·{" "}
+                                    {expandedNumbers.has(c.id)
+                                      ? "Collapse"
+                                      : "Expand"}
+                                  </button>
+                                  {expandedNumbers.has(c.id) && (
+                                    <ul className="epc-number-list">
+                                      {oem.map((n) => (
+                                        <li key={n.id}>
+                                          <strong>{n.original}</strong>
+                                          {n.applicability && (
+                                            <span className="muted">
+                                              {" "}
+                                              · {n.applicability}
+                                            </span>
+                                          )}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              ),
                               hit.part.description,
                               c.quantity ?? "—",
-                              product
-                                ? `${product.sku} · ${services.inventory
-                                    .list()
-                                    .filter((x) => x.partId === product.id)
-                                    .reduce(
-                                      (n, x) => n + x.available,
-                                      0,
-                                    )} available`
-                                : "Not in My Products",
+                              product ? (
+                                <span className="epc-company-available">
+                                  <Badge>My Product</Badge> {product.sku} ·{" "}
+                                  {stockOf(product.id)} available
+                                </span>
+                              ) : (
+                                "Not in My Products"
+                              ),
                               <button onClick={() => loadPart(id)}>
                                 View reference part
                               </button>,

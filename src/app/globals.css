@@ -1379,6 +1379,10 @@ button:disabled {
 .epc-parts-column {
   min-width: 0;
 }
+.epc-parts-column .table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+}
 .epc-selected-callout {
   border: 1px solid var(--teal);
   background: #eff7f5;
@@ -1399,6 +1403,53 @@ button:disabled {
 .epc-selected-callout dd {
   margin: 0;
   font-weight: 600;
+}
+.epc-number-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.epc-number-list li {
+  margin: 2px 0;
+}
+.epc-number-list .muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+.epc-number-options {
+  min-width: 0;
+}
+.epc-company-line {
+  background: #f4faf8;
+  border: 1px solid #d3ebe4;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+.epc-company-available {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+td > button.diagram-hotspot-row {
+  font-weight: 600;
+  color: var(--text);
+  padding: 2px 0;
+}
+td > button.diagram-hotspot-row:hover {
+  color: var(--teal);
+}
+td > button.diagram-hotspot-row.primary {
+  color: var(--teal);
+}
+.diagram-hotspot:hover {
+  background: #d6f0ea;
+}
+.diagram-hotspot[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .epc-fullscreen {
   position: fixed;

@@ -350,9 +350,10 @@ test("EPC diagram panel shows callout details, quick adoption and fullscreen", a
     page.getByRole("button", { name: "Open My Product", exact: true }),
   ).toBeVisible();
 });
-test("second vehicle's own diagram is browsable and distinct from the first", async ({
+test("EPC part-number linked catalogue: diagram/list sync, zoom alignment and number search", async ({
   page,
 }) => {
+  // 1-2. Open Reference Catalogue, choose Toyota.
   await page.goto("/");
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
   await page
@@ -361,17 +362,95 @@ test("second vehicle's own diagram is browsable and distinct from the first", as
   await page
     .getByLabel("Make", { exact: true })
     .selectOption({ label: "Toyota" });
+  // 3. Choose Corolla.
+  await page
+    .getByLabel("Model", { exact: true })
+    .selectOption({ label: "Corolla" });
+  // 4. Open Engine Filtration diagram.
   await expect(
     page.getByRole("button", { name: /Open diagram: Engine filtration/ }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: /Open diagram: Engine filtration/ })
     .click();
-  await page.getByRole("button", { name: "Callout C01", exact: true }).click();
+  // 5. See at least 6 diagram callouts.
+  const hotspots = page.locator(".diagram-hotspot");
+  await expect(hotspots).toHaveCount(8);
+  // 6. Click callout 15601.
+  await page
+    .getByRole("button", { name: "Callout 15601", exact: true })
+    .click();
   const panel = page.locator(".epc-selected-callout");
-  await expect(panel).toContainText("Callout C01");
+  await expect(panel).toContainText("Callout 15601");
   await expect(panel).toContainText("Engine oil filter");
-  await expect(panel).toContainText("DEMO-OE-ENG-4");
+  // 7. Verify corresponding part row highlights.
+  const partsPanel = page.locator(".epc-parts-column");
+  const oilFilterRow = partsPanel
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: "Engine oil filter" }) });
+  await expect(oilFilterRow).toHaveClass(/selected-table-row/);
+  // 8. Verify OEM/demo part number is shown separately from the callout.
+  await expect(panel).toContainText("DEMO-15601-0T001");
+  await expect(
+    page.getByRole("cell", { name: "DEMO-15601-0T001", exact: true }),
+  ).toBeVisible();
+  // 9. Click another part row (the bracket, which has multiple numbers).
+  const bracketRow = partsPanel
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: "Engine bracket" }) });
+  await bracketRow.getByRole("cell", { name: "Engine bracket" }).click();
+  // 10. Verify diagram selection changes to that callout.
+  await expect(
+    page.getByRole("button", { name: "Callout 12315", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Callout 15601", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  const calloutHotspot = page.getByRole("button", {
+    name: "Callout 12315",
+    exact: true,
+  });
+  await expect(calloutHotspot).toHaveAttribute("aria-pressed", "true");
+  await expect(panel).toContainText("DEMO-12315-0T001");
+  await expect(panel).toContainText("Production 01/2019–12/2020");
+  await expect(panel).toContainText("DEMO-12315-0T011");
+  await expect(panel).toContainText("Production 01/2021–12/2023");
+  // 11. Zoom.
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect(page.locator(".epc-diagram-panel .panel-head")).toContainText(
+    "150%",
+  );
+  // 12. Verify callouts remain aligned/clickable after zoom.
+  await page
+    .getByRole("button", { name: "Callout 90080A", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Callout 90080A", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(panel).toContainText("Callout 90080A");
+  await expect(panel).toContainText("Engine grommet");
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  // 13. Search by the OEM part number, not the callout.
+  await page
+    .getByLabel("Search OEM, reference or description", { exact: true })
+    .fill("DEMO-15601-0T001");
+  await expect(
+    page.getByRole("button", { name: "Open reference" }).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Open reference" }).first().click();
+  // 14. Verify the correct diagram/callout can be reached from the part.
+  await page
+    .locator(".tabs")
+    .getByRole("button", { name: "Diagrams", exact: true })
+    .click();
+  const diagramLink = page.getByRole("button", {
+    name: /Found in diagram: Engine filtration/,
+  });
+  await expect(diagramLink).toContainText("Callout: 15601");
+  await diagramLink.click();
+  await expect(
+    page.getByRole("button", { name: "Callout 15601", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
 });
 test("CSV mapping staging publish and import permission boundary", async ({
   page,
