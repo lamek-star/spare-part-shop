@@ -1,0 +1,44 @@
+{
+  "data": [
+    {
+      "region": "EU",
+      "name": "Europe",
+      "catalog_count": 291,
+      "has_prices": false,
+      "links": {
+        "models": "/api/v1/regions/EU/models",
+        "catalogs": "/api/v1/catalogs?region=EU"
+      }
+    },
+    {
+      "region": "GR",
+      "name": "General",
+      "catalog_count": 456,
+      "has_prices": false,
+      "links": {
+        "models": "/api/v1/regions/GR/models",
+        "catalogs": "/api/v1/catalogs?region=GR"
+      }
+    },
+    {
+      "region": "US",
+      "name": "United States",
+      "catalog_count": 274,
+      "has_prices": false,
+      "links": {
+        "models": "/api/v1/regions/US/models",
+        "catalogs": "/api/v1/catalogs?region=US"
+      }
+    },
+    {
+      "region": "JP",
+      "name": "Japan",
+      "catalog_count": 408,
+      "has_prices": true,
+      "links": {
+        "models": "/api/v1/regions/JP/models",
+        "catalogs": "/api/v1/catalogs?region=JP"
+      }
+    }
+  ]
+}

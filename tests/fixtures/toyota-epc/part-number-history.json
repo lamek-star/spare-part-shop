@@ -1,0 +1,125 @@
+{
+  "data": {
+    "part_number": "1111515100",
+    "by_region": {
+      "EU": {
+        "superseded_by": [
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          },
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          }
+        ],
+        "supersedes": [],
+        "chain": [
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          }
+        ],
+        "substitutes": []
+      },
+      "GR": {
+        "superseded_by": [
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          },
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          }
+        ],
+        "supersedes": [],
+        "chain": [
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          }
+        ],
+        "substitutes": []
+      },
+      "US": {
+        "superseded_by": [
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          },
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          }
+        ],
+        "supersedes": [],
+        "chain": [
+          {
+            "old_part": "1111515100",
+            "old_suffix": null,
+            "new_part": "11115F3010",
+            "new_suffix": null,
+            "effective": "2021-01",
+            "effective_day": "**",
+            "cycle": false,
+            "links": { "new_part": "/api/v1/part-numbers/11115F3010" }
+          }
+        ],
+        "substitutes": []
+      }
+    }
+  },
+  "meta": {
+    "searched_regions": ["EU", "GR", "US", "JP"],
+    "found_in": ["EU", "GR", "US"]
+  }
+}

@@ -1,4 +1,5 @@
 import type { CatalogueProvider } from "./providers";
+import { capabilitiesFor } from "./providers";
 import type {
   Page,
   ReferenceHit,
@@ -15,6 +16,7 @@ export type BatchView = {
 };
 export class CatalogueClient implements CatalogueProvider {
   readonly key = "local-reference";
+  readonly capabilities = capabilitiesFor("local-reference");
   constructor(private role: string) {}
   private async request<T>(
     query: Record<string, string>,
@@ -71,10 +73,72 @@ export class CatalogueClient implements CatalogueProvider {
   admin() {
     return this.request<AdminOverview>({ action: "admin" });
   }
+  providers() {
+    return this.request<import("./providerPolicy").ProviderPolicy[]>({
+      action: "providers",
+    });
+  }
+  toyotaStatus() {
+    return this.request<
+      { enabled: boolean } & import("./providerPolicy").ProviderPolicy
+    >({ action: "toyota-status" });
+  }
   batch(id: string, page = 1) {
     return this.request<BatchView>({ action: "batch", id, page: String(page) });
   }
   command<T = BatchView>(body: Record<string, unknown>) {
     return this.request<T>({}, body);
+  }
+  // ---- Toyota EPC (disabled by default — see docs/SPARE_PARTS_CATALOG_ARCHITECTURE.md) ----
+  private toyota<T>(action: string, params: Record<string, string> = {}) {
+    return this.request<
+      | T
+      | {
+          disabled: true;
+          reason: string;
+          capabilities: unknown;
+          license: unknown;
+        }
+    >({ action, ...params });
+  }
+  toyotaModels(region = "EU") {
+    return this.toyota<
+      import("../integrations/catalogues/toyota-epc/types").ToyotaModel[]
+    >("toyota-models", { region });
+  }
+  toyotaModel(slug: string, region = "EU") {
+    return this.toyota<
+      import("../integrations/catalogues/toyota-epc/types").ToyotaModel
+    >("toyota-model", { region, slug });
+  }
+  toyotaSections(catalog: string, region = "EU") {
+    return this.toyota<
+      import("../integrations/catalogues/toyota-epc/types").ToyotaSectionSummary[]
+    >("toyota-sections", { region, catalog });
+  }
+  toyotaDiagram(region: string, catalog: string, figure: string) {
+    return this.toyota<DiagramDetail>("toyota-diagram", {
+      region,
+      catalog,
+      figure,
+    });
+  }
+  toyotaPart(number: string) {
+    return this.toyota<ReferenceDetail>("toyota-part", { number });
+  }
+  toyotaSearch(q: string, region = "EU") {
+    return this.toyota<
+      import("../integrations/catalogues/toyota-epc/types").ToyotaSearchResult
+    >("toyota-search", { q, region });
+  }
+  toyotaHistory(number: string, region = "EU") {
+    return this.toyota<
+      { from: string; to: string; effective: string | null }[]
+    >("toyota-history", { number, region });
+  }
+  toyotaVin(vin: string) {
+    return this.toyota<import("./models").VinLookupResult>("toyota-vin", {
+      vin,
+    });
   }
 }

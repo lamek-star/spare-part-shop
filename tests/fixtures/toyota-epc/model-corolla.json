@@ -1,0 +1,162 @@
+{
+  "data": {
+    "region": "EU",
+    "name": "COROLLA",
+    "slug": "corolla",
+    "catalog_count": 7,
+    "years": { "from": 1974, "to": null, "current": true },
+    "chassis_codes": [
+      "KE70",
+      "AE71",
+      "TE7#",
+      "CE70",
+      "NDE180",
+      "NRE180",
+      "ZRE18#",
+      "MZEA11",
+      "ZRE21#",
+      "ZWE21#",
+      "MZEH1#",
+      "NRE210"
+    ],
+    "links": {
+      "self": "/api/v1/regions/EU/models/corolla",
+      "html": "/catalog/EU/corolla"
+    },
+    "catalogs": [
+      {
+        "region": "EU",
+        "catalog_code": "553210",
+        "model_name": "COROLLA (JPP)",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["MXGA10", "MXGH1#", "ZVG1#"],
+        "group_code": "500",
+        "production": { "from": "2022-07", "to": null, "current": true },
+        "dataset_code": "A1",
+        "data_version": "2023-03",
+        "discontinued": false,
+        "links": {
+          "self": "/api/v1/catalogs/EU/553210",
+          "sections": "/api/v1/catalogs/EU/553210/sections",
+          "figures": "/api/v1/catalogs/EU/553210/figures",
+          "html": "/vehicle/EU/553210"
+        }
+      },
+      {
+        "region": "EU",
+        "catalog_code": "164230",
+        "model_name": "COROLLA        (TUP)",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["MZEA11", "ZRE21#", "ZWE21#"],
+        "group_code": "050",
+        "production": { "from": "2019-01", "to": null, "current": true },
+        "dataset_code": "A1",
+        "data_version": "2022-12",
+        "discontinued": false,
+        "links": {
+          "self": "/api/v1/catalogs/EU/164230",
+          "sections": "/api/v1/catalogs/EU/164230/sections",
+          "figures": "/api/v1/catalogs/EU/164230/figures",
+          "html": "/vehicle/EU/164230"
+        }
+      },
+      {
+        "region": "EU",
+        "catalog_code": "166230",
+        "model_name": "COROLLA        (UKP)",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["MZEH1#", "NRE210", "ZWE21#"],
+        "group_code": "055",
+        "production": { "from": "2019-01", "to": null, "current": true },
+        "dataset_code": "A1",
+        "data_version": "2022-12",
+        "discontinued": false,
+        "links": {
+          "self": "/api/v1/catalogs/EU/166230",
+          "sections": "/api/v1/catalogs/EU/166230/sections",
+          "figures": "/api/v1/catalogs/EU/166230/figures",
+          "html": "/vehicle/EU/166230"
+        }
+      },
+      {
+        "region": "EU",
+        "catalog_code": "164520",
+        "model_name": "COROLLA",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["NDE180", "NRE180", "ZRE18#"],
+        "group_code": "050",
+        "production": { "from": "2013-06", "to": "2019-01", "current": false },
+        "dataset_code": "A1",
+        "data_version": "2019-04",
+        "discontinued": false,
+        "links": {
+          "self": "/api/v1/catalogs/EU/164520",
+          "sections": "/api/v1/catalogs/EU/164520/sections",
+          "figures": "/api/v1/catalogs/EU/164520/figures",
+          "html": "/vehicle/EU/164520"
+        }
+      },
+      {
+        "region": "EU",
+        "catalog_code": "164510",
+        "model_name": "COROLLA   (S.AFRICA)",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["ADE150", "NDE150", "NRE150", "ZRE151", "ZZE150"],
+        "group_code": "050",
+        "production": { "from": "2008-02", "to": "2013-06", "current": false },
+        "dataset_code": "A2",
+        "data_version": "2014-01",
+        "discontinued": false,
+        "links": {
+          "self": "/api/v1/catalogs/EU/164510",
+          "sections": "/api/v1/catalogs/EU/164510/sections",
+          "figures": "/api/v1/catalogs/EU/164510/figures",
+          "html": "/vehicle/EU/164510"
+        }
+      },
+      {
+        "region": "EU",
+        "catalog_code": "191210",
+        "model_name": "COROLLA",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["KE70", "AE71", "TE7#", "CE70"],
+        "group_code": "050",
+        "production": { "from": "1979-08", "to": "1987-07", "current": false },
+        "dataset_code": "A2",
+        "data_version": "1988-02",
+        "discontinued": true,
+        "links": {
+          "self": "/api/v1/catalogs/EU/191210",
+          "sections": "/api/v1/catalogs/EU/191210/sections",
+          "figures": "/api/v1/catalogs/EU/191210/figures",
+          "html": "/vehicle/EU/191210"
+        }
+      },
+      {
+        "region": "EU",
+        "catalog_code": "161230",
+        "model_name": "COROLLA/TRUENO",
+        "model_family": "COROLLA",
+        "model_slug": "corolla",
+        "chassis_codes": ["KE3#", "5#", "TE3#", "47", "51"],
+        "group_code": "050",
+        "production": { "from": "1974-08", "to": "1981-07", "current": false },
+        "dataset_code": "A2",
+        "data_version": "1981-12",
+        "discontinued": true,
+        "links": {
+          "self": "/api/v1/catalogs/EU/161230",
+          "sections": "/api/v1/catalogs/EU/161230/sections",
+          "figures": "/api/v1/catalogs/EU/161230/figures",
+          "html": "/vehicle/EU/161230"
+        }
+      }
+    ]
+  }
+}

@@ -8,14 +8,28 @@ import {
   ReferenceDetail,
   DiagramDetail,
   BrowseOptions,
+  VinLookupResult,
 } from "./models";
+import { ProviderCapabilities, policyFor } from "./providerPolicy";
+/**
+ * The contract both the internal reference-catalogue client and every
+ * external catalogue adapter implement, so UI components never depend on
+ * a specific provider's response shapes (see
+ * docs/CATALOG_PROVIDER_INTEGRATION.md). `capabilities` lets the frontend
+ * adapt what it offers (e.g. hide the VIN box) without a provider-specific
+ * `if`; `lookupVin` is optional because most providers do not support it.
+ */
 export interface CatalogueProvider {
   readonly key: string;
+  readonly capabilities: ProviderCapabilities;
   searchParts(query: string, page: number): Promise<Page<ReferenceHit>>;
   getPart(id: string): Promise<ReferenceDetail>;
   browse(filters: Record<string, string>): Promise<BrowseOptions>;
   getDiagram(id: string): Promise<DiagramDetail>;
+  lookupVin?(vin: string): Promise<VinLookupResult>;
 }
+export const capabilitiesFor = (providerKey: string): ProviderCapabilities =>
+  policyFor(providerKey).capabilities;
 export interface FeedProvider {
   key: string;
   format:

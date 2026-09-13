@@ -1,11 +1,71 @@
 # Spare parts release readiness
 
-Snapshot as of 2026-09-12, branch `codex/spareparts-reference`. Tracks
-completion against three milestones in sequence: the standalone-application
+Snapshot as of 2026-09-13, branch `codex/spareparts-reference`. Tracks
+completion against four milestones in sequence: the standalone-application
 build-out, the Nengun catalogue-source analysis and import-preparation
-milestone, and the EPC part-number-linked diagram rebuild that followed it.
-It supersedes the narrower [READINESS.md](READINESS.md) for scope tracking;
-READINESS.md remains as the original validation record.
+milestone, the EPC part-number-linked diagram rebuild, and the Toyota EPC
+provider integration that followed it (see
+[SPARE_PARTS_CATALOG_ARCHITECTURE.md](SPARE_PARTS_CATALOG_ARCHITECTURE.md)
+for the full detail on the fourth). It supersedes the narrower
+[READINESS.md](READINESS.md) for scope tracking; READINESS.md remains as
+the original validation record.
+
+## Fourth milestone: Toyota EPC provider (2026-09-13)
+
+- Verified `https://toyota-epc.aftermarketcatalog.com/api` is a real,
+  unauthenticated, CORS-open, well-documented JSON API (independent
+  aggregator, not Toyota Motor Corporation) by making ~20 real requests and
+  capturing the responses as fixtures (`tests/fixtures/toyota-epc/`) —
+  nothing in the adapter was written from assumption.
+- Read its `/legal` page and found it explicitly disclaims a redistribution
+  licence for catalogue data/illustrations. Flagged this to the user before
+  building a persistence layer against it (a genuine licensing decision,
+  not a technical one) and, per their direction, built the complete
+  provider **and** a governance/policy layer that keeps it disabled and
+  read-through-only by default — see "Catalogue Data Licensing & Provider
+  Governance" in the architecture doc.
+- Added `src/catalogue/providerPolicy.ts`: `ProviderCapabilities` /
+  `ProviderLicense` for every provider this application knows about
+  (including the pre-existing first-party ones), with
+  `assertBulkSyncAllowed`/`assertPersistentStorageAllowed`/
+  `assertImageStorageAllowed` guards enforced server-side, independent of
+  any `*_ENABLED` env flag or admin-UI toggle.
+- Added the full Toyota adapter
+  (`src/integrations/catalogues/toyota-epc/`: `config.ts`, `types.ts`,
+  `transport.ts`, `mapper.ts`, `provider.ts`) implementing the shared
+  `CatalogueProvider` contract plus a richer native surface (model/variant/
+  section/figure/part-number/VIN/search), gated by `TOYOTA_EPC_ENABLED`
+  (default `false`) and the policy guards above. `CatalogueProvider` itself
+  gained a `capabilities` field and an optional `lookupVin` method.
+- Extended the shared model additively:
+  `DiagramCallout.rect`/`resolved`/`keyType`,
+  `CataloguePart.specifications`, `ReferenceFitment.attributes`,
+  `VinLookupResult`/`VinMatch` — nothing existing changed shape.
+- Added a provider-agnostic `Enquiry`/`EnquiryItem` domain
+  (`domain/models.ts`, `services.enquiries`) — a price-free "request a
+  quote" cart, kept deliberately separate from the existing priced
+  Sales-Order/Quotation flow (`Order.lines[].price` is mandatory and
+  `partId` must reference an existing company `Part`, which is
+  structurally wrong for an unpriced EPC reference lookup that hasn't been
+  adopted into My Products).
+- Added `src/components/ExplodedDiagramViewer.tsx` (zoom/pan/fullscreen/
+  loading/error, percentage- or pixel-rect-positioned hotspots, and an
+  image-withheld wireframe mode) and `src/components/ToyotaEpc.tsx` (the
+  full vehicle-tree → diagram → part → enquiry UI, plus a disabled-state
+  panel that is the production default), wired into `Workspace.tsx` as a
+  new "Toyota EPC" nav item.
+- Extended `src/components/CatalogueAdmin.tsx` with a "Catalogue Providers"
+  tab showing the full capability/licence table for every registered
+  provider.
+- 17 new unit tests (`tests/toyota-epc-mapper.test.ts`,
+  `tests/toyota-epc-provider.test.ts`) plus 4 opt-in live tests
+  (`tests/live/toyota-epc.live.test.ts`, `npm run test:live`) and 1 new e2e
+  test confirming the disabled-by-default production state end to end.
+  Manually verified the enabled path in a real browser against the live
+  API (Toyota → Corolla → a real catalogue → Cylinder Head section → real
+  diagram/hotspots → real part detail with multi-model compatibility →
+  Add to Enquiry → submitted enquiry) — see the architecture doc's
+  "Testing" section for the full account.
 
 ## Completed
 

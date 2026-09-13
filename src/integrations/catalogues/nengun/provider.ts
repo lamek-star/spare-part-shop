@@ -1,4 +1,7 @@
-import { CatalogueProvider } from "../../../catalogue/providers";
+import {
+  CatalogueProvider,
+  capabilitiesFor,
+} from "../../../catalogue/providers";
 import {
   Page,
   ReferenceHit,
@@ -29,6 +32,7 @@ import { nengunImportMode } from "./config";
  */
 export class NengunProvider implements CatalogueProvider {
   readonly key = "nengun";
+  readonly capabilities = capabilitiesFor("nengun");
   private unavailable(): never {
     const mode = nengunImportMode();
     if (mode !== "licensed_import")

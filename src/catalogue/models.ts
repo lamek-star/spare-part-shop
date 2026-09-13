@@ -123,10 +123,27 @@ export interface DiagramCallout {
   display: string;
   normalized: string;
   partIds: string[];
+  /** Percentage-of-image hotspot position, used by hand-authored demo
+   * diagrams. Mutually exclusive in practice with `rect`, but both are
+   * optional since a provider may supply neither (unresolved callout). */
   x?: number;
   y?: number;
   width?: number;
   height?: number;
+  /** Pixel-space hotspot rectangle against the diagram's native image
+   * dimensions, as supplied by providers whose source coordinates are not
+   * percentage-based (e.g. an EPC that returns a bounding box in source
+   * pixels). Viewers should prefer `rect` over `x`/`y`/`width`/`height`
+   * when both happen to be present. */
+  rect?: { x1: number; y1: number; x2: number; y2: number };
+  /** False when a provider marks this hotspot as pointing at a standard
+   * fastener/generic item that appears in no parts list — genuinely
+   * nothing behind it, not a mapping gap. Absent when the provider makes
+   * no such distinction (assume resolved). */
+  resolved?: boolean;
+  /** Provider-supplied classification of what the callout keys into (e.g.
+   * "part_group"). Opaque passthrough; not interpreted by the UI. */
+  keyType?: string;
   quantity?: number;
   sequence: number;
   notes: string;
@@ -143,6 +160,9 @@ export interface CataloguePart {
   position?: string;
   notes: string;
   version: number;
+  /** Provider-supplied key/value specification pairs, only ever populated
+   * from fields the source actually returns — never inferred or guessed. */
+  specifications?: Record<string, string>;
   provenance: Provenance;
 }
 export interface ReferenceNumber {
@@ -192,7 +212,32 @@ export interface ReferenceFitment {
   market: string;
   position: string;
   notes: string;
+  /** Raw provider fitment/attribute codes (e.g. a factory EPC's option or
+   * destination codes) kept alongside the normalized fields above rather
+   * than folded into them, since they are frequently opaque or only
+   * partially decoded — see `Provenance` for source attribution. */
+  attributes?: { code: string; meaning?: string; attribute?: string }[];
   provenance: Provenance;
+}
+/** One vehicle a VIN or frame/chassis prefix resolves to. Provider-scoped:
+ * a match is only ever what that provider's own data recorded, never
+ * inferred from the VIN's structure by this application. */
+export interface VinMatch {
+  variantId?: string;
+  catalogueId?: string;
+  vehicle: string;
+  chassis?: string;
+  productionFrom?: string;
+  productionTo?: string;
+}
+export interface VinLookupResult {
+  vin: string;
+  /** False when the provider has no VIN/frame lookup capability at all
+   * (see `ProviderCapabilities.supportsVinLookup`) — distinct from a
+   * supported lookup that simply found nothing. */
+  supported: boolean;
+  matches: VinMatch[];
+  provider: string;
 }
 export const csvFields = [
   "source_record_id",

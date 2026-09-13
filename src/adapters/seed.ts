@@ -302,6 +302,7 @@ export function seed(): State {
     branches,
     roles,
     users,
+    enquiries: [],
     parts,
     numbers,
     vehicles,

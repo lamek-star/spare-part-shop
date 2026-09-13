@@ -1,0 +1,30 @@
+{
+  "data": {
+    "region": "EU",
+    "catalog_code": "164230",
+    "model_name": "COROLLA        (TUP)",
+    "model_family": "COROLLA",
+    "model_slug": "corolla",
+    "chassis_codes": ["MZEA11", "ZRE21#", "ZWE21#"],
+    "group_code": "050",
+    "production": { "from": "2019-01", "to": null, "current": true },
+    "dataset_code": "A1",
+    "data_version": "2022-12",
+    "discontinued": false,
+    "links": {
+      "self": "/api/v1/catalogs/EU/164230",
+      "sections": "/api/v1/catalogs/EU/164230/sections",
+      "figures": "/api/v1/catalogs/EU/164230/figures",
+      "html": "/vehicle/EU/164230",
+      "variants": "/api/v1/catalogs/EU/164230/variants",
+      "characteristics": "/api/v1/catalogs/EU/164230/characteristics",
+      "frames": "/api/v1/catalogs/EU/164230/frames",
+      "group_members": "/api/v1/catalogs/EU/164230/group-members",
+      "notes": "/api/v1/catalogs/EU/164230/notes",
+      "new_parts": "/api/v1/catalogs/EU/164230/new-parts",
+      "specs": "/api/v1/catalogs/EU/164230/specs"
+    },
+    "part_line_count": 66546,
+    "model_period": "714W"
+  }
+}

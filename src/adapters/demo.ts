@@ -15,6 +15,7 @@ export function createDemoAdapter(
     branches: initial.branches ?? defaults.branches,
     users: initial.users ?? defaults.users,
     roles: initial.roles ?? defaults.roles,
+    enquiries: initial.enquiries ?? defaults.enquiries,
   });
   const listeners = new Set<() => void>();
   const stock = (s: State): Stock[] =>
@@ -692,6 +693,86 @@ export function createDemoAdapter(
             "Enter a company name and tax between 0 and 100. Demo currency is AED.",
           );
           s.settings = settings;
+        }),
+    },
+    enquiries: {
+      list: () => state.enquiries,
+      current: () =>
+        state.enquiries.find((e) => e.status === "Draft") ?? {
+          id: "",
+          reference: "",
+          status: "Draft",
+          items: [],
+          contactName: "",
+          contactEmail: "",
+          contactPhone: "",
+          vin: "",
+          notes: "",
+          createdAt: "",
+        },
+      addItem: (item) =>
+        commit("Enquiry item added", item.oemNumber, (s) => {
+          requireThat(
+            item.oemNumber.trim() && item.partName.trim(),
+            "An OEM/reference number and part name are required.",
+          );
+          requireThat(
+            Number.isInteger(item.quantity) && item.quantity > 0,
+            "Quantity must be a positive whole number.",
+          );
+          let draft = s.enquiries.find((e) => e.status === "Draft");
+          if (!draft) {
+            draft = {
+              id: uid(),
+              reference: `ENQ-${new Date().getFullYear()}-${String(s.enquiries.length + 1).padStart(4, "0")}`,
+              status: "Draft",
+              items: [],
+              contactName: "",
+              contactEmail: "",
+              contactPhone: "",
+              vin: "",
+              notes: "",
+              createdAt: new Date().toISOString(),
+            };
+            s.enquiries.unshift(draft);
+          }
+          if (
+            !draft.items.some(
+              (i) =>
+                i.oemNumber === item.oemNumber &&
+                i.providerKey === item.providerKey,
+            )
+          )
+            draft.items.push({
+              id: uid(),
+              addedAt: new Date().toISOString(),
+              ...item,
+            });
+        }),
+      removeItem: (itemId) =>
+        commit("Enquiry item removed", itemId, (s) => {
+          const draft = s.enquiries.find((e) => e.status === "Draft");
+          requireThat(draft, "No draft enquiry to remove from.");
+          draft!.items = draft!.items.filter((i) => i.id !== itemId);
+        }),
+      submit: (contact) =>
+        commit("Enquiry submitted", contact.email, (s) => {
+          const draft = s.enquiries.find((e) => e.status === "Draft");
+          requireThat(
+            draft && draft.items.length,
+            "Add at least one part before submitting.",
+          );
+          requireThat(
+            contact.name.trim() && /.+@.+\..+/.test(contact.email),
+            "A name and valid email are required.",
+          );
+          draft!.status = "Submitted";
+          draft!.submittedAt = new Date().toISOString();
+          draft!.contactName = contact.name;
+          draft!.contactEmail = contact.email;
+          draft!.contactPhone = contact.phone;
+          draft!.vin = contact.vin;
+          draft!.notes = contact.notes;
         }),
     },
   };

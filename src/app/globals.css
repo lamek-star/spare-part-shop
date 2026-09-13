@@ -1487,3 +1487,134 @@ td > button.diagram-hotspot-row.primary {
 .selected-table-row td:first-child {
   box-shadow: inset 3px 0 var(--teal);
 }
+.provider-governance {
+  display: grid;
+  gap: 16px;
+}
+.provider-card {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 16px 18px;
+  background: #fff;
+}
+.provider-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.provider-card-head h4 {
+  margin: 0;
+}
+.provider-card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+  margin: 0 0 12px;
+}
+.provider-card dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.provider-card dd {
+  margin: 0;
+  font-size: 13px;
+}
+.provider-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+}
+.provider-capabilities li.yes {
+  color: var(--teal);
+}
+.provider-capabilities li.no {
+  color: var(--muted);
+}
+.exploded-viewer {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px 16px;
+  background: #fff;
+}
+.exploded-wireframe {
+  background: repeating-linear-gradient(
+    45deg,
+    #fafafa,
+    #fafafa 10px,
+    #f3f3f3 10px,
+    #f3f3f3 20px
+  );
+}
+.diagram-hotspot-rect {
+  border-radius: 4px !important;
+  min-width: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  background: rgba(15, 133, 122, 0.08) !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  font-size: 10px !important;
+  line-height: 1;
+}
+.diagram-hotspot-rect[aria-disabled="true"] {
+  border-style: dashed;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+.epc-disabled-panel {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 20px 22px;
+  background: #fbfbfb;
+}
+.epc-disabled-panel h3 {
+  margin-top: 0;
+}
+.epc-vehicle-tree {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
+}
+.epc-vehicle-tree-nav {
+  border-right: 1px solid var(--line);
+  padding-right: 16px;
+}
+.epc-vehicle-tree-nav button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.epc-vehicle-tree-nav button.selected {
+  background: #eff7f5;
+  color: var(--teal);
+  font-weight: 600;
+}
+.epc-breadcrumb {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.epc-enquiry-badge {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+}
+@media (max-width: 900px) {
+  .epc-vehicle-tree {
+    grid-template-columns: 1fr;
+  }
+  .epc-vehicle-tree-nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding-right: 0;
+    padding-bottom: 12px;
+  }
+}

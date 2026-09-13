@@ -560,3 +560,52 @@ test("sales persona remains outside import administration after reload", async (
     page.getByRole("heading", { name: "Permission denied", exact: true }),
   ).toBeVisible();
 });
+
+test("Toyota EPC is disabled by default, makes no live data visible, and the admin governance panel is truthful", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Enter demo workspace" }).click();
+  await page.getByRole("button", { name: "Toyota EPC", exact: true }).click();
+  // Production default: TOYOTA_EPC_ENABLED is unset, so the page must show
+  // a clean disabled state — never a crash, a raw error, or fabricated data.
+  await expect(page.getByText("DISABLED", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("unverified redistribution permission required"),
+  ).toBeVisible();
+  await expect(page.getByText("Adapter status:")).toContainText("Ready");
+  await expect(
+    page.getByRole("link", { name: "Source terms" }),
+  ).toHaveAttribute("href", "https://toyota-epc.aftermarketcatalog.com/legal");
+  // No vehicle picker, search box or VIN box should render while disabled —
+  // there is nothing legitimate to search or browse yet.
+  await expect(page.getByPlaceholder("Search models…")).toHaveCount(0);
+  await expect(page.getByPlaceholder("e.g. JTDKB20U903100000")).toHaveCount(0);
+  // The admin governance panel must independently confirm the same
+  // disabled/no-redistribution posture, server-enforced, not just this
+  // page's own copy.
+  await page
+    .getByRole("button", { name: "Catalogue Administration", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Catalogue Providers", exact: true })
+    .click();
+  const toyotaCard = page
+    .locator(".provider-card")
+    .filter({ hasText: "Toyota parts catalogue" });
+  await expect(
+    toyotaCard.locator(".badge", { hasText: "DISABLED" }),
+  ).toBeVisible();
+  await expect(toyotaCard).toContainText(
+    "UNVERIFIED_REDISTRIBUTION_PERMISSION_REQUIRED",
+  );
+  await expect(
+    toyotaCard.locator("li", { hasText: "Bulk sync" }),
+  ).toContainText("✗");
+  await expect(
+    toyotaCard.locator("li", { hasText: "Persistent storage" }),
+  ).toContainText("✗");
+  await expect(
+    toyotaCard.locator("li", { hasText: "VIN lookup" }),
+  ).toContainText("✓");
+});

@@ -13,6 +13,8 @@ import {
   DemoUser,
   Role,
   Warehouse,
+  Enquiry,
+  EnquiryItem,
 } from "../domain/models";
 export type CommandResult = void | Promise<void>;
 export interface Services {
@@ -83,5 +85,24 @@ export interface Services {
     saveRole(role: Role): CommandResult;
     saveWarehouse(warehouse: Warehouse): CommandResult;
     saveSettings(settings: Settings): CommandResult;
+  };
+  /** Reference/enquiry "quote request" cart — deliberately separate from
+   * `purchasing`/`sales`, since an enquiry is a request for a quote on
+   * parts (typically from an EPC provider with no price data), not yet a
+   * priced order against stock. See domain/models.ts `Enquiry`. */
+  enquiries: {
+    list(): Enquiry[];
+    /** The current draft enquiry (the "cart"). Never throws — returns an
+     * empty, unsaved placeholder when nothing has been added yet. */
+    current(): Enquiry;
+    addItem(item: Omit<EnquiryItem, "id" | "addedAt">): CommandResult;
+    removeItem(itemId: string): CommandResult;
+    submit(contact: {
+      name: string;
+      email: string;
+      phone: string;
+      vin: string;
+      notes: string;
+    }): CommandResult;
   };
 }

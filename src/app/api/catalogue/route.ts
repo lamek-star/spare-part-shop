@@ -3,7 +3,38 @@ import {
   ColumnMapping,
   ImageRights,
   Verification,
+  isCatalogueAdmin,
 } from "../../../catalogue/models";
+import { providerPolicies, policyFor } from "../../../catalogue/providerPolicy";
+import { toyotaEpcProvider } from "../../../integrations/catalogues/toyota-epc";
+import { toyotaEpcEnabled } from "../../../integrations/catalogues/toyota-epc/config";
+/**
+ * Every `toyota-*` action below runs through `toyotaEpcProvider`, which
+ * refuses before any network call unless TOYOTA_EPC_ENABLED=true (see
+ * providerPolicy.ts and the Toyota provider's own doc comment). A refusal
+ * is reported as `{ disabled: true, reason, capabilities, license }` with
+ * a normal 200 status rather than an error, so the frontend can render a
+ * clean "disabled" panel instead of a generic failure banner — this is
+ * the expected production response, not an outage.
+ */
+async function toyotaAction<T>(run: () => Promise<T>) {
+  try {
+    return await run();
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Toyota EPC request failed.";
+    if (/disabled/i.test(message)) {
+      const policy = policyFor("toyota-epc");
+      return {
+        disabled: true,
+        reason: message,
+        capabilities: policy.capabilities,
+        license: policy.license,
+      };
+    }
+    throw e;
+  }
+}
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function failure(e: unknown) {
@@ -54,6 +85,76 @@ export async function GET(request: Request) {
         break;
       case "batch":
         data = r.batch(q.get("id") ?? "", role, Number(q.get("page") ?? 1));
+        break;
+      case "providers":
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue provider governance requires Owner or Administrator.",
+          );
+        data = Object.values(providerPolicies).map((p) => ({
+          ...p,
+          liveConnectivity: "not checked" as const,
+        }));
+        break;
+      case "toyota-models":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.getModels(q.get("region") || "EU"),
+        );
+        break;
+      case "toyota-model":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.getModel(
+            q.get("region") || "EU",
+            q.get("slug") ?? "",
+          ),
+        );
+        break;
+      case "toyota-sections":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.getSections(
+            q.get("region") || "EU",
+            q.get("catalog") ?? "",
+          ),
+        );
+        break;
+      case "toyota-diagram":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.getDiagram(
+            `${q.get("region") || "EU"}/${q.get("catalog") ?? ""}/${q.get("figure") ?? ""}`,
+          ),
+        );
+        break;
+      case "toyota-part":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.getPart(q.get("number") ?? ""),
+        );
+        break;
+      case "toyota-search":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.search(
+            q.get("q") ?? "",
+            q.get("region") || undefined,
+          ),
+        );
+        break;
+      case "toyota-vin":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.lookupVin(q.get("vin") ?? ""),
+        );
+        break;
+      case "toyota-history":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.getSupersessions(
+            q.get("number") ?? "",
+            q.get("region") || "EU",
+          ),
+        );
+        break;
+      case "toyota-status":
+        data = {
+          enabled: toyotaEpcEnabled(),
+          ...policyFor("toyota-epc"),
+        };
         break;
       default:
         throw new Error("Unknown catalogue query.");

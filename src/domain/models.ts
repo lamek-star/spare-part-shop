@@ -222,6 +222,39 @@ export interface Role {
   name: string;
   permissions: string[];
 }
+/**
+ * A spare-parts enquiry line: a reference part a user wants to ask about,
+ * carrying just enough to identify it and where it came from. Deliberately
+ * has no price/cost fields — enquiries exist precisely because the
+ * catalogue this line came from (e.g. an EPC provider) may not carry
+ * prices at all, or carries them for reference only (see
+ * docs/SPARE_PARTS_CATALOG_ARCHITECTURE.md, "No prices from EPC
+ * providers"). Pricing happens later, in the normal sales workflow, once
+ * a quote is prepared.
+ */
+export interface EnquiryItem {
+  id: string;
+  oemNumber: string;
+  partName: string;
+  vehicleDescription: string;
+  quantity: number;
+  providerKey: string;
+  sourceUrl: string;
+  addedAt: string;
+}
+export interface Enquiry {
+  id: string;
+  reference: string;
+  status: "Draft" | "Submitted";
+  items: EnquiryItem[];
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  vin: string;
+  notes: string;
+  createdAt: string;
+  submittedAt?: string;
+}
 export interface State {
   version: 1;
   parts: Part[];
@@ -238,6 +271,7 @@ export interface State {
   branches: Branch[];
   users: DemoUser[];
   roles: Role[];
+  enquiries: Enquiry[];
 }
 export const normalizeNumber = (value: string) =>
   value.toUpperCase().replace(/[\s-]/g, "");

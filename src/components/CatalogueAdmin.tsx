@@ -10,10 +10,12 @@ import {
   Page,
   ReferenceHit,
 } from "../catalogue/models";
+import { ProviderPolicy } from "../catalogue/providerPolicy";
 import { parseCsv } from "../catalogue/providers";
 import { Field, Table, Badge } from "./ui";
 const tabs = [
   "Catalogue Sources",
+  "Catalogue Providers",
   "Import Batches",
   "Staged Records",
   "Import Errors",
@@ -22,10 +24,24 @@ const tabs = [
   "Image Rights",
   "Catalogue Statistics",
 ];
+const capabilityLabels: [keyof ProviderPolicy["capabilities"], string][] = [
+  ["supportsVehicleLookup", "Vehicle lookup"],
+  ["supportsVinLookup", "VIN lookup"],
+  ["supportsDiagrams", "Diagrams"],
+  ["supportsHotspots", "Hotspots"],
+  ["supportsOemNumbers", "OEM numbers"],
+  ["supportsFitment", "Fitment"],
+  ["supportsSupersessions", "Supersessions"],
+  ["supportsSpecifications", "Specifications"],
+  ["supportsImages", "Images"],
+  ["supportsBulkSync", "Bulk sync"],
+  ["supportsPersistentStorage", "Persistent storage"],
+];
 export default function CatalogueAdmin({ role }: { role: string }) {
   const client = useMemo(() => new CatalogueClient(role), [role]);
   const [tab, setTab] = useState(tabs[0]);
   const [overview, setOverview] = useState<AdminOverview>();
+  const [providers, setProviders] = useState<ProviderPolicy[]>();
   const [batch, setBatch] = useState<BatchView>();
   const [csv, setCsv] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
@@ -46,6 +62,10 @@ export default function CatalogueAdmin({ role }: { role: string }) {
       client
         .admin()
         .then(setOverview)
+        .catch((e) => setError(e.message));
+      client
+        .providers()
+        .then(setProviders)
         .catch((e) => setError(e.message));
     }
   }, [client, role]);
@@ -121,6 +141,82 @@ export default function CatalogueAdmin({ role }: { role: string }) {
             </>,
           ])}
         />
+      ) : tab === "Catalogue Providers" ? (
+        <div className="provider-governance">
+          <p className="muted">
+            Governance policy for every catalogue provider this application
+            knows about — what it is technically capable of versus what it is
+            actually permitted to do with the data. Enforced server-side
+            (src/catalogue/providerPolicy.ts), independent of any UI toggle
+            here.
+          </p>
+          {(providers ?? []).map((p) => (
+            <div className="provider-card" key={p.license.providerKey}>
+              <div className="provider-card-head">
+                <div>
+                  <h4>{p.license.providerName}</h4>
+                  <small>
+                    {p.license.providerKey} · {p.license.providerType}
+                  </small>
+                </div>
+                <Badge>{p.license.enabled ? "ENABLED" : "DISABLED"}</Badge>
+              </div>
+              <dl>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{p.license.licenseStatus}</dd>
+                </div>
+                <div>
+                  <dt>Reason</dt>
+                  <dd>{p.license.notes || "—"}</dd>
+                </div>
+                <div>
+                  <dt>Redistribution allowed</dt>
+                  <dd>{String(p.license.redistributionAllowed)}</dd>
+                </div>
+                <div>
+                  <dt>Persistent storage allowed</dt>
+                  <dd>{String(p.license.persistentStorageAllowed)}</dd>
+                </div>
+                <div>
+                  <dt>Image storage allowed</dt>
+                  <dd>{String(p.license.imageStorageAllowed)}</dd>
+                </div>
+                <div>
+                  <dt>Bulk sync allowed</dt>
+                  <dd>{String(p.license.bulkSyncAllowed)}</dd>
+                </div>
+                <div>
+                  <dt>Attribution required</dt>
+                  <dd>{String(p.license.attributionRequired)}</dd>
+                </div>
+                <div>
+                  <dt>License reference</dt>
+                  <dd>
+                    {p.license.termsUrl ? (
+                      <a
+                        href={p.license.termsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {p.license.licenseReference}
+                      </a>
+                    ) : (
+                      p.license.licenseReference || "—"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              <ul className="provider-capabilities">
+                {capabilityLabels.map(([key, label]) => (
+                  <li key={key} className={p.capabilities[key] ? "yes" : "no"}>
+                    {p.capabilities[key] ? "✓" : "✗"} {label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       ) : tab === "Catalogue Statistics" ? (
         <div className="metrics">
           {Object.entries(overview?.statistics ?? {}).map(([k, v]) => (
