@@ -17,6 +17,27 @@ import {
 } from "./models";
 import { referenceSeed } from "./seed";
 import { parseCsv, mapRecord } from "./providers";
+import {
+  assertBulkSyncAllowed,
+  assertPersistentStorageAllowed,
+} from "./providerPolicy";
+export interface CatalogueImportBundle {
+  makes?: ReferenceState["makes"];
+  models?: ReferenceState["models"];
+  variants?: ReferenceState["variants"];
+  catalogues?: ReferenceState["catalogues"];
+  categories?: ReferenceState["categories"];
+  diagrams?: ReferenceState["diagrams"];
+  callouts?: ReferenceState["callouts"];
+  parts?: ReferenceState["parts"];
+  numbers?: ReferenceState["numbers"];
+  fitments?: ReferenceState["fitments"];
+  crossReferences?: ReferenceState["crossReferences"];
+}
+export interface CatalogueImportResult {
+  created: Record<string, number>;
+  updated: Record<string, number>;
+}
 const id = (...values: unknown[]) =>
   createHash("sha256")
     .update(JSON.stringify(values))
@@ -786,5 +807,68 @@ export class ReferenceRepository {
         },
       });
     });
+  }
+  /**
+   * The one path through which an external catalogue provider's already-
+   * mapped records (see e.g. src/integrations/catalogues/toyota-epc/mapper.ts)
+   * become part of this application's own persistent reference catalogue.
+   *
+   * Refuses before touching state unless the provider's registered policy
+   * (src/catalogue/providerPolicy.ts) explicitly permits both persistent
+   * storage and bulk sync — independent of any caller-side check, so this
+   * method is safe to call even if a future admin action or scheduled job
+   * skips its own guard.
+   *
+   * Idempotent by construction, not by a separate dedup pass: every
+   * record's id is a deterministic function of its own source identity
+   * (a hash, or — for Toyota — the literal slug/region-code/section-code;
+   * see docs/SPARE_PARTS_CATALOG_ARCHITECTURE.md, "Id formats"), so
+   * importing the same bundle twice just upserts the same rows in place —
+   * running the import again never creates a duplicate OEM master record,
+   * duplicate fitment, or duplicate diagram callout.
+   */
+  importCatalogueRecords(
+    bundle: CatalogueImportBundle,
+    providerKey: string,
+  ): CatalogueImportResult {
+    assertBulkSyncAllowed(providerKey);
+    assertPersistentStorageAllowed(providerKey);
+    const result: CatalogueImportResult = { created: {}, updated: {} };
+    const upsert = <T extends { id: string }>(
+      existing: T[],
+      incoming: T[] | undefined,
+      label: string,
+    ): T[] => {
+      if (!incoming?.length) return existing;
+      const byId = new Map(existing.map((row) => [row.id, row]));
+      let created = 0,
+        updated = 0;
+      for (const row of incoming) {
+        if (byId.has(row.id)) updated++;
+        else created++;
+        byId.set(row.id, row);
+      }
+      result.created[label] = (result.created[label] ?? 0) + created;
+      result.updated[label] = (result.updated[label] ?? 0) + updated;
+      return [...byId.values()];
+    };
+    this.commit((s) => {
+      s.makes = upsert(s.makes, bundle.makes, "makes");
+      s.models = upsert(s.models, bundle.models, "models");
+      s.variants = upsert(s.variants, bundle.variants, "variants");
+      s.catalogues = upsert(s.catalogues, bundle.catalogues, "catalogues");
+      s.categories = upsert(s.categories, bundle.categories, "categories");
+      s.diagrams = upsert(s.diagrams, bundle.diagrams, "diagrams");
+      s.callouts = upsert(s.callouts, bundle.callouts, "callouts");
+      s.parts = upsert(s.parts, bundle.parts, "parts");
+      s.numbers = upsert(s.numbers, bundle.numbers, "numbers");
+      s.fitments = upsert(s.fitments, bundle.fitments, "fitments");
+      s.crossReferences = upsert(
+        s.crossReferences,
+        bundle.crossReferences,
+        "crossReferences",
+      );
+    });
+    return result;
   }
 }

@@ -83,8 +83,8 @@ test("the local reference and demo providers keep the access they already had", 
   assert.doesNotThrow(() => assertBulkSyncAllowed("company-csv"));
   assert.doesNotThrow(() => assertPersistentStorageAllowed("local-reference"));
 });
-test("the sync entry point refuses Toyota regardless of scope, server-side, not just in an admin UI", () => {
-  const result = syncCatalogueRecord({
+test("the sync entry point refuses Toyota regardless of scope, server-side, not just in an admin UI", async () => {
+  const result = await syncCatalogueRecord({
     providerKey: "toyota-epc",
     scope: "vehicle",
     target: "EU/164230",
