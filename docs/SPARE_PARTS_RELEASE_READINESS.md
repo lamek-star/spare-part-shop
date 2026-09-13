@@ -1,14 +1,62 @@
 # Spare parts release readiness
 
 Snapshot as of 2026-09-13, branch `codex/spareparts-reference`. Tracks
-completion against four milestones in sequence: the standalone-application
+completion against five milestones in sequence: the standalone-application
 build-out, the Nengun catalogue-source analysis and import-preparation
-milestone, the EPC part-number-linked diagram rebuild, and the Toyota EPC
-provider integration that followed it (see
+milestone, the EPC part-number-linked diagram rebuild, the Toyota EPC
+provider integration that followed it, and the merge of that provider into
+one catalogue that followed _that_ (see
 [SPARE_PARTS_CATALOG_ARCHITECTURE.md](SPARE_PARTS_CATALOG_ARCHITECTURE.md)
-for the full detail on the fourth). It supersedes the narrower
+for the full detail on both). It supersedes the narrower
 [READINESS.md](READINESS.md) for scope tracking; READINESS.md remains as
 the original validation record.
+
+## Fifth milestone: one merged catalogue (2026-09-13)
+
+- Replaced the separate "Toyota EPC" nav item/page with a single
+  "Reference Catalogue" page that blends both sources — no visible
+  source-based UI split. `src/components/ToyotaEpc.tsx` was deleted; its
+  capabilities (VIN lookup, Add to Enquiry/Request Quote/Copy OEM Number
+  actions) moved into `ReferenceCatalogue.tsx`, gated on
+  `provenance.sourceProvider` per record rather than on which page you're
+  on.
+- Added `src/catalogue/unifiedClient.ts` (`UnifiedCatalogueClient`): the
+  frontend's only catalogue client now, queries local and Toyota in
+  parallel and merges the result — makes deduplicated by name, everything
+  else concatenated (ids never collide across sources by construction).
+  Every merge path degrades to "local only" on a disabled provider or a
+  failed request, never an error. 9 new unit tests
+  (`tests/unified-client.test.ts`) cover this against a stubbed `fetch`.
+- Added two API actions (`toyota-browse`, `toyota-search-parts`) exposing
+  `ToyotaEpcProvider` methods that already existed server-side but weren't
+  reachable from the client yet.
+- `ExplodedDiagramViewer` became fully controlled (`zoom`/`fullscreen` as
+  props, no internal toolbar) so `ReferenceCatalogue.tsx` could adopt it
+  for both local and Toyota diagrams under one toolbar, replacing its own
+  hand-rolled hotspot markup. All pre-existing diagram e2e assertions
+  (zoom %, "Fit"/"Fullscreen" labels, hotspot `aria-pressed`, row sync)
+  pass unchanged against the shared component.
+- **Found and fixed three real bugs that only surfaced once the merge was
+  actually exercised live** (documented in the architecture doc's "The
+  merge" section): `VehicleModel.id`/`VehicleVariant.id`/`Category.id`
+  were hashes when `ToyotaEpcProvider.browse()` needed them to be the
+  literal slug/`"region/code"`/section-code strings it round-trips through
+  `filters.model`/`filters.variant`/`filters.category` — silently breaking
+  the merged vehicle picker for Toyota entries; `browse()` never populated
+  `models` until a model was already chosen, leaving the Model dropdown
+  empty right after picking "Toyota" as the make; and two real API rows
+  sharing a `(part_number, suffix)` under a heavily-superseded PNC produced
+  a React duplicate-key error. All three are now covered by regression
+  tests, not just fixed ad hoc.
+- Manually verified live (`TOYOTA_EPC_ENABLED=true`) end to end through the
+  single merged page: Make "Toyota" (one deduplicated entry) → Model
+  "COROLLA" (beside the local demo's own "Corolla" in the same dropdown) →
+  a real variant → "CYLINDER HEAD" → a real 47-hotspot diagram → a callout
+  with "22 variants available" → Copy OEM Number / Add to Enquiry / Add to
+  My Products all present together → submitted enquiry. Then re-verified
+  the disabled default degrades cleanly — **78/78** unit tests pass
+  (49 pre-existing + 12 mapper + 8 provider/policy + 9 merge), **12/12**
+  e2e, clean build/typecheck/format throughout.
 
 ## Fourth milestone: Toyota EPC provider (2026-09-13)
 

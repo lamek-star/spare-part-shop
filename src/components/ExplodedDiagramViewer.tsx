@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 export interface DiagramHotspot {
   id: string;
   label: string;
@@ -11,13 +11,16 @@ export interface DiagramHotspot {
   yPercent?: number;
 }
 /**
- * A professional exploded-diagram viewer: zoom in/out/reset, drag-to-pan
- * once zoomed, fullscreen, loading/error states, and clickable hotspots —
- * either percentage-positioned (original demo artwork) or pixel-rect
- * positioned (a provider's native coordinates, e.g. Toyota EPC).
+ * The exploded-diagram viewing surface: drag-to-pan once zoomed, clickable
+ * hotspots (either percentage-positioned, from original demo artwork, or
+ * pixel-rect positioned, from a live provider's native coordinates), and
+ * loading/error states. Fully controlled — `zoom` and `fullscreen` are
+ * owned by the caller's own toolbar (matching this app's existing
+ * item-image viewer convention), so this component is just the surface,
+ * not the chrome around it.
  *
- * When `imageUrl` is empty but `hotspots` carry pixel rects, the viewer
- * still renders a wireframe of the real hotspot geometry — sized to the
+ * When `imageUrl` is empty but `hotspots` carry pixel rects, it still
+ * renders a wireframe of the real hotspot geometry — sized to the
  * hotspots' own bounding box — without the underlying illustration. That
  * happens deliberately whenever a provider's image isn't licensed for
  * display (see `unavailableReason`); it proves the coordinate mapping is
@@ -33,6 +36,7 @@ export default function ExplodedDiagramViewer({
   loading,
   error,
   unavailableReason,
+  zoom,
 }: {
   title: string;
   imageUrl?: string;
@@ -43,9 +47,8 @@ export default function ExplodedDiagramViewer({
   loading?: boolean;
   error?: string;
   unavailableReason?: string;
+  zoom: number;
 }) {
-  const [zoom, setZoom] = useState(1);
-  const [fullscreen, setFullscreen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<{
     x: number;
@@ -101,95 +104,72 @@ export default function ExplodedDiagramViewer({
     dragging.current = null;
   };
   const hasVisual = Boolean(imageUrl) || Boolean(bbox);
+  if (loading)
+    return (
+      <p role="status" className="empty">
+        Loading diagram…
+      </p>
+    );
+  if (error)
+    return (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    );
+  if (!hasVisual)
+    return <p className="empty">No diagram available for this selection.</p>;
   return (
-    <div className={`exploded-viewer${fullscreen ? " epc-fullscreen" : ""}`}>
-      <div className="panel-head">
-        <h3>{title}</h3>
-        <div className="actions">
-          <button onClick={() => setZoom((z) => Math.max(1, z - 0.5))}>
-            Zoom out
-          </button>
-          <span>{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom((z) => Math.min(3, z + 0.5))}>
-            Zoom in
-          </button>
-          <button onClick={() => setZoom(1)}>Reset zoom</button>
-          <button
-            aria-pressed={fullscreen}
-            onClick={() => setFullscreen(!fullscreen)}
-          >
-            {fullscreen ? "Exit fullscreen" : "Fullscreen"}
-          </button>
+    <>
+      {unavailableReason && !imageUrl && (
+        <p className="notice">{unavailableReason}</p>
+      )}
+      <div
+        className="exploded-scroll"
+        ref={scrollRef}
+        onMouseDown={startDrag}
+        onMouseMove={onDrag}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
+        style={{ cursor: zoom > 1 ? "grab" : "default" }}
+      >
+        <div
+          className={
+            imageUrl ? "exploded-image" : "exploded-image exploded-wireframe"
+          }
+          style={{
+            width: zoom * 100 + "%",
+            aspectRatio: bbox ? `${bbox.width} / ${bbox.height}` : undefined,
+          }}
+        >
+          {imageUrl && <img src={imageUrl} alt={imageAlt ?? title} />}
+          {positioned.map((h) => (
+            <button
+              key={h.id}
+              aria-label={`Callout ${h.label}`}
+              aria-pressed={selectedId === h.id}
+              aria-disabled={h.resolved === false}
+              className={
+                "diagram-hotspot" +
+                (h.w !== undefined ? " diagram-hotspot-rect" : "")
+              }
+              style={
+                h.w !== undefined
+                  ? {
+                      left: h.cx + "%",
+                      top: h.cy + "%",
+                      width: h.w + "%",
+                      height: h.ht + "%",
+                      borderRadius: 4,
+                    }
+                  : { left: h.cx + "%", top: h.cy + "%" }
+              }
+              onClick={() => onSelect(h.id)}
+            >
+              {h.label}
+            </button>
+          ))}
         </div>
       </div>
-      {loading ? (
-        <p role="status" className="empty">
-          Loading diagram…
-        </p>
-      ) : error ? (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      ) : !hasVisual ? (
-        <p className="empty">No diagram available for this selection.</p>
-      ) : (
-        <>
-          {unavailableReason && !imageUrl && (
-            <p className="notice">{unavailableReason}</p>
-          )}
-          <div
-            className="exploded-scroll"
-            ref={scrollRef}
-            onMouseDown={startDrag}
-            onMouseMove={onDrag}
-            onMouseUp={endDrag}
-            onMouseLeave={endDrag}
-            style={{ cursor: zoom > 1 ? "grab" : "default" }}
-          >
-            <div
-              className={
-                imageUrl
-                  ? "exploded-image"
-                  : "exploded-image exploded-wireframe"
-              }
-              style={{
-                width: zoom * 100 + "%",
-                aspectRatio: bbox
-                  ? `${bbox.width} / ${bbox.height}`
-                  : undefined,
-              }}
-            >
-              {imageUrl && <img src={imageUrl} alt={imageAlt ?? title} />}
-              {positioned.map((h) => (
-                <button
-                  key={h.id}
-                  aria-label={`Callout ${h.label}`}
-                  aria-pressed={selectedId === h.id}
-                  aria-disabled={h.resolved === false}
-                  className={
-                    "diagram-hotspot" +
-                    (h.w !== undefined ? " diagram-hotspot-rect" : "")
-                  }
-                  style={
-                    h.w !== undefined
-                      ? {
-                          left: h.cx + "%",
-                          top: h.cy + "%",
-                          width: h.w + "%",
-                          height: h.ht + "%",
-                          borderRadius: 4,
-                        }
-                      : { left: h.cx + "%", top: h.cy + "%" }
-                  }
-                  onClick={() => onSelect(h.id)}
-                >
-                  {h.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }

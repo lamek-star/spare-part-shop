@@ -96,6 +96,19 @@ export async function GET(request: Request) {
           liveConnectivity: "not checked" as const,
         }));
         break;
+      case "toyota-browse":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.browse(Object.fromEntries(q)),
+        );
+        break;
+      case "toyota-search-parts":
+        data = await toyotaAction(() =>
+          toyotaEpcProvider.searchParts(
+            q.get("q") ?? "",
+            Number(q.get("page") ?? 1),
+          ),
+        );
+        break;
       case "toyota-models":
         data = await toyotaAction(() =>
           toyotaEpcProvider.getModels(q.get("region") || "EU"),

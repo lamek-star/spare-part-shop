@@ -69,7 +69,13 @@ export function mapToyotaModel(model: ToyotaModel): {
   return {
     make,
     model: {
-      id: hashId("toyota-epc-model", model.region, model.slug),
+      // Deliberately the bare slug, not a hash: `ToyotaEpcProvider.browse()`
+      // resolves `filters.model` straight into `getModel(region, slug)`, so
+      // this id must equal that slug exactly for the merged vehicle picker's
+      // <select value={model.id}> to round-trip correctly. Safe while the
+      // app only ever uses one region (EU, hardcoded) — see the "single
+      // region" note in SPARE_PARTS_CATALOG_ARCHITECTURE.md.
+      id: model.slug,
       makeId: make.id,
       name: model.name,
       provenance: provenanceFor(
@@ -84,7 +90,10 @@ export function catalogVariantId(catalog: {
   region: string;
   catalog_code: string;
 }): string {
-  return hashId("toyota-epc-variant", catalog.region, catalog.catalog_code);
+  // "region/catalog_code", not a hash: ToyotaEpcProvider.browse() matches
+  // filters.variant against exactly this string when resolving which
+  // catalogue was picked — see the note on mapToyotaModel's id above.
+  return `${catalog.region}/${catalog.catalog_code}`;
 }
 export function mapToyotaCatalogToVariant(
   catalog: ToyotaCatalog | ToyotaCatalogSummary,
@@ -185,7 +194,14 @@ export function mapToyotaSection(
   catalogueId: string,
 ): Category {
   return {
-    id: hashId("toyota-epc-category", catalogueId, section.section_code),
+    // The bare section code, not a hash — see the id-format note on
+    // mapToyotaModel above: ToyotaEpcProvider.browse() compares
+    // filters.category against section.section_code directly, so this id
+    // must equal that code exactly for the category <select> to round-trip.
+    // Categories are only ever compared within one browse() response
+    // (rebuilt fresh per catalogue), so reusing a code across unrelated
+    // catalogues (e.g. "1104" in many different vehicles) is safe.
+    id: section.section_code,
     catalogueId,
     name: section.name,
     provenance: provenanceFor(section.section_code, "", catalogueId),
@@ -305,7 +321,12 @@ export function mapToyotaFigure(
         figure.catalog.catalog_code,
       );
       numbers.push({
-        id: hashId("toyota-epc-number", partId, p.part_number, p.suffix ?? ""),
+        // Keyed by the source's own row id (p.part_id), not just
+        // part_number+suffix: the same number can legitimately recur
+        // across multiple fitment-differentiated rows under one PNC (seen
+        // live on a real cylinder-head PNC with 22 rows) — using only the
+        // number would collide two distinct rows onto one React key.
+        id: hashId("toyota-epc-number", partId, p.part_id),
         partId,
         original: p.part_number_display,
         normalized: normalizeNumber(p.part_number),

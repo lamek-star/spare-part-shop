@@ -4,7 +4,9 @@ Snapshot as of 2026-09-13, branch `codex/spareparts-reference`. Covers the
 Toyota EPC integration added on top of the existing reference-catalogue
 feature (see [catalogues/FOUNDATION.md](catalogues/FOUNDATION.md) for the
 callout/OEM-number data model that predates this work and is reused,
-unmodified, throughout).
+unmodified, throughout), **and** its subsequent merge into one catalogue —
+there is a single "Reference Catalogue" nav item/page, not a separate
+"Toyota EPC" one; see "The merge" below.
 
 ## Architecture
 
@@ -27,22 +29,107 @@ Internal API (src/app/api/catalogue/route.ts, action=toyota-*)
   error when the provider is off — the frontend renders a clean state,
   not a failure banner
        ↓
-Frontend (src/components/ToyotaEpc.tsx, ExplodedDiagramViewer.tsx)
+UnifiedCatalogueClient (src/catalogue/unifiedClient.ts)
+  queries the local client and the toyota-* actions in parallel and
+  blends the results into one CatalogueProvider-shaped response — see
+  "The merge" below
+       ↓
+Frontend (src/components/ReferenceCatalogue.tsx, ExplodedDiagramViewer.tsx)
+  one page, one nav item — no "which source" UI split
 ```
 
 This sits **beside**, not inside, the existing reference-catalogue stack
 (`src/catalogue/repository.ts`, `ReferenceRepository`, the JSON-file dev
-store in `src/catalogue/server.ts`). The two are intentionally not merged:
-the reference catalogue is this application's own persisted data (original
-demo fixtures, CSV imports); the Toyota provider is a live, read-through
-lookup against a third party that this application does not own and, as of
-this snapshot, has no redistribution rights to persist. `docs/DATA_MODEL.md`
-and `catalogues/FOUNDATION.md` describe the former; this document describes
-the latter and how the two meet at the shared normalized model
-(`src/catalogue/models.ts` — `VehicleMake`, `VehicleModel`, `VehicleVariant`,
-`Catalogue`, `Category`, `CatalogueDiagram`, `DiagramCallout`,
-`CataloguePart`, `ReferenceNumber`, `CrossReference`, `ReferenceFitment`,
-plus the additions below).
+store in `src/catalogue/server.ts`) **at the data-storage level** — the
+reference catalogue is this application's own persisted data (original demo
+fixtures, CSV imports); the Toyota provider is a live, read-through lookup
+against a third party that this application does not own and, as of this
+snapshot, has no redistribution rights to persist. But the two are merged
+at the **presentation and query level**: one page, one vehicle picker, one
+search box, one diagram viewer — `UnifiedCatalogueClient` is what makes
+that possible without either side knowing about the other's storage model.
+`docs/DATA_MODEL.md` and `catalogues/FOUNDATION.md` describe the local
+store; this document describes the Toyota provider and how the two meet at
+the shared normalized model (`src/catalogue/models.ts` — `VehicleMake`,
+`VehicleModel`, `VehicleVariant`, `Catalogue`, `Category`,
+`CatalogueDiagram`, `DiagramCallout`, `CataloguePart`, `ReferenceNumber`,
+`CrossReference`, `ReferenceFitment`, plus the additions below).
+
+## The merge
+
+`src/catalogue/unifiedClient.ts`'s `UnifiedCatalogueClient` is what
+`ReferenceCatalogue.tsx` actually talks to (in place of the plain
+`CatalogueClient` it used before this merge). It implements the same
+`CatalogueProvider` contract, so the page didn't need a second code path —
+just a smarter client underneath:
+
+- **`browse(filters)`** calls the local `browse` and the `toyota-browse`
+  action in parallel. If Toyota is disabled (the production default) or
+  the request fails outright, the Toyota side contributes nothing and the
+  result is exactly the local response — never an error. When Toyota is
+  enabled and responds, the two `BrowseOptions` are merged: **makes** are
+  deduplicated by name (so "Toyota" from the local demo fixture and
+  "Toyota" from the live EPC collapse into one entry, with the live side's
+  models re-pointed at the local make's id — see `mergeBrowse`), while
+  **models/variants/categories/diagrams are concatenated as-is** (their
+  hash- or slug-based ids never collide across sources by construction —
+  see "Id formats" below). This is why picking "Toyota" as a make shows
+  the local demo's "Corolla" sitting in the same dropdown as the live
+  catalogue's ~100 real models, and why a diagram opened from either one
+  renders through the same `ExplodedDiagramViewer`.
+- **`searchParts(query, ...)`** queries the local index and (for a
+  non-empty query) `toyota-search-parts` in parallel, concatenating hits
+  and summing totals. An empty query never reaches Toyota's search at all
+  — there is nothing meaningful to browse via that endpoint, and it avoids
+  a pointless live call on every keystroke-cleared search box.
+- **`getPart(id)`** tries the local lookup first; only on a local
+  not-found does it try `toyota-part`, surfacing the original local error
+  if that also has nothing. Local and Toyota ids cannot collide (a hash vs.
+  a bare OEM part number), so there's no ambiguity about which "won."
+- **`getDiagram(id)`** dispatches purely on id shape: a `/` means
+  `"region/catalog/figure"` (Toyota), anything else is a local hash id.
+- **`lookupVin(vin)`** delegates to Toyota and reports
+  `{ supported: false }` rather than throwing when it's disabled — the VIN
+  box is always shown; it just says there's nothing behind it yet.
+
+Every one of these degrade-to-local-only paths is unit-tested against a
+stubbed `fetch` in `tests/unified-client.test.ts` (9 tests), independent of
+whether Toyota is actually enabled.
+
+### Id formats are a real contract, not an implementation detail
+
+Getting `UnifiedCatalogueClient`'s merge to actually work surfaced three
+latent bugs, all of the same shape: a normalized id needs to be exactly
+what `ToyotaEpcProvider.browse()` expects back in `filters.model` /
+`filters.variant` / `filters.category` for the vehicle picker to round-trip
+at all — a hash that encoded the same information wasn't good enough,
+because `browse()` re-derives a live API path from the filter value rather
+than looking it up:
+
+- `VehicleModel.id` for a Toyota model is the bare **slug** (e.g.
+  `"corolla"`), not a hash — `browse()` calls `getModel(region,
+filters.model)` directly with it.
+- `VehicleVariant.id` (`catalogVariantId`) is the literal
+  **`"region/catalog_code"`** string — `browse()` compares
+  `filters.variant` against exactly that.
+- `Category.id` (`mapToyotaSection`) is the bare **`section_code`** (e.g.
+  `"1104"`) — `browse()` compares `filters.category` against it directly.
+
+All three are covered by an explicit contract test in
+`tests/toyota-epc-mapper.test.ts` ("VehicleModel.id and VehicleVariant.id
+use the exact strings ToyotaEpcProvider.browse() round-trips through..."),
+plus a live-shaped fixture test in `tests/toyota-epc-provider.test.ts`
+proving that selecting a make with no model chosen yet actually lists
+every model (an earlier version of `browse()` only populated `models` once
+a model was already picked — a chicken-and-egg bug that made the merged
+Model dropdown stay empty for Toyota until this was fixed). A fourth,
+unrelated bug in the same area — two real API rows sharing the same
+`(part_number, suffix)` under a heavily-superseded PNC produced the same
+`ReferenceNumber.id`, a React duplicate-key error caught live against the
+real Cylinder Head diagram — is covered in `tests/toyota-epc-mapper.test.ts`
+("two source rows sharing the same part_number+suffix... still get
+distinct number ids"); the fix keys that id off the source's own row id
+(`part_id`) instead.
 
 ### Model additions made for this work (all additive — nothing existing changed shape)
 
@@ -170,23 +257,38 @@ for the page it's on (Reference Catalogue vs. Toyota EPC).
 
 ## Vehicle selection
 
-Make is fixed (Toyota); model is a searchable/filterable list fetched once
-per region (`~100–400` entries, ~26KB — not "millions of rows in a
-dropdown," and filtered client-side as the user types); picking a model
-fetches its catalogues/variants (a handful per model); picking a variant
-fetches its sections (dozens); picking a section fetches one diagram. Nothing
-in this chain loads an unbounded dataset into the browser.
+One cascading Make → Model → Variant → Year/Engine → Category picker
+(`ReferenceCatalogue.tsx`), fed by `UnifiedCatalogueClient.browse()`. Make
+is a short, always-fetched list (the local demo makes plus, once merged,
+Toyota); Model, once "Toyota" is picked, is the full live list for the
+region (~100–400 entries, ~26KB — not "millions of rows in a dropdown")
+sitting in the same `<select>` as the local demo's own "Corolla" entry;
+picking a model fetches its catalogues/variants (a handful per model);
+picking a variant fetches its sections (dozens); picking a category/section
+fetches one diagram. Nothing in this chain loads an unbounded dataset into
+the browser. The Year/Engine filters apply cleanly to local variants (which
+carry real values) but currently have no effect on Toyota-sourced variants
+— `ToyotaEpcProvider.browse()` doesn't filter by them yet, since engine is
+only known per-part (via `fitment` codes), not per-catalogue; see "Known
+limitations."
 
 ## Diagram viewer
 
-`src/components/ExplodedDiagramViewer.tsx` — zoom in/out/reset, fullscreen,
-drag-to-pan once zoomed (native touch-scroll covers mobile), loading/error
-states, and hotspot rendering in either percentage space (the original demo
-diagrams) or pixel-rect space (Toyota). It is a new, separate component
-from the existing `ReferenceCatalogue.tsx` diagram viewer — deliberately
-not refactored into it, to avoid risking regressions in that already-tested
-flow (11 pre-existing e2e assertions) for a feature the two don't actually
-need to share beyond visual style.
+`src/components/ExplodedDiagramViewer.tsx` is the single diagram-rendering
+surface for both sources — `ReferenceCatalogue.tsx`'s diagram panel uses it
+for local demo diagrams and Toyota ones alike. It's a fully controlled,
+"dumb" surface (the caller's own toolbar owns `zoom`/`fullscreen`, matching
+this app's existing item-image-viewer convention): drag-to-pan once
+zoomed, loading/error states, and hotspot rendering in either percentage
+space (the original demo diagrams) or pixel-rect space (Toyota) — both can
+appear in the same diagram's callout list, since `DiagramCallout` carries
+optional fields for each. Originally built as a separate component
+alongside a standalone Toyota EPC page (kept apart deliberately, to avoid
+regressing the already-tested local diagram flow); once the two pages
+merged into one, `ReferenceCatalogue.tsx`'s own hand-rolled hotspot markup
+was replaced with it, and all pre-existing diagram e2e assertions (zoom
+percentage, "Fit"/"Fullscreen" labels, `.diagram-hotspot[aria-pressed]`,
+row/callout sync) still pass unchanged against the shared component.
 
 ## Compatibility
 
@@ -195,8 +297,10 @@ responses) maps to `ReferenceFitment`, one row per catalogue the part is
 recorded against, each with its own production-date range — genuinely
 verified against 2026-09-13 captures showing e.g. a single OEM number
 applicable across Corolla, Auris and Avensis catalogues with different
-year ranges each (see the "Vehicle compatibility" table in
-`ToyotaEpc.tsx`'s part panel).
+year ranges each. It renders in the same "Vehicle Compatibility" tab local
+parts already used — no Toyota-specific UI was needed, since `getPart()`
+returns the same `ReferenceDetail` shape (including the `vehicle` field on
+each fitment) regardless of source.
 
 ## VIN strategy
 
@@ -299,9 +403,9 @@ users**, once written permission or a licensed replacement feed exists:
    it only contains the guard and a placeholder "not implemented" message
    for the case where policy permits sync but no code exists yet) —
    deliberately not written speculatively ahead of that authorization.
-5. No frontend or API-route changes are required — `ToyotaEpc.tsx` and the
-   `toyota-*` API actions already render the real data path once the
-   provider stops reporting `disabled`.
+5. No frontend or API-route changes are required — `ReferenceCatalogue.tsx`
+   (via `UnifiedCatalogueClient`) and the `toyota-*` API actions already
+   render the real data path once the provider stops reporting `disabled`.
 
 ## Security
 
@@ -328,34 +432,53 @@ users**, once written permission or a licensed replacement feed exists:
 
 ## Testing
 
-- **Unit — mapper** (`tests/toyota-epc-mapper.test.ts`, 10 tests): pure
+- **Unit — mapper** (`tests/toyota-epc-mapper.test.ts`, 12 tests): pure
   functions against the real captured fixtures in
   `tests/fixtures/toyota-epc/` — callout/OEM separation, unresolved-hotspot
   handling, supersession-vs-substitute distinction, VIN deduplication,
-  normalization, and the full `CatalogueDiagram → DiagramCallout →
-CataloguePart → PartNumber[]` chain.
-- **Unit — provider/policy** (`tests/toyota-epc-provider.test.ts`, 7 tests):
+  normalization, the full `CatalogueDiagram → DiagramCallout →
+CataloguePart → PartNumber[]` chain, the `Category`/`VehicleModel`/
+  `VehicleVariant` id-format contract `browse()` depends on, and the
+  duplicate-number-id regression (see "Id formats" above).
+- **Unit — provider/policy** (`tests/toyota-epc-provider.test.ts`, 8 tests):
   proves no network call happens while disabled (a throwing `fetch` stub
   makes this airtight, not just "no error was thrown"), that policy guards
   refuse even when `TOYOTA_EPC_ENABLED=true`, that an unregistered provider
-  is denied by default, and that `sync.ts` refuses server-side.
+  is denied by default, that `sync.ts` refuses server-side, and that
+  `browse()` with a make chosen but no model yet lists every model.
+- **Unit — merge** (`tests/unified-client.test.ts`, 9 tests): `browse`/
+  `searchParts`/`getPart`/`getDiagram`/`lookupVin` against a stubbed
+  `fetch`, covering make-dedup, model-makeId remapping, graceful
+  degradation on both a `disabled` response and a genuine network failure,
+  hit-merging with correct totals, the empty-query short-circuit, the
+  local-then-Toyota fallback order for `getPart`, and id-shape dispatch for
+  `getDiagram`.
 - **Live** (`tests/live/toyota-epc.live.test.ts`, opt-in via
   `npm run test:live`, requires `TOYOTA_EPC_ENABLED=true` and network):
   real calls confirming the live API still matches the captured shapes.
   Not part of `npm test` (`tests/*.test.ts` is not recursive, so
   `tests/live/` is excluded automatically) and not run in CI.
-- **E2E** (`tests/e2e/workflow.spec.ts`, "Toyota EPC is disabled by
-  default..."): confirms the production-default disabled panel, its
-  capability checklist, the admin governance panel's independent
-  confirmation of the same state, and that no vehicle picker/search/VIN box
-  renders while disabled.
+- **E2E** (`tests/e2e/workflow.spec.ts`, "the merged catalogue degrades to
+  local-only when Toyota EPC is disabled..."): confirms the one merged
+  "Reference Catalogue" page (no separate "Toyota EPC" nav item) degrades
+  cleanly with the env var unset — the VIN box reports unsupported rather
+  than erroring, and selecting Toyota as a make shows only the local demo's
+  "Corolla" model, not a live catalogue — plus the admin governance panel's
+  independent confirmation of the same disabled state.
 - **Manual browser verification**: performed with `TOYOTA_EPC_ENABLED=true`
-  against the live API — Toyota → Corolla → `164230` (COROLLA TUP) →
-  Cylinder Head section → real diagram with real hotspots (16271, 16100,
-  and two correctly-unresolved fastener callouts) → part detail for
-  `16271-37010` (GASKET, WATER PUMP) with real multi-model compatibility →
-  Add to Enquiry → submitted enquiry cart. Then re-verified the disabled
-  default renders cleanly with the env var unset.
+  against the live API, through the single merged page — selected Make
+  "Toyota" (one deduplicated entry) → Model "COROLLA" (found alongside the
+  local demo's own "Corolla" in the same dropdown) → variant `164230`
+  (COROLLA TUP) → category "CYLINDER HEAD" → a real diagram (47 real
+  hotspots, wireframe-rendered since the illustration is withheld) → a
+  callout with "22 variants available" (a real, heavily-superseded PNC) →
+  part detail showing real OEM numbers, applicability windows and
+  cross-model compatibility → **Copy OEM Number**, **Add to Enquiry** and
+  **Add to My Products** all present together on the same row (no
+  source-based exclusivity) → submitted an enquiry. Caught and fixed two
+  real bugs this way that no unit test alone had exercised: the
+  models-list and id-format issues described in "The merge" above. Then
+  re-verified the disabled default renders cleanly with the env var unset.
 
 ## Adding another manufacturer/provider
 
@@ -382,8 +505,13 @@ See [CATALOG_PROVIDER_INTEGRATION.md](CATALOG_PROVIDER_INTEGRATION.md).
 - `ToyotaEpcProvider.searchParts`/`getPart` produce a best-effort
   `ReferenceHit`/`ReferenceDetail` shape for interchangeability with the
   local `CatalogueProvider` contract; the richer native methods
-  (`getModels`, `getFigure`, etc., used directly by `ToyotaEpc.tsx`) are the
-  primary, fuller-fidelity surface.
+  (`getModels`, `getFigure`, etc.) are the primary, fuller-fidelity surface
+  and are what `UnifiedCatalogueClient`/`ReferenceCatalogue.tsx` actually
+  drive vehicle-tree navigation through.
+- The Year/Engine filters don't apply to Toyota-sourced variants (see
+  "Vehicle selection" above) — a real gap, not yet worked around, since
+  Toyota's catalogue-summary object carries no per-catalogue engine value
+  to filter on.
 - No ESLint gate — consistent with the pre-existing project decision
   documented in `catalogues/FOUNDATION.md`; `npm run format:check`
   (Prettier) remains the lint-equivalent.

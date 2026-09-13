@@ -107,10 +107,15 @@ UI components consume the shared normalized model and
 `ProviderCapabilities`, never a provider-specific type. If your new
 provider doesn't support VIN lookup, the frontend should check
 `provider.capabilities.supportsVinLookup` and hide that control — not grow
-an `if (providerKey === "my-provider")` branch. `ToyotaEpc.tsx`'s disabled
-panel renders its capability checklist from exactly the same `capabilities`
-object the enabled path would use, which is what keeps the two paths
-honest with each other.
+an `if (providerKey === "my-provider")` branch. There is one merged
+catalogue page — `ReferenceCatalogue.tsx`, via `UnifiedCatalogueClient`
+(`src/catalogue/unifiedClient.ts`) — not a separate page per provider; a
+new provider should be merged into the same `browse`/`searchParts`/
+`getPart`/`getDiagram` client rather than given its own page. See
+`unifiedClient.ts`'s doc comment for the id-disambiguation and
+graceful-degradation pattern to follow (ids that differ by shape, never a
+"source" tag; every provider-side call degrades to "contributed nothing"
+on failure or disabled, never an error the merge propagates).
 
 ## 6. Wire the internal API actions
 
@@ -170,4 +175,5 @@ that would flip it on for real users.
 - The `Enquiry` domain (`domain/models.ts`, `services.enquiries`) — the
   price-free "request a quote" cart is provider-agnostic; every EPC-shaped
   provider's part panel can call `services.enquiries.addItem` the same way
-  `ToyotaEpc.tsx` does.
+  `ReferenceCatalogue.tsx` already does for Toyota-sourced parts (gated on
+  `detail.part.provenance.sourceProvider`, not a hardcoded provider name).

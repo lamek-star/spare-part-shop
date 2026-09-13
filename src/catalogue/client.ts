@@ -101,6 +101,15 @@ export class CatalogueClient implements CatalogueProvider {
         }
     >({ action, ...params });
   }
+  toyotaBrowse(filters: Record<string, string> = {}) {
+    return this.toyota<BrowseOptions>("toyota-browse", filters);
+  }
+  toyotaSearchParts(q: string, page = 1) {
+    return this.toyota<Page<ReferenceHit>>("toyota-search-parts", {
+      q,
+      page: String(page),
+    });
+  }
   toyotaModels(region = "EU") {
     return this.toyota<
       import("../integrations/catalogues/toyota-epc/types").ToyotaModel[]

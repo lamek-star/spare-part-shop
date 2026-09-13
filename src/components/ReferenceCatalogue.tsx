@@ -1,17 +1,29 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { CatalogueClient } from "../catalogue/client";
+import { UnifiedCatalogueClient } from "../catalogue/unifiedClient";
 import {
   BrowseOptions,
   Page,
   ReferenceHit,
   ReferenceDetail,
   DiagramDetail,
+  VinLookupResult,
   canDisplayImage,
 } from "../catalogue/models";
 import { Services } from "../services/contracts";
 import { Field, Table, Badge, Modal } from "./ui";
 import { money } from "../domain/models";
+import ExplodedDiagramViewer, { DiagramHotspot } from "./ExplodedDiagramViewer";
+const hotspotsFor = (diagram: DiagramDetail): DiagramHotspot[] =>
+  diagram.callouts.map((c) => ({
+    id: c.id,
+    label: c.display,
+    resolved: c.resolved,
+    rect: c.rect,
+    xPercent: c.x,
+    yPercent: c.y,
+  }));
+const isEpc = (sourceProvider: string) => sourceProvider === "toyota-epc";
 export default function ReferenceCatalogue({
   services,
   role,
@@ -23,7 +35,7 @@ export default function ReferenceCatalogue({
   initialId?: string;
   openCompany: (id: string) => void;
 }) {
-  const client = useMemo(() => new CatalogueClient(role), [role]);
+  const client = useMemo(() => new UnifiedCatalogueClient(role), [role]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<Page<ReferenceHit>>();
@@ -34,13 +46,17 @@ export default function ReferenceCatalogue({
   const [selected, setSelected] = useState("");
   const [tab, setTab] = useState("Overview");
   const [adopting, setAdopting] = useState(false);
+  const [quoting, setQuoting] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState("");
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [expandedNumbers, setExpandedNumbers] = useState<Set<string>>(
     new Set(),
   );
+  const [vin, setVin] = useState("");
+  const [vinResult, setVinResult] = useState<VinLookupResult>();
   const company = services
     .snapshot()
     .parts.find((p) => p.preferredCataloguePartId === detail?.part.id);
@@ -125,6 +141,40 @@ export default function ReferenceCatalogue({
     await loadPart(id);
     setAdopting(true);
   };
+  const runVin = async () => {
+    if (!vin.trim()) return;
+    try {
+      setVinResult(await client.lookupVin(vin.trim()));
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const copyOem = async (number: string) => {
+    try {
+      await navigator.clipboard.writeText(number);
+      setCopied(number);
+      setTimeout(() => setCopied(""), 1500);
+    } catch {
+      setCopied("");
+    }
+  };
+  const addToEnquiry = (
+    number: string,
+    name: string,
+    vehicle: string,
+    providerKey: string,
+  ) => {
+    services.enquiries.addItem({
+      oemNumber: number,
+      partName: name,
+      vehicleDescription: vehicle,
+      quantity: 1,
+      providerKey,
+      sourceUrl: "https://toyota-epc.aftermarketcatalog.com",
+    });
+  };
+  const enquiry = services.enquiries.current();
   useEffect(() => {
     if (!selected) return;
     document
@@ -150,8 +200,10 @@ export default function ReferenceCatalogue({
   return (
     <>
       <p className="notice">
-        Reference catalogue data is separate from My Products. The original demo
-        drawing and fitments are illustrative and unverified.
+        Reference catalogue data is separate from My Products. Original demo
+        content is illustrative and unverified; live provider data (when
+        enabled) carries its own source and licence — see each part&rsquo;s
+        Source Information tab. No supplier prices are shown here.
       </p>
       {error && (
         <p className="error" role="alert">
@@ -177,18 +229,46 @@ export default function ReferenceCatalogue({
               <Badge>Reference part</Badge>{" "}
               <Badge>{detail.part.provenance.verification}</Badge>
             </div>
-            {company ? (
-              <button
-                className="primary"
-                onClick={() => openCompany(company.id)}
-              >
-                Open My Product
-              </button>
-            ) : (
-              <button className="primary" onClick={() => setAdopting(true)}>
-                Add to My Products
-              </button>
-            )}
+            <div className="actions">
+              {isEpc(detail.part.provenance.sourceProvider) && (
+                <>
+                  <button
+                    onClick={() => copyOem(detail.numbers[0]?.original ?? "")}
+                  >
+                    {copied === detail.numbers[0]?.original
+                      ? "Copied!"
+                      : "Copy OEM Number"}
+                  </button>
+                  <button
+                    onClick={() =>
+                      addToEnquiry(
+                        detail.numbers[0]?.original ?? "",
+                        detail.part.description,
+                        detail.fitments[0]?.vehicle ?? "",
+                        detail.part.provenance.sourceProvider,
+                      )
+                    }
+                  >
+                    Add to Enquiry
+                  </button>
+                  <button onClick={() => setQuoting(true)}>
+                    Request Quote
+                  </button>
+                </>
+              )}
+              {company ? (
+                <button
+                  className="primary"
+                  onClick={() => openCompany(company.id)}
+                >
+                  Open My Product
+                </button>
+              ) : (
+                <button className="primary" onClick={() => setAdopting(true)}>
+                  Add to My Products
+                </button>
+              )}
+            </div>
           </div>
           <div className="tabs">
             {[
@@ -290,6 +370,11 @@ export default function ReferenceCatalogue({
             />
           ) : tab === "Diagrams" ? (
             <div className="reference-diagrams">
+              {detail.diagrams.length === 0 && (
+                <p className="empty">
+                  No diagram back-reference available for this part.
+                </p>
+              )}
               {detail.diagrams.map(({ diagram: d, callout: c }) => (
                 <button
                   key={d.id + c.id}
@@ -423,7 +508,39 @@ export default function ReferenceCatalogue({
                   ))}
                 </select>
               </Field>
+              <Field label="VIN / frame number">
+                <input
+                  value={vin}
+                  onChange={(e) => setVin(e.target.value)}
+                  placeholder="e.g. JTDKB20U903100000"
+                />
+              </Field>
+              <button onClick={runVin}>Look up VIN</button>
+              {enquiry.items.length > 0 && (
+                <button className="primary" onClick={() => setQuoting(true)}>
+                  Enquiry ({enquiry.items.length})
+                </button>
+              )}
             </div>
+            {vinResult && (
+              <div className="reference-diagrams">
+                {!vinResult.supported && (
+                  <p className="empty">
+                    VIN lookup is currently unavailable (no enabled provider
+                    supports it).
+                  </p>
+                )}
+                {vinResult.supported && vinResult.matches.length === 0 && (
+                  <p className="empty">No catalogue matched this VIN.</p>
+                )}
+                {vinResult.matches.map((m, i) => (
+                  <p key={i}>
+                    {m.vehicle} — {m.chassis} ({m.productionFrom}–
+                    {m.productionTo ?? "current"})
+                  </p>
+                ))}
+              </div>
+            )}
             <div className="reference-diagrams">
               {options?.diagrams.map((d) => (
                 <button key={d.id} onClick={() => openDiagram(d.id)}>
@@ -447,6 +564,10 @@ export default function ReferenceCatalogue({
                 : undefined;
               const selectedOemNumbers =
                 selectedHit?.numbers.filter((n) => n.type === "OEM_OE") ?? [];
+              const selectedIsEpc = Boolean(
+                selectedHit &&
+                isEpc(selectedHit.part.provenance.sourceProvider),
+              );
               return (
                 <section
                   className={`panel epc-diagram-panel${fullscreen ? " epc-fullscreen" : ""}`}
@@ -497,40 +618,19 @@ export default function ReferenceCatalogue({
                   </div>
                   <div className="epc-layout">
                     <div className="epc-diagram-column">
-                      {canDisplayImage(diagram.diagram.image) ? (
-                        <div className="exploded-scroll">
-                          <div
-                            className="exploded-image"
-                            style={{ width: zoom * 100 + "%" }}
-                          >
-                            <img
-                              src={diagram.diagram.image.url}
-                              alt={diagram.diagram.title}
-                            />
-                            {diagram.callouts
-                              .filter(
-                                (c) => c.x !== undefined && c.y !== undefined,
-                              )
-                              .map((c) => (
-                                <button
-                                  key={c.id}
-                                  aria-label={`Callout ${c.display}`}
-                                  aria-pressed={selected === c.id}
-                                  className="diagram-hotspot"
-                                  style={{ left: c.x + "%", top: c.y + "%" }}
-                                  onClick={() => setSelected(c.id)}
-                                >
-                                  {c.display}
-                                </button>
-                              ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="empty">
-                          External catalogue image — display permission not
-                          confirmed
-                        </p>
-                      )}
+                      <ExplodedDiagramViewer
+                        title={diagram.diagram.title}
+                        imageUrl={
+                          canDisplayImage(diagram.diagram.image)
+                            ? diagram.diagram.image.url
+                            : undefined
+                        }
+                        hotspots={hotspotsFor(diagram)}
+                        selectedId={selected}
+                        onSelect={setSelected}
+                        zoom={zoom}
+                        unavailableReason="Illustration not displayed — redistribution permission from the source has not been confirmed. Hotspot positions below are the real, verified coordinates."
+                      />
                       <small>{diagram.diagram.image.attribution}</small>
                     </div>
                     <div className="epc-parts-column">
@@ -600,6 +700,32 @@ export default function ReferenceCatalogue({
                             >
                               View Part
                             </button>
+                            {selectedIsEpc && (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    copyOem(
+                                      selectedOemNumbers[0]?.original ?? "",
+                                    )
+                                  }
+                                >
+                                  Copy OEM Number
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    addToEnquiry(
+                                      selectedOemNumbers[0]?.original ?? "",
+                                      selectedHit.part.description,
+                                      "",
+                                      selectedHit.part.provenance
+                                        .sourceProvider,
+                                    )
+                                  }
+                                >
+                                  Add to Enquiry
+                                </button>
+                              </>
+                            )}
                             {selectedCompany ? (
                               <button
                                 className="primary"
@@ -833,6 +959,64 @@ export default function ReferenceCatalogue({
               through normal inventory workflows.
             </p>
             <button className="primary">Create My Product</button>
+          </form>
+        </Modal>
+      )}
+      {quoting && (
+        <Modal title="Spare parts enquiry" onClose={() => setQuoting(false)}>
+          <Table
+            headers={["OEM number", "Part", "Qty", ""]}
+            rows={enquiry.items.map((i) => [
+              i.oemNumber,
+              i.partName,
+              i.quantity,
+              <button onClick={() => services.enquiries.removeItem(i.id)}>
+                Remove
+              </button>,
+            ])}
+          />
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              try {
+                await services.enquiries.submit({
+                  name: String(f.get("name")),
+                  email: String(f.get("email")),
+                  phone: String(f.get("phone") ?? ""),
+                  vin: String(f.get("vin") ?? ""),
+                  notes: String(f.get("notes") ?? ""),
+                });
+                setQuoting(false);
+                setError("");
+              } catch (err) {
+                setError((err as Error).message);
+              }
+            }}
+          >
+            {error && (
+              <p role="alert" className="error">
+                {error}
+              </p>
+            )}
+            <Field label="Your name">
+              <input name="name" required />
+            </Field>
+            <Field label="Email">
+              <input name="email" type="email" required />
+            </Field>
+            <Field label="Phone">
+              <input name="phone" />
+            </Field>
+            <Field label="Vehicle VIN (optional)">
+              <input name="vin" defaultValue={vin} />
+            </Field>
+            <Field label="Notes">
+              <textarea name="notes" rows={3} />
+            </Field>
+            <button className="primary" disabled={!enquiry.items.length}>
+              Submit enquiry
+            </button>
           </form>
         </Modal>
       )}

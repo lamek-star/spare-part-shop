@@ -92,6 +92,56 @@ test("the sync entry point refuses Toyota regardless of scope, server-side, not 
   assert.equal(result.status, "REFUSED");
   assert.match(result.reason, /bulk synchronization is not permitted/);
 });
+test("browse() with a make chosen but no model yet lists every model, not just the demo/local ones", async () => {
+  process.env.TOYOTA_EPC_ENABLED = "true";
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/regions/EU/models")
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              region: "EU",
+              name: "COROLLA",
+              slug: "corolla",
+              catalog_count: 7,
+              years: { from: 1974, to: null, current: true },
+              chassis_codes: [],
+              links: {},
+            },
+            {
+              region: "EU",
+              name: "AVENSIS",
+              slug: "avensis",
+              catalog_count: 3,
+              years: { from: 1997, to: 2018, current: false },
+              chassis_codes: [],
+              links: {},
+            },
+          ],
+        }),
+      } as Response;
+    throw new Error(`unstubbed path in test: ${path}`);
+  }) as typeof fetch;
+  try {
+    const provider = new ToyotaEpcProvider();
+    const result = await provider.browse({});
+    assert.equal(
+      result.models.length,
+      2,
+      "must not require a model filter to be chosen first",
+    );
+    assert.deepEqual(result.models.map((m) => m.name).sort(), [
+      "AVENSIS",
+      "COROLLA",
+    ]);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.TOYOTA_EPC_ENABLED;
+  }
+});
 test("Toyota EPC capabilities describe VIN/hotspot/supersession support truthfully and no bulk/persistent support", () => {
   const provider = new ToyotaEpcProvider();
   assert.equal(provider.capabilities.supportsVinLookup, true);

@@ -36,7 +36,6 @@ import Dashboard from "./Dashboard";
 import CatalogueSource from "./CatalogueSource";
 import { SupersessionForm, CompatibilityForm, Gallery } from "./CatalogueTools";
 import ReferenceCatalogue from "./ReferenceCatalogue";
-import ToyotaEpc from "./ToyotaEpc";
 import CatalogueAdmin from "./CatalogueAdmin";
 import { CatalogueClient } from "../catalogue/client";
 import { ReferenceHit, isCatalogueAdmin } from "../catalogue/models";
@@ -47,7 +46,6 @@ const groups = [
     icon: Package,
     items: [
       "Reference Catalogue",
-      "Toyota EPC",
       "Parts",
       "Part Numbers",
       "Cross References",
@@ -575,7 +573,6 @@ function App({ services }: { services: Services }) {
         openCompany={openPart}
       />
     );
-  else if (page === "Toyota EPC") content = <ToyotaEpc services={services} />;
   else if (page === "Catalogue Administration")
     content = <CatalogueAdmin role={persona} />;
   else if (part) {

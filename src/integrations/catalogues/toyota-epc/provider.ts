@@ -117,6 +117,14 @@ export class ToyotaEpcProvider implements CatalogueProvider {
           }
         }
       }
+    } else {
+      // No model chosen yet: list every model, the same way picking "All
+      // models" for any other make shows every model under it. Without
+      // this, selecting Toyota as the make would leave the Model dropdown
+      // empty until the user already knew a model slug — see
+      // tests/toyota-epc-provider.test.ts.
+      const list = await this.getModels(region);
+      for (const m of list) models.push(mapToyotaModel(m).model);
     }
     return { makes: [make], models, variants, categories, diagrams };
   }

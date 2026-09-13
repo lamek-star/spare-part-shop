@@ -561,29 +561,48 @@ test("sales persona remains outside import administration after reload", async (
   ).toBeVisible();
 });
 
-test("Toyota EPC is disabled by default, makes no live data visible, and the admin governance panel is truthful", async ({
+test("the merged catalogue degrades to local-only when Toyota EPC is disabled, and the admin governance panel is truthful", async ({
   page,
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
-  await page.getByRole("button", { name: "Toyota EPC", exact: true }).click();
-  // Production default: TOYOTA_EPC_ENABLED is unset, so the page must show
-  // a clean disabled state — never a crash, a raw error, or fabricated data.
-  await expect(page.getByText("DISABLED", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Reference Catalogue", exact: true })
+    .click();
+  // Production default: TOYOTA_EPC_ENABLED is unset. The catalogue is one
+  // merged page (no separate "Toyota EPC" nav item), and it must degrade
+  // to local-only data cleanly — never a crash or a raw error — while
+  // still offering the VIN box (it just reports nothing supported).
   await expect(
-    page.getByText("unverified redistribution permission required"),
+    page.getByRole("button", { name: "Toyota EPC", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("VIN / frame number", { exact: true })
+    .fill("JTDKB20U903100000");
+  await page.getByRole("button", { name: "Look up VIN", exact: true }).click();
+  await expect(
+    page.getByText(
+      "VIN lookup is currently unavailable (no enabled provider supports it).",
+    ),
   ).toBeVisible();
-  await expect(page.getByText("Adapter status:")).toContainText("Ready");
-  await expect(
-    page.getByRole("link", { name: "Source terms" }),
-  ).toHaveAttribute("href", "https://toyota-epc.aftermarketcatalog.com/legal");
-  // No vehicle picker, search box or VIN box should render while disabled —
-  // there is nothing legitimate to search or browse yet.
-  await expect(page.getByPlaceholder("Search models…")).toHaveCount(0);
-  await expect(page.getByPlaceholder("e.g. JTDKB20U903100000")).toHaveCount(0);
+  // Selecting Toyota must not pull in the live EPC's 100+ real models —
+  // only the local demo catalogue's own "Corolla" should appear, proving
+  // the disabled Toyota browse() call contributed nothing to the merge.
+  await page
+    .getByLabel("Make", { exact: true })
+    .selectOption({ label: "Toyota" });
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page
+        .getByLabel("Model", { exact: true })
+        .locator("option")
+        .allTextContents(),
+    )
+    .toEqual(["All models", "Corolla"]);
   // The admin governance panel must independently confirm the same
   // disabled/no-redistribution posture, server-enforced, not just this
-  // page's own copy.
+  // page's own behavior.
   await page
     .getByRole("button", { name: "Catalogue Administration", exact: true })
     .click();

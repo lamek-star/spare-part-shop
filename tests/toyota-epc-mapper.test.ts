@@ -11,6 +11,7 @@ import {
   mapToyotaFigure,
   mapToyotaSupersessionEdges,
   mapToyotaVin,
+  catalogVariantId,
 } from "../src/integrations/catalogues/toyota-epc/mapper";
 import {
   ToyotaModel,
@@ -110,6 +111,32 @@ test("an unresolved hotspot (standard fastener) produces a callout with no linke
     "no part is fabricated for an unresolved hotspot",
   );
 });
+test("two source rows sharing the same part_number+suffix under one PNC still get distinct number ids — caught live on a real 22-row PNC", () => {
+  const figure = fixture<ToyotaFigure>("figure.json");
+  const pnc = figure.hotspots[0].pnc;
+  const base = figure.parts.find((p) => p.pnc === pnc)!;
+  const synthetic: ToyotaFigure = {
+    ...figure,
+    parts: [
+      base,
+      {
+        ...base,
+        part_id: base.part_id + 1,
+        unverified: { ...base.unverified, dest_code: "02" },
+      },
+    ],
+  };
+  const mapped = mapToyotaFigure(synthetic, "variant-id", "category-id");
+  const ids = mapped.numbers
+    .filter((n) => n.partId === mapped.parts[0]?.id)
+    .map((n) => n.id);
+  assert.equal(ids.length, 2);
+  assert.notEqual(
+    ids[0],
+    ids[1],
+    "React would drop/duplicate one row with a colliding key",
+  );
+});
 test("part-number history maps only chain/superseded_by edges to supersessions, not substitutes", () => {
   const history = fixture<ToyotaPartNumberHistory>("part-number-history.json");
   const edges = mapToyotaSupersessionEdges(history, "EU");
@@ -158,4 +185,28 @@ test("make/model/variant/catalogue mapping matches the CatalogueDiagram -> Diagr
   assert.equal(mapped.diagram.categoryId, category.id);
   assert.equal(mapped.diagram.variantId, variant.id);
   assert.ok(mapped.callouts.every((c) => c.diagramId === mapped.diagram.id));
+});
+test("VehicleModel.id and VehicleVariant.id use the exact strings ToyotaEpcProvider.browse() round-trips through filters.model/filters.variant", () => {
+  // These ids are not arbitrary — a merged vehicle picker's <select
+  // value={model.id}> feeds straight back into filters.model, and
+  // ToyotaEpcProvider.browse() resolves that directly into
+  // getModel(region, filters.model) and matches filters.variant against
+  // `${region}/${catalog_code}`. If either id format drifts from what
+  // browse() expects, picking a Toyota model/variant in the UI silently
+  // resolves nothing.
+  const model = fixture<ToyotaModel>("model-corolla.json");
+  const { model: mappedModel } = mapToyotaModel(model);
+  assert.equal(mappedModel.id, model.slug);
+  const catalog = fixture<ToyotaCatalog>("catalog.json");
+  assert.equal(
+    catalogVariantId(catalog),
+    `${catalog.region}/${catalog.catalog_code}`,
+  );
+  const section = fixture<ToyotaSection>("section-1104.json");
+  const category = mapToyotaSection(section, "catalogue-id");
+  assert.equal(
+    category.id,
+    section.section_code,
+    "filters.category must round-trip through Category.id the same way",
+  );
 });
