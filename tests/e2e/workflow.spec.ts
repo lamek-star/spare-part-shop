@@ -590,22 +590,14 @@ test("Toyota EPC is disabled by default, makes no live data visible, and the adm
   await page
     .getByRole("button", { name: "Catalogue Providers", exact: true })
     .click();
-  const toyotaCard = page
-    .locator(".provider-card")
+  const toyotaRow = page
+    .getByRole("row")
     .filter({ hasText: "Toyota parts catalogue" });
-  await expect(
-    toyotaCard.locator(".badge", { hasText: "DISABLED" }),
-  ).toBeVisible();
-  await expect(toyotaCard).toContainText(
+  await expect(toyotaRow).toContainText(
     "UNVERIFIED_REDISTRIBUTION_PERMISSION_REQUIRED",
   );
-  await expect(
-    toyotaCard.locator("li", { hasText: "Bulk sync" }),
-  ).toContainText("✗");
-  await expect(
-    toyotaCard.locator("li", { hasText: "Persistent storage" }),
-  ).toContainText("✗");
-  await expect(
-    toyotaCard.locator("li", { hasText: "VIN lookup" }),
-  ).toContainText("✓");
+  await expect(toyotaRow).toContainText("Bulk sync no");
+  await expect(toyotaRow).toContainText("Persistent no");
+  await expect(toyotaRow).toContainText("VIN lookup");
+  await expect(toyotaRow.getByRole("cell").nth(5)).toHaveText("No");
 });

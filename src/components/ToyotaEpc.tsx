@@ -263,6 +263,11 @@ export default function ToyotaEpc({ services }: { services: Services }) {
             />
           </Field>
           <button onClick={runVin}>Look up VIN</button>
+          {enquiry.items.length > 0 && (
+            <button className="primary" onClick={() => setQuoting(true)}>
+              Enquiry ({enquiry.items.length})
+            </button>
+          )}
         </div>
         {vinResult && (
           <div className="reference-diagrams">
@@ -476,14 +481,6 @@ export default function ToyotaEpc({ services }: { services: Services }) {
             <button onClick={() => setQuoting(true)}>Request Quote</button>
           </div>
         </section>
-      )}
-      {enquiry.items.length > 0 && (
-        <button
-          className="epc-enquiry-badge primary"
-          onClick={() => setQuoting(true)}
-        >
-          Enquiry ({enquiry.items.length})
-        </button>
       )}
       {quoting && (
         <Modal title="Spare parts enquiry" onClose={() => setQuoting(false)}>

@@ -1487,39 +1487,6 @@ td > button.diagram-hotspot-row.primary {
 .selected-table-row td:first-child {
   box-shadow: inset 3px 0 var(--teal);
 }
-.provider-governance {
-  display: grid;
-  gap: 16px;
-}
-.provider-card {
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 16px 18px;
-  background: #fff;
-}
-.provider-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-.provider-card-head h4 {
-  margin: 0;
-}
-.provider-card dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 20px;
-  margin: 0 0 12px;
-}
-.provider-card dt {
-  color: var(--muted);
-  font-size: 12px;
-}
-.provider-card dd {
-  margin: 0;
-  font-size: 13px;
-}
 .provider-capabilities {
   display: flex;
   flex-wrap: wrap;
@@ -1536,10 +1503,7 @@ td > button.diagram-hotspot-row.primary {
   color: var(--muted);
 }
 .exploded-viewer {
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 14px 16px;
-  background: #fff;
+  margin-bottom: 14px;
 }
 .exploded-wireframe {
   background: repeating-linear-gradient(
@@ -1565,12 +1529,6 @@ td > button.diagram-hotspot-row.primary {
   border-style: dashed;
   color: var(--muted);
   background: rgba(0, 0, 0, 0.04) !important;
-}
-.epc-disabled-panel {
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 20px 22px;
-  background: #fbfbfb;
 }
 .epc-disabled-panel h3 {
   margin-top: 0;
@@ -1600,12 +1558,6 @@ td > button.diagram-hotspot-row.primary {
   font-size: 13px;
   color: var(--muted);
   margin-bottom: 10px;
-}
-.epc-enquiry-badge {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 20;
 }
 @media (max-width: 900px) {
   .epc-vehicle-tree {

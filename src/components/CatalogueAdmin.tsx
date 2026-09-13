@@ -24,6 +24,7 @@ const tabs = [
   "Image Rights",
   "Catalogue Statistics",
 ];
+const yesNo = (value: boolean) => (value ? "yes" : "no");
 const capabilityLabels: [keyof ProviderPolicy["capabilities"], string][] = [
   ["supportsVehicleLookup", "Vehicle lookup"],
   ["supportsVinLookup", "VIN lookup"],
@@ -142,81 +143,50 @@ export default function CatalogueAdmin({ role }: { role: string }) {
           ])}
         />
       ) : tab === "Catalogue Providers" ? (
-        <div className="provider-governance">
-          <p className="muted">
+        <>
+          <p className="muted" style={{ margin: "0 0 12px" }}>
             Governance policy for every catalogue provider this application
             knows about — what it is technically capable of versus what it is
             actually permitted to do with the data. Enforced server-side
-            (src/catalogue/providerPolicy.ts), independent of any UI toggle
-            here.
+            (src/catalogue/providerPolicy.ts), independent of the "Enabled"
+            column below.
           </p>
-          {(providers ?? []).map((p) => (
-            <div className="provider-card" key={p.license.providerKey}>
-              <div className="provider-card-head">
-                <div>
-                  <h4>{p.license.providerName}</h4>
-                  <small>
-                    {p.license.providerKey} · {p.license.providerType}
-                  </small>
-                </div>
-                <Badge>{p.license.enabled ? "ENABLED" : "DISABLED"}</Badge>
-              </div>
-              <dl>
-                <div>
-                  <dt>Status</dt>
-                  <dd>{p.license.licenseStatus}</dd>
-                </div>
-                <div>
-                  <dt>Reason</dt>
-                  <dd>{p.license.notes || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Redistribution allowed</dt>
-                  <dd>{String(p.license.redistributionAllowed)}</dd>
-                </div>
-                <div>
-                  <dt>Persistent storage allowed</dt>
-                  <dd>{String(p.license.persistentStorageAllowed)}</dd>
-                </div>
-                <div>
-                  <dt>Image storage allowed</dt>
-                  <dd>{String(p.license.imageStorageAllowed)}</dd>
-                </div>
-                <div>
-                  <dt>Bulk sync allowed</dt>
-                  <dd>{String(p.license.bulkSyncAllowed)}</dd>
-                </div>
-                <div>
-                  <dt>Attribution required</dt>
-                  <dd>{String(p.license.attributionRequired)}</dd>
-                </div>
-                <div>
-                  <dt>License reference</dt>
-                  <dd>
-                    {p.license.termsUrl ? (
-                      <a
-                        href={p.license.termsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {p.license.licenseReference}
-                      </a>
-                    ) : (
-                      p.license.licenseReference || "—"
-                    )}
-                  </dd>
-                </div>
-              </dl>
-              <ul className="provider-capabilities">
-                {capabilityLabels.map(([key, label]) => (
-                  <li key={key} className={p.capabilities[key] ? "yes" : "no"}>
-                    {p.capabilities[key] ? "✓" : "✗"} {label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+          <Table
+            headers={[
+              "Provider",
+              "Type",
+              "License / redistribution",
+              "Storage & sync",
+              "Capabilities",
+              "Enabled",
+              "Review",
+            ]}
+            rows={(providers ?? []).map((p) => [
+              <>
+                {p.license.providerName}
+                <small>{p.license.providerKey}</small>
+              </>,
+              p.license.providerType,
+              `${p.license.licenseStatus} / ${p.license.redistributionAllowed}`,
+              `Persistent ${yesNo(p.license.persistentStorageAllowed)} · Images ${yesNo(p.license.imageStorageAllowed)} · Bulk sync ${yesNo(p.license.bulkSyncAllowed)}`,
+              capabilityLabels
+                .filter(([key]) => p.capabilities[key])
+                .map(([, label]) => label)
+                .join(", ") || "None",
+              p.license.enabled ? "Yes" : "No",
+              <>
+                {p.license.termsUrl ? (
+                  <a href={p.license.termsUrl} target="_blank" rel="noreferrer">
+                    {p.license.licenseReference}
+                  </a>
+                ) : (
+                  p.license.licenseReference || "—"
+                )}
+                <small>{p.license.notes}</small>
+              </>,
+            ])}
+          />
+        </>
       ) : tab === "Catalogue Statistics" ? (
         <div className="metrics">
           {Object.entries(overview?.statistics ?? {}).map(([k, v]) => (
