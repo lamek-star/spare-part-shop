@@ -1,63 +1,137 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560">
-<rect width="900" height="560" fill="white"/>
-<g font-family="Arial,sans-serif" fill="#253e50" font-size="13">
-<text x="98" y="30">17700</text>
-<text x="318" y="30">17801</text>
-<text x="538" y="30">17881</text>
-<text x="758" y="30">96111</text>
-<text x="98" y="300">15601</text>
-<text x="318" y="300">12315</text>
-<text x="538" y="300">90119A</text>
-<text x="758" y="300">90080A</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780">
+<rect width="1000" height="780" fill="#ffffff"/>
+
+<!-- ================= exploded-gap connectors (drawn first, behind parts) =================
+     Short dashed ticks bridge the gap between adjacent components in assembly/flow order,
+     without crossing label text. -->
+<g fill="none" stroke="#aebdc8" stroke-width="1.4" stroke-dasharray="2 5">
+  <path d="M272,182 L250,228"/>
+  <path d="M420,272 L432,296"/>
+  <path d="M620,380 L628,378"/>
+  <path d="M670,548 V732"/>
+  <path d="M804,650 Q762,690 706,732"/>
 </g>
-<g fill="none" stroke="#087f75" stroke-width="2.5" stroke-dasharray="6 6">
-<path d="M120 35V60"/>
-<path d="M340 35V60"/>
-<path d="M560 35V60"/>
-<path d="M780 35V60"/>
-<path d="M120 305V330"/>
-<path d="M340 305V330"/>
-<path d="M578 305V330"/>
-<path d="M778 305V330"/>
+
+<!-- ================= reference mounting face (not a catalogue part) ================= -->
+<g stroke="#c3cfd8" stroke-width="1.2">
+  <line x1="500" y1="734" x2="920" y2="734"/>
+  <path d="M508,734 L520,746 M536,734 L548,746 M564,734 L576,746 M592,734 L604,746 M620,734 L632,746 M648,734 L660,746 M676,734 L688,746 M704,734 L716,746 M732,734 L744,746 M760,734 L772,746 M788,734 L800,746 M816,734 L828,746 M844,734 L856,746 M872,734 L884,746 M900,734 L912,746"/>
 </g>
-<g fill="none" stroke="#172c40" stroke-width="3">
-<!-- 17700 Air cleaner housing -->
-<rect x="60" y="90" width="120" height="65" rx="8"/>
-<rect x="75" y="70" width="90" height="22" rx="4"/>
-<!-- 17801 Air filter element -->
-<rect x="278" y="90" width="124" height="65"/>
-<path d="M290 100L390 100M290 112L390 112M290 124L390 124M290 136L390 136M290 148L390 148" stroke="#9faeb7" stroke-width="1.5"/>
-<!-- 17881 Intake hose -->
-<path d="M500 155Q500 95 560 95Q620 95 620 140"/>
-<path d="M512 155Q512 108 560 108Q608 108 608 140" stroke="#9faeb7" stroke-width="1.5"/>
-<!-- 96111 Clamp -->
-<circle cx="778" cy="120" r="30"/>
-<circle cx="778" cy="120" r="17"/>
-<rect x="768" y="86" width="20" height="14" rx="3"/>
-<!-- 15601 Oil filter -->
-<path d="M65 335Q65 320 90 320H150Q175 320 175 335V450Q175 465 150 465H90Q65 465 65 450Z"/>
-<path d="M65 355H175M65 375H175M65 395H175M65 415H175M65 435H175"/>
-<rect x="95" y="305" width="50" height="16" rx="3"/>
-<!-- 12315 Bracket -->
-<path d="M290 460V400H340V350H400V460Z"/>
-<circle cx="310" cy="380" r="8"/>
-<circle cx="380" cy="435" r="8"/>
-<!-- 90119A Mounting bolt -->
-<path d="M578 350L602 364V392L578 406L554 392V364Z"/>
-<rect x="570" y="406" width="16" height="46"/>
-<!-- 90080A Grommet -->
-<circle cx="778" cy="400" r="34"/>
-<circle cx="778" cy="400" r="19"/>
+<text x="500" y="752" font-family="Arial,sans-serif" font-size="11" font-style="italic" fill="#9aa9b3">Engine mounting face — reference only, not a catalogue part</text>
+
+<!-- ================= CLUSTER A: intake sub-assembly ================= -->
+
+<!-- 17700 air cleaner housing -->
+<g fill="none" stroke="#152532" stroke-width="2.4" stroke-linejoin="round">
+  <rect x="90" y="60" width="200" height="110" rx="18"/>
+  <rect x="122" y="32" width="136" height="30" rx="8"/>
+  <path d="M90,96 H290" stroke-width="1.6"/>
+  <circle cx="112" cy="150" r="6"/>
+  <circle cx="268" cy="150" r="6"/>
 </g>
-<g font-family="Arial,sans-serif" fill="#253e50" font-size="14">
-<text x="65" y="185">Air cleaner housing</text>
-<text x="288" y="185">Air filter element</text>
-<text x="505" y="185">Intake hose</text>
-<text x="755" y="185">Clamp</text>
-<text x="70" y="490">Oil filter</text>
-<text x="300" y="490">Bracket</text>
-<text x="540" y="490">Mounting bolt</text>
-<text x="748" y="490">Grommet</text>
+<text x="304" y="112" font-family="Arial,sans-serif" font-size="15" fill="#152532">Air cleaner</text>
+<text x="304" y="132" font-family="Arial,sans-serif" font-size="15" fill="#152532">housing</text>
+
+<!-- 17801 air filter element -->
+<g fill="none" stroke="#152532" stroke-width="2.4">
+  <rect x="230" y="230" width="190" height="90"/>
+  <g stroke="#8fa0ac" stroke-width="1.4">
+    <path d="M250,232 V318"/>
+    <path d="M274,232 V318"/>
+    <path d="M298,232 V318"/>
+    <path d="M322,232 V318"/>
+    <path d="M346,232 V318"/>
+    <path d="M370,232 V318"/>
+    <path d="M394,232 V318"/>
+  </g>
 </g>
-<text x="30" y="540" font-family="Arial,sans-serif" font-size="13" fill="#687c8d">Original conceptual assembly diagram · demo only · not to scale · not a manufacturer drawing</text>
+<text x="238" y="348" font-family="Arial,sans-serif" font-size="15" fill="#152532">Air filter element</text>
+
+<!-- 17881 intake hose -->
+<g fill="none" stroke="#152532" stroke-width="2.4">
+  <path d="M430,300 Q470,300 500,325 Q560,368 620,382"/>
+  <path d="M430,318 Q470,320 498,343 Q556,384 616,398"/>
+  <g stroke="#8fa0ac" stroke-width="1.3">
+    <path d="M448,304 L446,321"/>
+    <path d="M472,305 L470,325"/>
+    <path d="M498,317 L494,338"/>
+    <path d="M528,336 L522,356"/>
+    <path d="M558,354 L551,373"/>
+    <path d="M588,368 L580,387"/>
+  </g>
+</g>
+<text x="432" y="272" font-family="Arial,sans-serif" font-size="15" fill="#152532">Intake hose</text>
+
+<!-- 96111 hose clamp -->
+<g fill="none" stroke="#152532" stroke-width="2.4">
+  <circle cx="630" cy="395" r="27"/>
+  <circle cx="630" cy="395" r="15"/>
+  <rect x="620" y="362" width="20" height="14" rx="3"/>
+</g>
+<text x="662" y="415" font-family="Arial,sans-serif" font-size="15" fill="#152532">Hose clamp</text>
+
+<!-- ================= CLUSTER B: oil-filter mounting sub-assembly ================= -->
+
+<!-- 12315 mounting bracket -->
+<g fill="none" stroke="#152532" stroke-width="2.4" stroke-linejoin="round">
+  <path d="M580,548 V498 H628 V456 H690 V548 Z"/>
+  <circle cx="600" cy="522" r="7"/>
+  <circle cx="670" cy="530" r="7"/>
+</g>
+<text x="486" y="438" font-family="Arial,sans-serif" font-size="15" fill="#152532">Mounting bracket</text>
+
+<!-- 90080A rubber grommet -->
+<g fill="none" stroke="#152532" stroke-width="2.4">
+  <circle cx="670" cy="588" r="23"/>
+  <circle cx="670" cy="588" r="11"/>
+</g>
+<text x="470" y="606" font-family="Arial,sans-serif" font-size="15" fill="#152532">Rubber grommet</text>
+
+<!-- 90119A mounting bolt -->
+<g fill="none" stroke="#152532" stroke-width="2.4" stroke-linejoin="round">
+  <path d="M670,616 L694,630 V656 L670,670 L646,656 V630 Z"/>
+  <rect x="659" y="670" width="22" height="46"/>
+</g>
+<text x="740" y="700" font-family="Arial,sans-serif" font-size="15" fill="#152532">Mounting bolt</text>
+
+<!-- 15601 oil filter -->
+<g fill="none" stroke="#152532" stroke-width="2.4" stroke-linejoin="round">
+  <path d="M760,470 H830 V478 H760 Z"/>
+  <path d="M764,478 Q760,478 760,494 V636 Q760,652 780,652 H810 Q830,652 830,636 V494 Q830,478 826,478 Z"/>
+  <g stroke="#8fa0ac" stroke-width="1.4">
+    <path d="M760,502 H830"/>
+    <path d="M760,524 H830"/>
+    <path d="M760,546 H830"/>
+    <path d="M760,568 H830"/>
+    <path d="M760,590 H830"/>
+    <path d="M760,612 H830"/>
+  </g>
+</g>
+<text x="840" y="500" font-family="Arial,sans-serif" font-size="15" fill="#152532">Oil filter</text>
+
+<!-- ================= leader lines + callout targets =================
+     Each dot marks exactly where the app's interactive callout badge lands;
+     the leader line ties the badge to a specific point on the part. -->
+<g stroke="#152532" stroke-width="1.3">
+  <path d="M40,26 L140,62"/>
+  <path d="M180,196 L250,232"/>
+  <path d="M572,256 L522,301"/>
+  <path d="M712,352 L656,389"/>
+  <path d="M420,418 L585,469"/>
+  <path d="M424,596 L652,589"/>
+  <path d="M818,690 L702,630"/>
+  <path d="M866,478 L830,478"/>
+</g>
+<g fill="#152532">
+  <circle cx="140" cy="62" r="3.2"/>
+  <circle cx="250" cy="232" r="3.2"/>
+  <circle cx="522" cy="301" r="3.2"/>
+  <circle cx="656" cy="389" r="3.2"/>
+  <circle cx="585" cy="469" r="3.2"/>
+  <circle cx="652" cy="589" r="3.2"/>
+  <circle cx="702" cy="630" r="3.2"/>
+  <circle cx="830" cy="478" r="3.2"/>
+</g>
+
+<text x="30" y="772" font-family="Arial,sans-serif" font-size="13" fill="#687c8d">Original exploded assembly diagram · demo only · not to scale · not a manufacturer drawing</text>
 </svg>

@@ -133,6 +133,22 @@ READINESS.md remains as the original validation record.
   oil filter, bracket, mounting bolt, grommet) with realistic-looking but
   explicitly `DEMO-`-prefixed OEM numbers, all in one new original SVG
   (`public/diagrams/demo-filtration.svg`).
+- **Exploded-view artwork redraw (2026-09-13):** the first version of that
+  SVG laid all 8 parts out as a uniform icon grid — separated in data, but
+  reading visually as a product spec sheet rather than a parts diagram.
+  Redrawn (revision 2 of the diagram) as an actual exploded-view
+  illustration: components are spatially staggered along two implied
+  assembly axes (intake path: housing → filter element → hose → clamp;
+  fastener stack: bracket → grommet → bolt, plus an adjacent oil filter),
+  connected by short dashed "explosion gap" ticks and a fastener-stack
+  axis line, with a dotted-hatch reference "engine mounting face" anchoring
+  the lower cluster. Every callout now has its own leader line ending in a
+  dot on the specific part feature it identifies, matching where the
+  app's interactive callout badge is positioned. `DiagramCallout.x/y` in
+  `src/catalogue/seed.ts` were recomputed against the new `1000×780`
+  viewBox so the badges still land exactly on those leader-line targets.
+  Verified by opening the diagram in a browser (not just reading the SVG
+  source) after every layout change.
 - Selecting a callout now auto-scrolls its row into view in the (now
   independently scrollable) parts panel; `ReferenceDetail.diagrams` was
   enriched to return the specific `{ diagram, callout }` pair a part
