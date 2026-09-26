@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test tests/*.test.ts tests/server/*.test.ts",
     "test:live": "tsx --test tests/live/*.test.ts",
     "test:e2e": "playwright test",
     "format": "prettier --write src tests docs *.json *.ts *.md",
