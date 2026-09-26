@@ -153,7 +153,7 @@ CREATE TABLE product_reference_links (
 );
 CREATE INDEX product_reference_links_ref ON product_reference_links(reference_part_id);
 
-CREATE TABLE vehicles (
+CREATE TABLE shop_vehicles (
   id TEXT PRIMARY KEY,
   make TEXT NOT NULL,
   model TEXT NOT NULL,
@@ -167,7 +167,7 @@ CREATE TABLE vehicles (
 CREATE TABLE product_compatibility (
   id TEXT PRIMARY KEY,
   product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+  vehicle_id TEXT NOT NULL REFERENCES shop_vehicles(id) ON DELETE CASCADE,
   notes TEXT NOT NULL DEFAULT '',
   source TEXT NOT NULL DEFAULT '',
   UNIQUE (product_id, vehicle_id)

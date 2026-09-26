@@ -12,6 +12,7 @@ import { SqliteInventoryRepository } from "./repos/inventory";
 import { SqliteSalesRepository } from "./repos/sales";
 import { SqlitePurchasingRepository } from "./repos/purchasing";
 import { SqliteReportRepository } from "./repos/reports";
+import { SqliteCatalogueRepository } from "./repos/catalogue";
 
 export interface AppContainer extends Providers {
   db: Database;
@@ -47,6 +48,7 @@ export async function createContainer(
     sales: new SqliteSalesRepository(db),
     purchasing: new SqlitePurchasingRepository(db),
     reports: new SqliteReportRepository(db),
+    catalogue: new SqliteCatalogueRepository(db),
     audit,
     config: new SqliteConfigurationProvider(db, audit),
     files: new LocalFileStorage(

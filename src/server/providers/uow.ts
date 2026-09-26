@@ -14,6 +14,7 @@ import type {
   ReportRepository,
   SalesRepository,
 } from "./sales";
+import type { CatalogueRepository } from "./catalogue";
 
 /** Everything business logic may touch. Each member is an interface; the
  * composition root decides which implementation backs it. */
@@ -24,6 +25,7 @@ export interface Repositories {
   sales: SalesRepository;
   purchasing: PurchasingRepository;
   reports: ReportRepository;
+  catalogue: CatalogueRepository;
   audit: AuditProvider;
   config: ConfigurationProvider;
   files: FileStorage;

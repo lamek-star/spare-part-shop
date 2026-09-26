@@ -8,6 +8,9 @@ import { ProductService } from "./products";
 import { SalesService } from "./sales";
 import { PurchasingService } from "./purchasing";
 import { ReportService } from "./reports";
+import { CatalogueService } from "./catalogue";
+import { CatalogueImportService } from "../catalogue/importer";
+import { PackageImportService } from "../catalogue/package";
 
 /** The application's business API, independent of HTTP and of storage:
  * route handlers and tests both talk to this. */
@@ -21,6 +24,9 @@ export function createApp(providers: Providers) {
     sales: new SalesService(uow),
     purchasing: new PurchasingService(uow),
     reports: new ReportService(uow),
+    catalogue: new CatalogueService(uow),
+    catalogueImport: new CatalogueImportService(uow),
+    cataloguePackage: new PackageImportService(uow),
     audit: {
       async query(
         actor: Actor,

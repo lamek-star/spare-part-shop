@@ -11,7 +11,7 @@ import type {
   StockBalance,
 } from "./types";
 import { productConditions } from "./types";
-import { conflict, forbidden, notFound, validation } from "../kernel/errors";
+import { AppError, conflict, forbidden, notFound, validation } from "../kernel/errors";
 import { newId, normalizeNumber, nowIso } from "../kernel/ids";
 import { InventoryOps } from "./inventory";
 import { can, requirePermission } from "./permissions";
@@ -375,6 +375,75 @@ export class ProductService {
           metadata: { fromMinor: current.costMinor, toMinor: costMinor },
         });
       return mask(next, actor);
+    });
+  }
+
+  // ---------------- reference catalogue -> My Products ----------------
+  /**
+   * Turns a reference part into a shop product. The reference record is
+   * never modified: the product copies convenient fields and keeps a link
+   * back. A second product for the same reference part needs an explicit
+   * `allowDuplicate`, so staff cannot create duplicates by accident.
+   */
+  async importFromReference(actor: Actor, referencePartId: string, raw: unknown): Promise<Product> {
+    requirePermission(actor, "products.write");
+    requirePermission(actor, "catalogue.read");
+    const input = record(raw);
+    const f = {
+      sku: text(input.sku, "SKU", { required: true, max: 64 }),
+      priceMinor: moneyMinor(input.priceMinor, "Selling price", { default: 0 }),
+      costMinor: moneyMinor(input.costMinor, "Cost price", { default: 0 }),
+      reorderLevel: integer(input.reorderLevel, "Reorder level", { min: 0, max: 1_000_000, default: 0 }),
+      openingQuantity: integer(input.openingQuantity, "Opening quantity", { min: 0, max: 1_000_000, default: 0 }),
+    };
+    if (input.costMinor !== undefined && f.costMinor !== 0) requirePermission(actor, "products.cost.read");
+    if (f.openingQuantity > 0) requirePermission(actor, "inventory.write");
+    return this.uow.write(async (r) => {
+      const part = await r.catalogue.getPart(referencePartId);
+      if (!part) throw notFound("Reference part");
+      const existing = await r.products.linksForReference(referencePartId);
+      if (existing.length && input.allowDuplicate !== true) {
+        const p = await r.products.get(existing[0].productId);
+        throw new AppError("ALREADY_IMPORTED", `${part.oemNumber} is already in My Products as ${p?.sku ?? "another product"}. Open that product, or choose to create another one deliberately.`, 409, { productId: existing[0].productId, sku: p?.sku });
+      }
+      if (await r.products.getBySku(f.sku)) throw conflict(`SKU ${f.sku} already exists.`);
+      const supplierId = typeof input.supplierId === "string" && input.supplierId ? input.supplierId : null;
+      if (supplierId && !(await r.masterData.getSupplier(supplierId))) throw notFound("Supplier");
+      const locationId = typeof input.locationId === "string" && input.locationId ? input.locationId : null;
+      if (locationId && !(await r.masterData.getLocation(locationId))) throw notFound("Location");
+      if (f.openingQuantity > 0 && !locationId) throw validation("Choose a location for the opening stock.");
+      const now = nowIso();
+      const product: ProductRow = {
+        id: newId(), sku: f.sku,
+        name: text(input.name, "Name", { max: 200 }) || part.description || part.oemNumber,
+        brand: text(input.brand, "Brand", { max: 100 }) || part.manufacturer, manufacturer: part.manufacturer,
+        category: text(input.category, "Category", { max: 100 }), description: part.description,
+        condition: oneOf(input.condition, productConditions, "Condition", "NEW"), unit: "Each", weightGrams: 0, origin: "",
+        status: "ACTIVE", costMinor: f.costMinor, priceMinor: f.priceMinor, currency: (await r.config.get()).currency, taxCategory: "Standard",
+        reorderLevel: f.reorderLevel, minimumLevel: 0, defaultSupplierId: supplierId, defaultLocationId: locationId, notes: "", createdAt: now, updatedAt: now,
+      };
+      await r.products.insert(product, actor.id);
+      const base = { productId: product.id, brand: part.manufacturer, source: "Reference catalogue", market: "", active: true, notes: "", supplierId: null, supersededByNumber: null as string | null };
+      await r.products.upsertNumber({ ...base, id: newId(), display: product.sku, normalized: normalizeNumber(product.sku), type: "INTERNAL_SKU", primary: true, notes: "Shop SKU", source: "Shop entry" });
+      const supersededBy = part.relations.find((x) => x.direction === "out" && x.relation === "SUPERSEDED_BY");
+      await r.products.upsertNumber({ ...base, id: newId(), display: part.oemNumber, normalized: normalizeNumber(part.oemNumber), type: "OEM_OE", primary: false, supersededByNumber: supersededBy?.relatedNumber ?? null });
+      const typeFor: Record<string, string> = { SUPERSEDES: "PREVIOUS", SUPERSEDED_BY: "REPLACEMENT", REPLACEMENT: "REPLACEMENT", INTERCHANGE: "INTERCHANGE", ALTERNATIVE: "CROSS_REFERENCE", EQUIVALENT: "CROSS_REFERENCE", CROSS_REFERENCE: "CROSS_REFERENCE" };
+      const seen = new Set<string>([normalizeNumber(part.oemNumber), normalizeNumber(product.sku)]);
+      for (const rel of part.relations.filter((x) => x.direction === "out").slice(0, 25)) {
+        const norm = normalizeNumber(rel.relatedNumber);
+        if (!norm || seen.has(norm)) continue;
+        seen.add(norm);
+        await r.products.upsertNumber({ ...base, id: newId(), display: rel.relatedNumber, normalized: norm, type: typeFor[rel.relation] ?? "OTHER", primary: false, notes: `From the reference catalogue (${rel.relation.toLowerCase().replace(/_/g, " ")})` });
+      }
+      if (supplierId) await r.products.upsertSupplier({ id: newId(), productId: product.id, supplierId, supplierPartNumber: text(input.supplierPartNumber, "Supplier part number", { max: 100 }), costMinor: f.costMinor, currency: product.currency, isDefault: true, notes: "" });
+      await r.products.addLink({
+        id: newId(), productId: product.id, referencePartId, oemNumber: part.oemNumber, linkedAt: now, linkedBy: actor.id,
+        snapshot: { oemNumber: part.oemNumber, description: part.description, manufacturer: part.manufacturer, statusClass: part.statusClass, verification: part.verification, importedAt: now },
+      });
+      if (f.openingQuantity > 0)
+        await new InventoryOps(r).receive(actor, { productId: product.id, locationId: locationId!, quantity: f.openingQuantity, type: "OPENING_BALANCE", referenceType: "OPENING_BALANCE", note: "Opening stock on import from reference" });
+      await r.audit.record(actor, { action: "product.import_from_reference", entityType: "product", entityId: product.id, summary: `${product.sku} created from reference ${part.oemNumber}`, metadata: { referencePartId, oemNumber: part.oemNumber, duplicate: existing.length > 0 } });
+      return mask(product, actor);
     });
   }
 
