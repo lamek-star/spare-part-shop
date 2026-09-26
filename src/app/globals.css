@@ -1081,3 +1081,11 @@ main a:not(.button):hover {
 .sidebar a:hover {
   text-decoration: none;
 }
+
+@media (max-width: 700px) {
+  .nav-group-label,
+  .sidebar-status,
+  .sidebar-bottom small {
+    display: none !important;
+  }
+}

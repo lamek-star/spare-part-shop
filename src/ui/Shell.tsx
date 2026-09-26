@@ -250,6 +250,7 @@ function AppFrame({ children }: { children: ReactNode }) {
               <div className="nav-group" key={g.group}>
                 {!collapsed && (
                   <small
+                    className="nav-group-label"
                     style={{
                       display: "block",
                       padding: "12px 12px 4px",
@@ -270,7 +271,7 @@ function AppFrame({ children }: { children: ReactNode }) {
                     aria-current={active(i.href) ? "page" : undefined}
                     title={i.label}
                   >
-                    {i.icon} {!collapsed && i.label}
+                    {i.icon} {!collapsed && <span>{i.label}</span>}
                   </Link>
                 ))}
               </div>
@@ -284,7 +285,9 @@ function AppFrame({ children }: { children: ReactNode }) {
                 className="status-dot"
                 style={offline ? { background: "#e0a030" } : undefined}
               />{" "}
-              {offline ? "Offline — working locally" : "Connected"}
+              <span className="sidebar-status">
+                {offline ? "Offline — working locally" : "Connected"}
+              </span>
               <small style={{ display: "block" }}>
                 All data is stored on this server
               </small>
