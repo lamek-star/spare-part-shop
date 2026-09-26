@@ -1,5 +1,5 @@
 import { AppError, notFound, validation } from "../kernel/errors";
-import { permissionsFor, requirePermission } from "../domain/permissions";
+import { permissionsOf, requirePermission } from "../domain/permissions";
 import { toCsv } from "../catalogue/csv";
 import { code128Svg } from "../labels/code128";
 import { qrSvg } from "../labels/qr";
@@ -10,7 +10,7 @@ import type {
   RowStatus,
   StatusClass,
 } from "../catalogue/model";
-import type { Role } from "../domain/types";
+import type { Actor, Role } from "../domain/types";
 import { loadSampleData } from "../dev/sampleData";
 import { Router, type Ctx, type Query } from "./core";
 
@@ -71,12 +71,24 @@ export function buildRouter(): Router {
   r.get("/health", { public: true }, () => ({ data: { status: "ok" } }));
   r.get("/auth/status", { public: true }, async (c) => {
     const configured = await c.app.identity.hasAnyUser();
+    const self = (
+      c.container as { self?: { app?: { id: string; display_name: string } } }
+    ).self;
     return {
       data: {
         needsSetup: !configured,
         shopName: configured
           ? (await c.container.repos.config.get()).shopName
           : "",
+        // On IntraForge there is no sign-in page here: people sign in to
+        // IntraForge and press Open, which lands them back signed in.
+        ...(self?.app
+          ? {
+              platform: {
+                openUrl: `/service-apps/${encodeURIComponent(self.app.id)}/open`,
+              },
+            }
+          : {}),
       },
     };
   });
@@ -113,10 +125,7 @@ export function buildRouter(): Router {
     return { data: sessionView(session) };
   });
   r.post("/auth/logout", { allowMustChange: true }, async (c) => {
-    const token = /(?:^|;\s*)sp_session=([^;]+)/.exec(
-      c.req.headers.get("cookie") ?? "",
-    )?.[1];
-    if (token) await c.app.identity.signOut(decodeURIComponent(token));
+    if (c.sessionToken) await c.app.identity.signOut(c.sessionToken);
     c.setSession(null);
     return { status: 204 };
   });
@@ -1112,14 +1121,16 @@ export function buildRouter(): Router {
 }
 
 function sessionView(s: {
-  actor: { id: string; email: string; displayName: string; role: Role };
+  actor: Actor;
   csrfToken: string;
   mustChangePassword: boolean;
 }) {
+  const { permissions: _explicit, ...user } = s.actor;
+  void _explicit;
   return {
-    user: s.actor,
+    user,
     csrfToken: s.csrfToken,
     mustChangePassword: s.mustChangePassword,
-    permissions: permissionsFor(s.actor.role),
+    permissions: permissionsOf(s.actor),
   };
 }

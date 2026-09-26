@@ -85,9 +85,36 @@ export async function createContainer(
 
 const globals = globalThis as typeof globalThis & {
   __spContainer?: Promise<AppContainer>;
+  __spResolved?: AppContainer & { stale?: () => boolean };
 };
-/** One container per server process (also across Next.js dev reloads). */
-export function getContainer(): Promise<AppContainer> {
-  globals.__spContainer ??= createContainer();
+/** One container per server process (also across Next.js dev reloads).
+ * SPAREPARTS_MODE=platform composes the IntraForge providers (ADR-0018 in
+ * the IntraForge repository); otherwise the standalone ones. A failed start
+ * is not remembered, so the next request tries again; a platform container
+ * whose instance was removed or re-provisioned is replaced. */
+export async function getContainer(): Promise<AppContainer> {
+  const resolved = globals.__spResolved;
+  if (resolved?.stale?.()) {
+    globals.__spResolved = undefined;
+    globals.__spContainer = undefined;
+    await resolved.close().catch(() => undefined);
+  }
+  if (!globals.__spContainer) {
+    const pending: Promise<AppContainer> = (async () => {
+      const { isPlatformMode, createPlatformContainer } =
+        await import("../platform/container");
+      return isPlatformMode() ? createPlatformContainer() : createContainer();
+    })();
+    globals.__spContainer = pending;
+    pending.then(
+      (c) => {
+        if (globals.__spContainer === pending) globals.__spResolved = c;
+      },
+      () => {
+        if (globals.__spContainer === pending)
+          globals.__spContainer = undefined;
+      },
+    );
+  }
   return globals.__spContainer;
 }

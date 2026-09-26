@@ -53,6 +53,11 @@ export interface SqlDatabase {
   run<T>(mode: RunMode, fn: (h: SqlHandle) => Promise<T> | T): Promise<T>;
   read<T>(fn: (h: SqlHandle) => Promise<T> | T): Promise<T>;
   write<T>(fn: (h: SqlHandle) => Promise<T> | T): Promise<T>;
+  /** Runs `fn` once the outermost unit around the caller has committed
+   * (never if it rolls back); immediately when called outside a unit.
+   * For effects outside the database -- deleting a stored file, relaying
+   * audit events -- that must not happen for a rolled-back change. */
+  afterCommit(fn: () => void | Promise<void>): void;
   close(): Promise<void>;
 }
 
@@ -111,6 +116,22 @@ class SqliteHandle implements SqlHandle {
 interface Context {
   handle: SqlHandle;
   mode: RunMode;
+  committed: (() => void | Promise<void>)[];
+}
+
+/** Runs after-commit callbacks without letting one failure stop the rest
+ * or surface into the request that already committed. */
+export function runAfterCommit(
+  callbacks: (() => void | Promise<void>)[],
+): void {
+  for (const fn of callbacks)
+    Promise.resolve()
+      .then(fn)
+      .catch((e) =>
+        console.error(
+          `after-commit task failed: ${(e as Error)?.message ?? e}`,
+        ),
+      );
 }
 
 /**
@@ -162,15 +183,17 @@ export class Database implements SqlDatabase {
     let release!: () => void;
     this.tail = new Promise<void>((resolve) => (release = resolve));
     await previous;
+    const committed: (() => void | Promise<void>)[] = [];
+    let result: T;
     try {
-      return await this.context.run(
-        { handle: this.asyncHandle, mode },
+      result = await this.context.run(
+        { handle: this.asyncHandle, mode, committed },
         async () => {
           if (mode === "write") this.handle.exec("BEGIN IMMEDIATE");
           try {
-            const result = await fn(this.asyncHandle);
+            const value = await fn(this.asyncHandle);
             if (mode === "write") this.handle.exec("COMMIT");
-            return result;
+            return value;
           } catch (error) {
             if (mode === "write") {
               try {
@@ -186,12 +209,20 @@ export class Database implements SqlDatabase {
     } finally {
       release();
     }
+    // Outside the unit's context: the callbacks start units of their own.
+    runAfterCommit(committed);
+    return result;
   }
   read<T>(fn: (h: SqlHandle) => Promise<T> | T) {
     return this.run("read", fn);
   }
   write<T>(fn: (h: SqlHandle) => Promise<T> | T) {
     return this.run("write", fn);
+  }
+  afterCommit(fn: () => void | Promise<void>) {
+    const outer = this.context.getStore();
+    if (outer) outer.committed.push(fn);
+    else runAfterCommit([fn]);
   }
   async close() {
     if (this.closed) return;

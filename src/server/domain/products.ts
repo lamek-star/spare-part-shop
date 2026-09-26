@@ -22,6 +22,7 @@ import { newId, normalizeNumber, nowIso } from "../kernel/ids";
 import { InventoryOps } from "./inventory";
 import { can, requirePermission } from "./permissions";
 import { currency, integer, moneyMinor, oneOf, record, text } from "./validate";
+import { apiUrl } from "../../lib/basePath";
 
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const MAX_IMAGES_PER_PRODUCT = 12;
@@ -73,7 +74,7 @@ export function sniffImage(bytes: Uint8Array): keyof typeof IMAGE_TYPES | null {
     return "webp";
   return null;
 }
-export const imageUrl = (fileId: string) => `/api/v1/files/${fileId}`;
+export const imageUrl = (fileId: string) => apiUrl(`/files/${fileId}`);
 
 export interface ProductDetail {
   product: Product;

@@ -42,6 +42,10 @@ interface SessionState {
   signOut(): Promise<void>;
 }
 const Ctx = createContext<SessionState | null>(null);
+/** On IntraForge, people sign in to IntraForge; this app has no sign-in
+ * page of its own there. Where to send someone who is not signed in. */
+let platformOpenUrl: string | null = null;
+const toIntraForge = (url: string) => window.location.assign(url);
 export const useSession = () => {
   const v = useContext(Ctx);
   if (!v) throw new Error("useSession outside SessionProvider");
@@ -65,9 +69,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setMe(null);
       setCsrfToken("");
       try {
-        const s = await get<{ needsSetup: boolean; shopName: string }>(
-          "/auth/status",
-        );
+        const s = await get<{
+          needsSetup: boolean;
+          shopName: string;
+          platform?: { openUrl: string } | null;
+        }>("/auth/status");
+        if (s.platform?.openUrl) {
+          platformOpenUrl = s.platform.openUrl;
+          toIntraForge(s.platform.openUrl);
+          return;
+        }
         setNeedsSetup(s.needsSetup);
         setShopName(s.shopName);
       } catch {
@@ -79,8 +90,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void load();
     const onOut = () => {
+      if (platformOpenUrl) return toIntraForge(platformOpenUrl);
+      // Ask the server again: on IntraForge this learns where to go and
+      // redirects; standalone it ends on the sign-in page as before.
       setMe(null);
-      setStatus("anonymous");
+      setStatus("loading");
+      void load();
     };
     window.addEventListener(UNAUTHENTICATED_EVENT, onOut);
     return () => window.removeEventListener(UNAUTHENTICATED_EVENT, onOut);
@@ -105,6 +120,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
       async signOut() {
         await post("/auth/logout").catch(() => undefined);
+        if (platformOpenUrl) return toIntraForge("/");
         setMe(null);
         setCsrfToken("");
         setStatus("anonymous");

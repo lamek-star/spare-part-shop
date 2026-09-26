@@ -96,16 +96,32 @@ export const rolePermissions: Record<Role, ReadonlySet<Permission>> = {
   ]),
 };
 
-export const can = (actor: Pick<Actor, "role">, permission: Permission) =>
-  rolePermissions[actor.role]?.has(permission) ?? false;
+export const can = (
+  actor: Pick<Actor, "role" | "permissions">,
+  permission: Permission,
+) =>
+  actor.permissions
+    ? actor.permissions.includes(permission)
+    : (rolePermissions[actor.role]?.has(permission) ?? false);
 
 export function requirePermission(
-  actor: Pick<Actor, "role">,
+  actor: Pick<Actor, "role" | "permissions">,
   permission: Permission,
 ): void {
   if (!can(actor, permission))
-    throw forbidden(`Your role (${actor.role}) may not perform this action.`);
+    throw forbidden(
+      actor.permissions
+        ? "You do not have permission to perform this action."
+        : `Your role (${actor.role}) may not perform this action.`,
+    );
 }
 export const permissionsFor = (role: Role): Permission[] => [
   ...(rolePermissions[role] ?? []),
 ];
+/** The permissions an actor effectively holds (explicit list or role). */
+export const permissionsOf = (
+  actor: Pick<Actor, "role" | "permissions">,
+): Permission[] =>
+  actor.permissions
+    ? permissions.filter((p) => actor.permissions!.includes(p))
+    : permissionsFor(actor.role);

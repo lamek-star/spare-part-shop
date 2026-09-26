@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Badge, Empty, useToast } from "./kit";
 import { ApiError, post } from "./api";
 import { useSession } from "./session";
+import { apiUrl } from "@/lib/basePath";
 
 export interface LinkedProduct {
   productId: string;
@@ -135,7 +136,7 @@ export function DrawingViewer({
   );
   const imageUrl =
     drawing.assetId && drawing.imageAvailable
-      ? `/api/v1/catalogue/assets/${drawing.assetId}`
+      ? apiUrl(`/catalogue/assets/${drawing.assetId}`)
       : "";
   const showImage = Boolean(imageUrl) && !failed;
   const total = drawing.callouts.reduce((n, c) => n + c.parts.length, 0);

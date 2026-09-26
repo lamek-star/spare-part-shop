@@ -40,6 +40,7 @@ import {
   useWarehouses,
 } from "../../../../ui/stock";
 import { productFields, productPayload } from "../../../../ui/productForm";
+import { apiUrl } from "@/lib/basePath";
 
 interface Product {
   id: string;
@@ -408,7 +409,7 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- generated SVG from the API */}
           <img
-            src={`/api/v1/products/${p.id}/label.svg?type=${label}`}
+            src={apiUrl(`/products/${p.id}/label.svg?type=${label}`)}
             alt={`${label} for ${p.sku}`}
             style={{ maxWidth: "100%", background: "#fff" }}
           />
@@ -419,7 +420,7 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
             <button
               onClick={() =>
                 window.open(
-                  `/api/v1/products/${p.id}/label.svg?type=${label}`,
+                  apiUrl(`/products/${p.id}/label.svg?type=${label}`),
                   "_blank",
                 )
               }

@@ -18,6 +18,10 @@ export interface Actor {
   email: string;
   displayName: string;
   role: Role;
+  /** Set by a platform identity provider (IntraForge) that grants
+   * permissions individually; then it, not the role, decides. The role is
+   * kept for display and for the few owner/admin conveniences. */
+  permissions?: readonly string[];
 }
 export interface Page<T> {
   items: T[];

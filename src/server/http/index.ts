@@ -1,6 +1,7 @@
 import { createApp } from "../domain/app";
 import { getContainer } from "../standalone/container";
 import { createHttpHandler } from "./core";
+import { BASE_PATH } from "../../lib/basePath";
 import { buildRouter } from "./routes";
 
 export { createHttpHandler, buildRouter };
@@ -24,6 +25,15 @@ export function getHttpHandler() {
         .filter(Boolean),
       secureCookies:
         process.env.SPAREPARTS_SECURE_COOKIES === "1" ? true : undefined,
+      // On IntraForge the session is the application session IntraForge
+      // sets on the launch path when the user presses Open.
+      ...(process.env.SPAREPARTS_MODE === "platform"
+        ? {
+            sessionCookie:
+              process.env.SPAREPARTS_SESSION_COOKIE ?? "ifapp_spare_parts",
+            cookiePath: `${BASE_PATH}/`,
+          }
+        : {}),
     },
   );
   return globals.__spHandler;

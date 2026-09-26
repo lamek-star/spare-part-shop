@@ -24,6 +24,7 @@ import {
   linesPayload,
   type EditLine,
 } from "../../../../ui/lines";
+import { apiUrl } from "@/lib/basePath";
 
 interface Quotation {
   id: string;
@@ -103,7 +104,7 @@ export default function QuotationPage({
           <>
             <a
               className="button"
-              href={`/api/v1/quotations/${id}/pdf`}
+              href={apiUrl(`/quotations/${id}/pdf`)}
               target="_blank"
               rel="noreferrer"
             >

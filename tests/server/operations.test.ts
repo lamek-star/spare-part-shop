@@ -336,6 +336,23 @@ test("offline: the server code contains no outbound network calls, and a full wo
     /\.tsx?$/.test(f),
   )) {
     const code = readFileSync(file, "utf8");
+    // The one exception: the IntraForge client, which talks only to the
+    // configured internal address of the IntraForge backend (on the private
+    // Docker network of the same installation) -- never to the internet.
+    if (
+      file.replace(/\\/g, "/").endsWith("src/server/platform/intraforge.ts")
+    ) {
+      assert.equal(
+        (code.match(/\bfetch\s*\(/g) ?? []).length,
+        1,
+        "the IntraForge client has exactly one fetch",
+      );
+      assert.ok(
+        code.includes("fetch(`${this.env.internalUrl}${PREFIX}${path}`"),
+        "the IntraForge client fetches only its configured internal address",
+      );
+      continue;
+    }
     assert.ok(!/\bfetch\s*\(/.test(code), `${file} calls fetch()`);
     assert.ok(
       !/from\s+["']node:(http|https|net|dgram|dns|tls)["']/.test(code),

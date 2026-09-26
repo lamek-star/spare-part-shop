@@ -1,4 +1,4 @@
-import type { SqlDatabase } from "../db/connection";
+import type { SqlDatabase, SqlHandle } from "../db/connection";
 import type { AuditEvent } from "../domain/types";
 import type { AuditInput, AuditProvider } from "../providers/core";
 import { newId, nowIso } from "../kernel/ids";
@@ -22,29 +22,38 @@ function scrub(value: unknown, depth = 0): unknown {
   );
 }
 
+/** Writes one audit event inside the caller's unit; returns its id. */
+export async function insertAuditEvent(
+  h: SqlHandle,
+  actor: { id: string; displayName: string } | null,
+  event: AuditInput,
+): Promise<string> {
+  const id = newId();
+  await h.run(
+    `INSERT INTO audit_events(id, at, actor_id, actor_label, action, entity_type, entity_id, summary, metadata)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [
+      id,
+      nowIso(),
+      actor?.id ?? null,
+      actor?.displayName ?? "System",
+      event.action,
+      event.entityType,
+      event.entityId ?? null,
+      event.summary.slice(0, 500),
+      event.metadata ? JSON.stringify(scrub(event.metadata)) : null,
+    ],
+  );
+  return id;
+}
+
 export class SqliteAuditProvider implements AuditProvider {
-  constructor(private readonly db: SqlDatabase) {}
+  constructor(protected readonly db: SqlDatabase) {}
   async record(
     actor: { id: string; displayName: string } | null,
     event: AuditInput,
   ): Promise<void> {
-    await this.db.write(async (h) => {
-      await h.run(
-        `INSERT INTO audit_events(id, at, actor_id, actor_label, action, entity_type, entity_id, summary, metadata)
-         VALUES (?,?,?,?,?,?,?,?,?)`,
-        [
-          newId(),
-          nowIso(),
-          actor?.id ?? null,
-          actor?.displayName ?? "System",
-          event.action,
-          event.entityType,
-          event.entityId ?? null,
-          event.summary.slice(0, 500),
-          event.metadata ? JSON.stringify(scrub(event.metadata)) : null,
-        ],
-      );
-    });
+    await this.db.write((h) => insertAuditEvent(h, actor, event));
   }
   async query(filter: {
     entityType?: string;

@@ -22,6 +22,7 @@ import {
   titleCase,
 } from "../../../../ui/api";
 import { DocLines, TotalsBox, type DocLine } from "../../../../ui/doc";
+import { apiUrl } from "@/lib/basePath";
 
 interface Invoice {
   id: string;
@@ -82,7 +83,7 @@ export default function InvoicePage({
           <>
             <a
               className="button"
-              href={`/api/v1/invoices/${id}/pdf`}
+              href={apiUrl(`/invoices/${id}/pdf`)}
               target="_blank"
               rel="noreferrer"
             >

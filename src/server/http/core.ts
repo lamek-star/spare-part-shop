@@ -10,6 +10,7 @@ import type { AppContainer } from "../standalone/container";
 import type { Actor } from "../domain/types";
 import type { AuthenticatedSession } from "../providers/core";
 import { requirePermission, type Permission } from "../domain/permissions";
+import { BASE_PATH } from "../../lib/basePath";
 
 /**
  * The transport layer. It knows about HTTP (cookies, CSRF, bodies, status
@@ -20,6 +21,7 @@ import { requirePermission, type Permission } from "../domain/permissions";
  */
 export const SESSION_COOKIE = "sp_session";
 export const API_PREFIX = "/api/v1";
+const PREFIXES = [BASE_PATH + API_PREFIX, API_PREFIX];
 
 export interface Query {
   str(name: string): string | undefined;
@@ -44,6 +46,8 @@ export interface Ctx {
   form(): Promise<FormData>;
   /** Cookie to set on the response (login / logout). */
   setSession(token: string | null): void;
+  /** The session token the request carried, if any. */
+  sessionToken: string | undefined;
 }
 export type Result =
   | { status?: number; data?: unknown }
@@ -231,6 +235,10 @@ export interface HttpOptions {
   allowedOrigins?: string[];
   secureCookies?: boolean;
   log?: (line: string) => void;
+  /** Session cookie name and path. On IntraForge the cookie is the
+   * application session IntraForge set on the launch path. */
+  sessionCookie?: string;
+  cookiePath?: string;
 }
 
 export function createHttpHandler(
@@ -239,6 +247,7 @@ export function createHttpHandler(
   opts: HttpOptions = {},
 ) {
   const log = opts.log ?? ((line: string) => console.error(line));
+  const cookieName = opts.sessionCookie ?? SESSION_COOKIE;
   const loginBuckets = new Map<string, { n: number; reset: number }>();
 
   function sameOrigin(req: Request): boolean {
@@ -342,9 +351,8 @@ export function createHttpHandler(
     let cookieOut: string | undefined;
     try {
       const url = new URL(req.url);
-      const path = url.pathname.startsWith(API_PREFIX)
-        ? url.pathname.slice(API_PREFIX.length)
-        : url.pathname;
+      const prefix = PREFIXES.find((p) => url.pathname.startsWith(p));
+      const path = prefix ? url.pathname.slice(prefix.length) : url.pathname;
       let segments: string[];
       try {
         segments = path
@@ -383,7 +391,7 @@ export function createHttpHandler(
         (url.protocol === "https:" ||
           req.headers.get("x-forwarded-proto") === "https");
       const cookies = parseCookies(req.headers.get("cookie"));
-      const token = cookies[SESSION_COOKIE];
+      const token = cookies[cookieName];
 
       let session: AuthenticatedSession | null = null;
       if (!route.options.public) {
@@ -473,17 +481,18 @@ export function createHttpHandler(
             throw validation("The upload could not be read.");
           }
         },
+        sessionToken: token,
         setSession: (t) => {
           const attrs = [
-            "Path=/",
+            `Path=${opts.cookiePath ?? "/"}`,
             "HttpOnly",
             "SameSite=Lax",
             secure ? "Secure" : "",
           ].filter(Boolean);
           cookieOut =
             t === null
-              ? `${SESSION_COOKIE}=; Max-Age=0; ${attrs.join("; ")}`
-              : `${SESSION_COOKIE}=${encodeURIComponent(t)}; Max-Age=${60 * 60 * 24 * 7}; ${attrs.join("; ")}`;
+              ? `${cookieName}=; Max-Age=0; ${attrs.join("; ")}`
+              : `${cookieName}=${encodeURIComponent(t)}; Max-Age=${60 * 60 * 24 * 7}; ${attrs.join("; ")}`;
         },
       };
       const result = await route.handler(ctx);

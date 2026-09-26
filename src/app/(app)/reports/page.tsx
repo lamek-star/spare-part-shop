@@ -12,6 +12,7 @@ import {
   Money,
 } from "../../../ui/kit";
 import { qs, titleCase } from "../../../ui/api";
+import { apiUrl } from "@/lib/basePath";
 
 const REPORTS: {
   key: string;
@@ -94,7 +95,9 @@ export default function Reports() {
           rows && rows.length > 0 ? (
             <a
               className="button"
-              href={`/api/v1/reports/${key}${qs({ format: "csv", ...(def?.ranged ? { from, to } : {}) })}`}
+              href={apiUrl(
+                `/reports/${key}${qs({ format: "csv", ...(def?.ranged ? { from, to } : {}) })}`,
+              )}
             >
               Export CSV
             </a>

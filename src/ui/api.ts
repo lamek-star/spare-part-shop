@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/basePath";
 /** Browser client for the standalone API (/api/v1). Cookies carry the
  * session; state-changing calls also send the CSRF token from /auth/me. */
 export class ApiError extends Error {
@@ -32,7 +33,7 @@ export async function api<T = unknown>(
   if (method !== "GET" && csrf) headers["x-csrf-token"] = csrf;
   let res: Response;
   try {
-    res = await fetch(`/api/v1${path}`, {
+    res = await fetch(apiUrl(path), {
       method,
       headers,
       body: payload,

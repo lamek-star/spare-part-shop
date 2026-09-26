@@ -17,7 +17,12 @@ const securityHeaders = [
   },
 ];
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
+
 const config: NextConfig = {
+  // Served under IntraForge's launch path when built for the platform
+  // (NEXT_PUBLIC_BASE_PATH=/apps/spare-parts); at the root otherwise.
+  basePath,
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
