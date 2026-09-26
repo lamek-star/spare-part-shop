@@ -17,3 +17,4 @@ playwright-report/
 # standalone Spare Parts data (SQLite + managed files)
 .data/
 .data-test/
+.data-e2e/

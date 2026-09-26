@@ -95,6 +95,7 @@ export interface ProductRepository {
   addLink(
     link: ReferenceLink & { snapshot: unknown; linkedBy: string | null },
   ): Promise<void>;
+  removeLink(id: string): Promise<void>;
 }
 
 export interface MovementQuery {

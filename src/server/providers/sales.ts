@@ -120,8 +120,37 @@ export interface DashboardMetrics {
   salesThisMonthMinor: number | null;
   paymentsThisMonthMinor: number | null;
 }
+export interface ProductSalesHistory {
+  quantity: number;
+  totalMinor: number;
+  invoices: number;
+  lastSoldAt: string | null;
+  recent: {
+    invoiceId: string;
+    number: string;
+    issueDate: string;
+    customerName: string;
+    quantity: number;
+    unitPriceMinor: number;
+    totalMinor: number;
+  }[];
+}
+export interface StockLevelRow {
+  productId: string;
+  sku: string;
+  name: string;
+  warehouseId: string;
+  warehouse: string;
+  locationId: string;
+  location: string;
+  onHand: number;
+  reserved: number;
+  available: number;
+}
 export interface ReportRepository {
   dashboard(): Promise<DashboardMetrics>;
+  stockLevels(q: { q?: string; warehouseId?: string; page?: number; pageSize?: number }): Promise<{ items: StockLevelRow[]; total: number; page: number; pageSize: number }>;
+  productSales(productId: string, limit: number): Promise<ProductSalesHistory>;
   inventoryValuation(): Promise<
     {
       productId: string;

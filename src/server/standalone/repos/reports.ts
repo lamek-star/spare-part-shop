@@ -1,5 +1,6 @@
 import type { Database } from "../../db/connection";
-import type { DashboardMetrics, ReportRepository } from "../../providers/sales";
+import type { DashboardMetrics, ProductSalesHistory, ReportRepository, StockLevelRow } from "../../providers/sales";
+import { likeTerm, pageArgs } from "./util";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => String(v ?? "");
@@ -76,6 +77,26 @@ export class SqliteReportRepository implements ReportRepository {
         })),
     );
   }
+  stockLevels(q: { q?: string; warehouseId?: string; page?: number; pageSize?: number }) {
+    const { page, pageSize, offset } = pageArgs(q.page, q.pageSize, 200);
+    const where = ["(b.on_hand > 0 OR b.reserved > 0)"];
+    const params: (string | number)[] = [];
+    if (q.q?.trim()) {
+      where.push("(p.name LIKE ? ESCAPE '\\' OR p.sku LIKE ? ESCAPE '\\' OR l.code LIKE ? ESCAPE '\\')");
+      const t = likeTerm(q.q);
+      params.push(t, t, t);
+    }
+    if (q.warehouseId) (where.push("w.id = ?"), params.push(q.warehouseId));
+    const from = `FROM stock_balances b JOIN products p ON p.id = b.product_id JOIN locations l ON l.id = b.location_id JOIN warehouses w ON w.id = l.warehouse_id WHERE ${where.join(" AND ")}`;
+    return this.db.read((h) => ({
+      items: h
+        .all<Row>(`SELECT p.id, p.sku, p.name, w.id AS wid, w.name AS warehouse, l.id AS lid, l.code AS location, b.on_hand, b.reserved ${from} ORDER BY p.name COLLATE NOCASE, w.name, l.code LIMIT ? OFFSET ?`, [...params, pageSize, offset])
+        .map((r): StockLevelRow => ({ productId: s(r.id), sku: s(r.sku), name: s(r.name), warehouseId: s(r.wid), warehouse: s(r.warehouse), locationId: s(r.lid), location: s(r.location), onHand: n(r.on_hand), reserved: n(r.reserved), available: n(r.on_hand) - n(r.reserved) })),
+      total: h.count(`SELECT COUNT(*) AS n ${from}`, params),
+      page,
+      pageSize,
+    }));
+  }
   stockOnHand() {
     return this.db.read((h) =>
       h
@@ -131,6 +152,34 @@ export class SqliteReportRepository implements ReportRepository {
           paidMinor: n(r.paid),
         })),
     );
+  }
+  productSales(productId: string, limit: number): Promise<ProductSalesHistory> {
+    return this.db.read((h) => {
+      const totals = h.get<Row>(
+        `SELECT COALESCE(SUM(ii.quantity),0) AS q, COALESCE(SUM(ii.line_total_minor),0) AS t, COUNT(DISTINCT i.id) AS c, MAX(i.issue_date) AS last
+           FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
+          WHERE ii.product_id = ? AND i.status <> 'VOID'`,
+        [productId],
+      )!;
+      const recent = h
+        .all<Row>(
+          `SELECT i.id, i.number, i.issue_date, c.name AS customer, ii.quantity, ii.unit_price_minor, ii.line_total_minor
+             FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id JOIN customers c ON c.id = i.customer_id
+            WHERE ii.product_id = ? AND i.status <> 'VOID'
+            ORDER BY i.issue_date DESC, i.number DESC LIMIT ?`,
+          [productId, limit],
+        )
+        .map((r) => ({
+          invoiceId: s(r.id),
+          number: s(r.number),
+          issueDate: s(r.issue_date),
+          customerName: s(r.customer),
+          quantity: n(r.quantity),
+          unitPriceMinor: n(r.unit_price_minor),
+          totalMinor: n(r.line_total_minor),
+        }));
+      return { quantity: n(totals.q), totalMinor: n(totals.t), invoices: n(totals.c), lastSoldAt: totals.last ? s(totals.last) : null, recent };
+    });
   }
   salesByProduct(from: string, to: string) {
     return this.db.read((h) =>

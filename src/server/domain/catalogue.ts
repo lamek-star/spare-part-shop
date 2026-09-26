@@ -72,9 +72,16 @@ export class CatalogueService {
   }
   async drawing(actor: Actor, id: string): Promise<DrawingDetail> {
     requirePermission(actor, "catalogue.read");
-    const d = await this.uow.read((r) => r.catalogue.getDrawing(id));
-    if (!d) throw notFound("Drawing");
-    return d;
+    return this.uow.read(async (r) => {
+      const d = await r.catalogue.getDrawing(id);
+      if (!d) throw notFound("Drawing");
+      d.linked = {};
+      for (const partId of new Set(d.callouts.flatMap((c) => c.parts.map((p) => p.id)))) {
+        const l = await linkedProducts(r, actor, partId);
+        if (l.length) d.linked[partId] = l;
+      }
+      return d;
+    });
   }
   async browse(actor: Actor, filters: BrowseFilters): Promise<BrowseResult> {
     requirePermission(actor, "catalogue.read");

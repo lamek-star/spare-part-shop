@@ -1857,3 +1857,89 @@ td > button.diagram-hotspot-row.primary {
 .epc-table tbody tr.epc-row.hit:hover td {
   background: rgba(224, 160, 32, 0.16);
 }
+
+/* ---- reference drawing viewer ---- */
+.sp-drawing {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(360px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.sp-drawing-image {
+  position: sticky;
+  top: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.sp-drawing-stage {
+  position: relative;
+  line-height: 0;
+}
+.sp-drawing-stage img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.sp-hotspot {
+  position: absolute;
+  padding: 0;
+  border: 2px solid #d9822b;
+  background: rgba(217, 130, 43, 0.1);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.sp-hotspot:hover,
+.sp-hotspot.on {
+  background: rgba(8, 127, 117, 0.28);
+  border-color: var(--teal);
+}
+.sp-drawing-missing {
+  min-height: 200px;
+  display: grid;
+  align-content: center;
+}
+.sp-drawing-foot {
+  font-size: 11px;
+  padding: 8px 2px 0;
+}
+.sp-callout {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 13px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+}
+.sp-drawing-parts {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+.sp-drawing-parts tr.selected-table-row td {
+  background: #e6f4f1;
+}
+@media (max-width: 1000px) {
+  .sp-drawing {
+    grid-template-columns: 1fr;
+  }
+  .sp-drawing-image {
+    position: static;
+  }
+}
+.sp-drawing-parts .table-wrap {
+  overflow-x: auto;
+}
+.sp-drawing-parts td button {
+  white-space: normal;
+  padding: 5px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+}

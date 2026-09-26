@@ -192,6 +192,8 @@ export interface DrawingDetail {
   imageAvailable: boolean;
   sourceImageUrl: string;
   callouts: CalloutView[];
+  /** My Products linked to the parts on this drawing, by reference part id. */
+  linked?: Record<string, LinkedProduct[]>;
 }
 export interface CatalogueSearchQuery {
   q?: string;

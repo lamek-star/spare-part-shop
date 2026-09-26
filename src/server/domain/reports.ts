@@ -42,6 +42,10 @@ export class ReportService {
       paymentsThisMonthMinor: sales ? m.paymentsThisMonthMinor : null,
     };
   }
+  async productSales(actor: Actor, productId: string) {
+    requirePermission(actor, "invoices.read");
+    return this.uow.read((r) => r.reports.productSales(productId, 20));
+  }
   async inventoryValuation(actor: Actor) {
     requirePermission(actor, "reports.financial");
     return this.uow.read((r) => r.reports.inventoryValuation());

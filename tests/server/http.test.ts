@@ -467,3 +467,75 @@ test("audit trail records who did what, without secrets", async () => {
     assert.equal((await (await t.as("SALES")).get("/audit")).status, 403);
   });
 });
+
+test("sample data is a dev-only opt-in: 404 unless enabled, never in production, and it is plainly marked", async () => {
+  await withApp(async (t) => {
+    const owner = await t.as("OWNER");
+    assert.equal((await owner.get("/auth/me")).data.features.sampleData, false);
+    assert.equal((await owner.post("/dev/sample-data")).status, 404, "off by default");
+    const saved = { flag: process.env.SPAREPARTS_ENABLE_SAMPLE_DATA, env: process.env.NODE_ENV };
+    try {
+      process.env.SPAREPARTS_ENABLE_SAMPLE_DATA = "1";
+      (process.env as Record<string, string>).NODE_ENV = "production";
+      assert.equal((await owner.post("/dev/sample-data")).status, 404, "never in production");
+      (process.env as Record<string, string>).NODE_ENV = "development";
+      assert.equal((await (await t.as("SALES")).post("/dev/sample-data")).status, 403);
+      const r = await owner.post("/dev/sample-data");
+      assert.equal(r.status, 201, JSON.stringify(r.body));
+      assert.equal(r.data.products, 8);
+      assert.deepEqual(r.data.skipped, []);
+      assert.ok((await owner.get("/products?pageSize=50")).data.items.every((p: { name: string }) => /Sample/.test(p.name)));
+      assert.ok((await owner.get("/catalogue/search?q=90915-10009")).data.total >= 1);
+      const again = await owner.post("/dev/sample-data");
+      assert.match(again.data.skipped[0], /already loaded/);
+      assert.equal((await owner.get("/inventory/integrity")).data.length, 0);
+    } finally {
+      if (saved.flag === undefined) delete process.env.SPAREPARTS_ENABLE_SAMPLE_DATA;
+      else process.env.SPAREPARTS_ENABLE_SAMPLE_DATA = saved.flag;
+      (process.env as Record<string, string | undefined>).NODE_ENV = saved.env;
+    }
+  });
+});
+
+test("stock levels, product sales history, reference links and enriched product list", async () => {
+  const t = await makeHttpApp();
+  try {
+    const owner = await t.as("OWNER");
+    const wh = (await owner.post("/warehouses", { name: "Main" })).data;
+    const loc = ((await owner.get("/warehouses")).data.locations as { id: string; warehouseId: string }[]).find((l) => l.warehouseId === wh.id)!;
+    const cust = (await owner.post("/customers", { name: "Acme" })).data;
+    const prod = (await owner.post("/products", { sku: "LV-1", name: "Level part", priceMinor: 1000, costMinor: 500, reorderLevel: 20, openingStock: { locationId: loc.id, quantity: 10 } })).data;
+    const list = (await owner.get("/products")).data.items[0];
+    assert.deepEqual([list.onHand, list.available, list.primaryImageUrl], [10, 10, null]);
+    const levels = (await owner.get("/inventory/stock?q=level")).data;
+    assert.equal(levels.total, 1);
+    assert.deepEqual([levels.items[0].sku, levels.items[0].warehouse, levels.items[0].available], ["LV-1", "Main", 10]);
+    assert.equal((await owner.get("/inventory/stock?q=%25")).data.total, 0, "wildcards are literal");
+    assert.equal((await (await t.as("VIEWER")).get("/inventory/stock")).status, 200);
+    const q = (await owner.post("/quotations", { customerId: cust.id, lines: [{ productId: prod.id, quantity: 2, unitPriceMinor: 1000 }] })).data;
+    await owner.post(`/quotations/${q.id}/issue`);
+    await owner.post(`/quotations/${q.id}/accept`);
+    const o = (await owner.post(`/quotations/${q.id}/order`, {})).data;
+    await owner.post(`/orders/${o.id}/fulfil`, {});
+    const inv = (await owner.post(`/orders/${o.id}/invoice`, {})).data;
+    const sales = (await owner.get(`/products/${prod.id}/sales`)).data;
+    assert.deepEqual([sales.quantity, sales.totalMinor, sales.invoices, sales.recent[0].number], [2, 2000, 1, inv.number]);
+    await owner.post(`/invoices/${inv.id}/void`, { reason: "test" });
+    assert.equal((await owner.get(`/products/${prod.id}/sales`)).data.quantity, 0, "void invoices do not count as sales");
+    assert.equal((await (await t.as("INVENTORY")).get(`/products/${prod.id}/sales`)).status, 403);
+    // reference links
+    const zip = buildZip({ "manifest.json": JSON.stringify({ package_format_version: 1, package_id: "p", provider: "csv" }), "parts.csv": "oem_number,manufacturer,description\nAB-100,Toyota,Thing" });
+    await owner.send("POST", "/catalogue/import/package", { form: fileForm("p.zip", zip, "application/zip") });
+    const ref = (await owner.get("/catalogue/parts/by-oem/AB-100")).data;
+    assert.equal((await owner.post(`/products/${prod.id}/reference-links`, { referencePartId: ref.id })).status, 201);
+    assert.equal((await owner.post(`/products/${prod.id}/reference-links`, { referencePartId: ref.id })).status, 409);
+    const linked = (await owner.get(`/catalogue/parts/${ref.id}`)).data.linkedProducts;
+    assert.deepEqual([linked[0].sku, linked[0].available], ["LV-1", 8]);
+    const link = (await owner.get(`/products/${prod.id}`)).data.referenceLinks[0];
+    assert.equal((await owner.del(`/products/${prod.id}/reference-links/${link.id}`)).status, 204);
+    assert.equal((await owner.get(`/catalogue/parts/${ref.id}`)).data.linkedProducts.length, 0);
+    assert.equal((await (await t.as("VIEWER")).post(`/products/${prod.id}/reference-links`, { referencePartId: ref.id })).status, 403);
+  } finally {
+    await t.cleanup();
+  }
+});

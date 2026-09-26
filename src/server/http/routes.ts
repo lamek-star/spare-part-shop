@@ -6,6 +6,7 @@ import { qrSvg } from "../labels/qr";
 import { PackageError, ZipSource } from "../catalogue/packageSource";
 import type { ColumnMapping, CatalogueSearchQuery, RowStatus, StatusClass } from "../catalogue/model";
 import type { Role } from "../domain/types";
+import { loadSampleData } from "../dev/sampleData";
 import { Router, type Ctx, type Query } from "./core";
 
 /**
@@ -39,6 +40,8 @@ function packageSource(bytes: Uint8Array) {
     throw e;
   }
 }
+
+export const sampleDataEnabled = () => process.env.SPAREPARTS_ENABLE_SAMPLE_DATA === "1" && process.env.NODE_ENV !== "production";
 
 const running = new Map<string, Promise<unknown>>();
 
@@ -78,13 +81,19 @@ export function buildRouter(): Router {
     return { status: 204 };
   });
   r.get("/auth/me", { allowMustChange: true }, async (c) => ({
-    data: { ...sessionView(c.session!), shopName: (await c.container.repos.config.get()).shopName },
+    data: { ...sessionView(c.session!), shopName: (await c.container.repos.config.get()).shopName, features: { sampleData: sampleDataEnabled() } },
   }));
   r.post("/auth/password", { allowMustChange: true }, async (c) => {
     const b = await c.json();
     await c.app.identity.changePassword(c.actor.id, String(b.currentPassword ?? ""), String(b.newPassword ?? ""));
     c.setSession(null);
     return { data: { changed: true, signInAgain: true } };
+  });
+
+  // Development only: refuses (404) unless explicitly enabled, and never in production.
+  r.post("/dev/sample-data", { permission: "settings.manage" }, async (c) => {
+    if (!sampleDataEnabled()) throw notFound("Endpoint");
+    return { status: 201, data: await loadSampleData(c.app, c.actor) };
   });
 
   // ------------------------------------------------------------ users / settings / audit
@@ -226,6 +235,11 @@ export function buildRouter(): Router {
     }
     return { binary: { bytes: new TextEncoder().encode(svg), mime: "image/svg+xml", inline: true } };
   });
+  r.post("/products/:id/reference-links", { permission: "products.write" }, async (c) => ({ status: 201, data: await c.app.products.linkReference(c.actor, c.params.id, String((await c.json()).referencePartId ?? "")) }));
+  r.delete("/products/:id/reference-links/:linkId", { permission: "products.write" }, async (c) => {
+    await c.app.products.unlinkReference(c.actor, c.params.id, c.params.linkId);
+    return { status: 204 };
+  });
   r.post("/products/:id/numbers", { permission: "products.write" }, async (c) => ({ status: 201, data: await c.app.products.addNumber(c.actor, c.params.id, await c.json()) }));
   r.delete("/products/:id/numbers/:numberId", { permission: "products.write" }, async (c) => {
     await c.app.products.removeNumber(c.actor, c.params.id, c.params.numberId);
@@ -250,10 +264,12 @@ export function buildRouter(): Router {
     await c.app.products.removeImage(c.actor, c.params.id, c.params.imageId);
     return { status: 204 };
   });
+  r.get("/products/:id/sales", { permission: "invoices.read" }, async (c) => ({ data: await c.app.reports.productSales(c.actor, c.params.id) }));
   r.get("/products/:id/stock", { permission: "inventory.read" }, async (c) => ({ data: await c.app.inventory.stockFor(c.actor, c.params.id) }));
 
   // ------------------------------------------------------------ inventory & warehouses
   r.get("/inventory/balances", { permission: "inventory.read" }, async (c) => ({ data: await c.app.inventory.balances(c.actor, { warehouseId: c.query.str("warehouseId"), locationId: c.query.str("locationId") }) }));
+  r.get("/inventory/stock", { permission: "inventory.read" }, async (c) => ({ data: await c.app.inventory.stockLevels(c.actor, { ...paged(c.query), warehouseId: c.query.str("warehouseId") }) }));
   r.get("/inventory/movements", { permission: "inventory.read" }, async (c) => ({
     data: await c.app.inventory.movements(c.actor, { productId: c.query.str("productId"), locationId: c.query.str("locationId"), page: c.query.int("page"), pageSize: c.query.int("pageSize") }),
   }));

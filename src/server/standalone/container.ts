@@ -27,7 +27,7 @@ export interface AppContainer extends Providers {
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
   if (env.SPAREPARTS_DATA_DIR) return env.SPAREPARTS_DATA_DIR;
   return join(
-    process.cwd(),
+    /*turbopackIgnore: true*/ process.cwd(),
     env.SPAREPARTS_TEST_MODE === "1" ? ".data-test" : ".data",
   );
 }

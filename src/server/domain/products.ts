@@ -79,6 +79,12 @@ export interface ProductDetail {
   totals: { onHand: number; reserved: number; available: number };
 }
 
+export interface ProductListItem extends Product {
+  onHand: number;
+  available: number;
+  primaryImageUrl: string | null;
+}
+
 const mask = (p: ProductRow, actor: Actor): Product => ({
   ...p,
   costMinor: can(actor, "products.cost.read") ? p.costMinor : null,
@@ -149,10 +155,24 @@ function productFields(input: Record<string, unknown>, base?: ProductRow) {
 export class ProductService {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async list(actor: Actor, q: ProductQuery): Promise<Page<Product>> {
+  async list(actor: Actor, q: ProductQuery): Promise<Page<ProductListItem>> {
     requirePermission(actor, "products.read");
-    const page = await this.uow.read((r) => r.products.list(q));
-    return { ...page, items: page.items.map((p) => mask(p, actor)) };
+    return this.uow.read(async (r) => {
+      const page = await r.products.list(q);
+      const items: ProductListItem[] = [];
+      for (const p of page.items) {
+        const balances = await r.inventory.balances({ productId: p.id });
+        const images = await r.products.images(p.id);
+        const primary = images.find((i) => i.isPrimary) ?? images[0];
+        items.push({
+          ...mask(p, actor),
+          onHand: balances.reduce((n, b) => n + b.onHand, 0),
+          available: balances.reduce((n, b) => n + b.available, 0),
+          primaryImageUrl: primary ? imageUrl(primary.fileId) : null,
+        });
+      }
+      return { ...page, items };
+    });
   }
   async categories(actor: Actor) {
     requirePermission(actor, "products.read");
@@ -444,6 +464,36 @@ export class ProductService {
         await new InventoryOps(r).receive(actor, { productId: product.id, locationId: locationId!, quantity: f.openingQuantity, type: "OPENING_BALANCE", referenceType: "OPENING_BALANCE", note: "Opening stock on import from reference" });
       await r.audit.record(actor, { action: "product.import_from_reference", entityType: "product", entityId: product.id, summary: `${product.sku} created from reference ${part.oemNumber}`, metadata: { referencePartId, oemNumber: part.oemNumber, duplicate: existing.length > 0 } });
       return mask(product, actor);
+    });
+  }
+
+  /** Links an existing product to a reference part (no data is copied). */
+  async linkReference(actor: Actor, productId: string, referencePartId: string): Promise<ReferenceLink[]> {
+    requirePermission(actor, "products.write");
+    requirePermission(actor, "catalogue.read");
+    return this.uow.write(async (r) => {
+      const product = await r.products.get(productId);
+      if (!product) throw notFound("Product");
+      const part = await r.catalogue.getPart(referencePartId);
+      if (!part) throw notFound("Reference part");
+      const mine = await r.products.links(productId);
+      if (mine.some((l) => l.referencePartId === referencePartId)) throw conflict("This product is already linked to that reference part.");
+      const now = nowIso();
+      await r.products.addLink({
+        id: newId(), productId, referencePartId, oemNumber: part.oemNumber, linkedAt: now, linkedBy: actor.id,
+        snapshot: { oemNumber: part.oemNumber, description: part.description, manufacturer: part.manufacturer, statusClass: part.statusClass, verification: part.verification, importedAt: now },
+      });
+      await r.audit.record(actor, { action: "product.reference_link", entityType: "product", entityId: productId, summary: `Linked to reference ${part.oemNumber}`, metadata: { referencePartId } });
+      return r.products.links(productId);
+    });
+  }
+  async unlinkReference(actor: Actor, productId: string, linkId: string): Promise<void> {
+    requirePermission(actor, "products.write");
+    await this.uow.write(async (r) => {
+      const link = (await r.products.links(productId)).find((l) => l.id === linkId);
+      if (!link) throw notFound("Reference link");
+      await r.products.removeLink(linkId);
+      await r.audit.record(actor, { action: "product.reference_unlink", entityType: "product", entityId: productId, summary: `Unlinked from reference ${link.oemNumber}` });
     });
   }
 

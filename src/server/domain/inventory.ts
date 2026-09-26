@@ -437,6 +437,10 @@ export class InventoryService {
     requirePermission(actor, "inventory.read");
     return this.uow.read((r) => r.inventory.listMovements(q));
   }
+  async stockLevels(actor: Actor, q: { q?: string; warehouseId?: string; page?: number; pageSize?: number }) {
+    requirePermission(actor, "inventory.read");
+    return this.uow.read((r) => r.reports.stockLevels(q));
+  }
   async verifyIntegrity(actor: Actor) {
     requirePermission(actor, "inventory.read");
     return this.uow.read((r) => r.inventory.verifyIntegrity());
