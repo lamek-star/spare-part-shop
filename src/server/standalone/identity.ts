@@ -4,7 +4,7 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import type { Database } from "../db/connection";
+import type { SqlDatabase } from "../db/connection";
 import type { Actor, Role } from "../domain/types";
 import { roles } from "../domain/types";
 import type {
@@ -102,7 +102,7 @@ const toRecord = (r: UserRow): UserRecord => ({
  */
 export class LocalIdentityProvider implements IdentityProvider {
   constructor(
-    private readonly db: Database,
+    private readonly db: SqlDatabase,
     private readonly audit: AuditProvider,
   ) {}
 
@@ -122,7 +122,7 @@ export class LocalIdentityProvider implements IdentityProvider {
       throw validation("Unknown role.");
     checkPasswordPolicy(user.password, email);
     return this.db.write(async (h) => {
-      const first = h.count("SELECT COUNT(*) AS n FROM users") === 0;
+      const first = (await h.count("SELECT COUNT(*) AS n FROM users")) === 0;
       if (!actor && !first)
         throw new AppError(
           "FORBIDDEN",
@@ -131,11 +131,11 @@ export class LocalIdentityProvider implements IdentityProvider {
         );
       if (!actor && user.role !== "OWNER")
         throw validation("The first account must be the Owner.");
-      if (h.get("SELECT 1 AS x FROM users WHERE email = ?", [email]))
+      if (await h.get("SELECT 1 AS x FROM users WHERE email = ?", [email]))
         throw conflict("A user with that email already exists.");
       const id = newId();
       const now = nowIso();
-      h.run(
+      await h.run(
         `INSERT INTO users(id,email,display_name,role,password_hash,status,must_change_password,created_at,updated_at)
          VALUES (?,?,?,?,?,'ACTIVE',?,?,?)`,
         [
@@ -160,18 +160,18 @@ export class LocalIdentityProvider implements IdentityProvider {
         },
       );
       return toRecord(
-        h.get<UserRow>("SELECT * FROM users WHERE id = ?", [id])!,
+        (await h.get<UserRow>("SELECT * FROM users WHERE id = ?", [id]))!,
       );
     });
   }
 
   async listUsers(): Promise<UserRecord[]> {
-    return this.db.read((h) =>
-      h
-        .all<UserRow>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<UserRow>(
           "SELECT * FROM users ORDER BY display_name COLLATE NOCASE",
         )
-        .map(toRecord),
+      ).map(toRecord),
     );
   }
 
@@ -186,7 +186,9 @@ export class LocalIdentityProvider implements IdentityProvider {
     },
   ): Promise<UserRecord> {
     return this.db.write(async (h) => {
-      const row = h.get<UserRow>("SELECT * FROM users WHERE id = ?", [id]);
+      const row = await h.get<UserRow>("SELECT * FROM users WHERE id = ?", [
+        id,
+      ]);
       if (!row) throw notFound("User");
       const role = patch.role ?? row.role;
       const status = patch.status ?? row.status;
@@ -200,9 +202,9 @@ export class LocalIdentityProvider implements IdentityProvider {
         (role !== "OWNER" || status !== "ACTIVE");
       if (
         losesOwner &&
-        h.count(
+        (await h.count(
           "SELECT COUNT(*) AS n FROM users WHERE role='OWNER' AND status='ACTIVE'",
-        ) <= 1
+        )) <= 1
       )
         throw conflict("There must always be at least one active Owner.");
       let hash = row.password_hash;
@@ -210,7 +212,7 @@ export class LocalIdentityProvider implements IdentityProvider {
         checkPasswordPolicy(patch.password, row.email);
         hash = hashPassword(patch.password);
       }
-      h.run(
+      await h.run(
         `UPDATE users SET display_name=?, role=?, status=?, password_hash=?, must_change_password=?, updated_at=? WHERE id=?`,
         [
           patch.displayName?.trim() || row.display_name,
@@ -227,7 +229,7 @@ export class LocalIdentityProvider implements IdentityProvider {
         patch.password !== undefined ||
         role !== row.role
       )
-        h.run("DELETE FROM sessions WHERE user_id = ?", [id]);
+        await h.run("DELETE FROM sessions WHERE user_id = ?", [id]);
       await this.audit.record(actor, {
         action: "user.update",
         entityType: "user",
@@ -240,7 +242,7 @@ export class LocalIdentityProvider implements IdentityProvider {
         },
       });
       return toRecord(
-        h.get<UserRow>("SELECT * FROM users WHERE id = ?", [id])!,
+        (await h.get<UserRow>("SELECT * FROM users WHERE id = ?", [id]))!,
       );
     });
   }
@@ -258,15 +260,15 @@ export class LocalIdentityProvider implements IdentityProvider {
     // commits (a throw inside would roll the failure record back and the
     // lockout would never trigger).
     const outcome = await this.db.write(
-      (
+      async (
         h,
-      ):
-        | { error: AppError }
-        | { token: string; session: AuthenticatedSession } => {
+      ): Promise<
+        { error: AppError } | { token: string; session: AuthenticatedSession }
+      > => {
         const since = new Date(
           now.getTime() - LOCK_WINDOW_MINUTES * 60_000,
         ).toISOString();
-        const failures = h.count(
+        const failures = await h.count(
           "SELECT COUNT(*) AS n FROM login_attempts WHERE identifier = ? AND success = 0 AND at > ?",
           [email, since],
         );
@@ -278,13 +280,14 @@ export class LocalIdentityProvider implements IdentityProvider {
               429,
             ),
           };
-        const user = h.get<UserRow>("SELECT * FROM users WHERE email = ?", [
-          email,
-        ]);
+        const user = await h.get<UserRow>(
+          "SELECT * FROM users WHERE email = ?",
+          [email],
+        );
         const ok =
           verifyPassword(input.password, user?.password_hash ?? DUMMY_HASH) &&
           user?.status === "ACTIVE";
-        h.run(
+        await h.run(
           "INSERT INTO login_attempts(identifier, ip, at, success) VALUES (?,?,?,?)",
           [email, input.ip, now.toISOString(), ok ? 1 : 0],
         );
@@ -297,14 +300,16 @@ export class LocalIdentityProvider implements IdentityProvider {
               401,
             ),
           };
-        h.run(
+        await h.run(
           "DELETE FROM login_attempts WHERE identifier = ? AND success = 0",
           [email],
         );
-        h.run("DELETE FROM sessions WHERE expires_at < ?", [now.toISOString()]);
+        await h.run("DELETE FROM sessions WHERE expires_at < ?", [
+          now.toISOString(),
+        ]);
         const token = randomBytes(32).toString("base64url");
         const csrf = randomBytes(24).toString("base64url");
-        h.run(
+        await h.run(
           `INSERT INTO sessions(id,user_id,csrf_token,created_at,expires_at,last_seen_at,ip,user_agent)
            VALUES (?,?,?,?,?,?,?,?)`,
           [
@@ -318,7 +323,7 @@ export class LocalIdentityProvider implements IdentityProvider {
             (input.userAgent ?? "").slice(0, 200),
           ],
         );
-        h.run("UPDATE users SET last_login_at = ? WHERE id = ?", [
+        await h.run("UPDATE users SET last_login_at = ? WHERE id = ?", [
           now.toISOString(),
           user.id,
         ]);
@@ -347,8 +352,8 @@ export class LocalIdentityProvider implements IdentityProvider {
   ): Promise<AuthenticatedSession | null> {
     if (!token || token.length < 20 || token.length > 200) return null;
     const id = tokenHash(token);
-    return this.db.write((h) => {
-      const row = h.get<
+    return this.db.write(async (h) => {
+      const row = await h.get<
         UserRow & {
           csrf_token: string;
           expires_at: string;
@@ -362,14 +367,14 @@ export class LocalIdentityProvider implements IdentityProvider {
       );
       const now = new Date();
       if (!row || row.status !== "ACTIVE" || new Date(row.expires_at) <= now) {
-        if (row) h.run("DELETE FROM sessions WHERE id = ?", [id]);
+        if (row) await h.run("DELETE FROM sessions WHERE id = ?", [id]);
         return null;
       }
       if (now.getTime() - new Date(row.last_seen_at).getTime() > 5 * 60_000) {
         const cap =
           new Date(row.s_created).getTime() + SESSION_MAX_DAYS * 86_400_000;
         const next = Math.min(cap, now.getTime() + SESSION_HOURS * 3_600_000);
-        h.run(
+        await h.run(
           "UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?",
           [now.toISOString(), new Date(next).toISOString(), id],
         );
@@ -400,7 +405,9 @@ export class LocalIdentityProvider implements IdentityProvider {
     newPassword: string,
   ): Promise<void> {
     await this.db.write(async (h) => {
-      const row = h.get<UserRow>("SELECT * FROM users WHERE id = ?", [userId]);
+      const row = await h.get<UserRow>("SELECT * FROM users WHERE id = ?", [
+        userId,
+      ]);
       if (!row || !verifyPassword(currentPassword, row.password_hash))
         throw new AppError(
           "BAD_CREDENTIALS",
@@ -410,11 +417,11 @@ export class LocalIdentityProvider implements IdentityProvider {
       checkPasswordPolicy(newPassword, row.email);
       if (newPassword === currentPassword)
         throw validation("Choose a different password.");
-      h.run(
+      await h.run(
         "UPDATE users SET password_hash=?, must_change_password=0, updated_at=? WHERE id=?",
         [hashPassword(newPassword), nowIso(), userId],
       );
-      h.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
+      await h.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
       await this.audit.record(
         { id: row.id, displayName: row.display_name },
         {

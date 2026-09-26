@@ -4,7 +4,8 @@ import { makeApp } from "./helpers";
 import { detectColumns } from "../../src/server/catalogue/importer";
 import { parseCsv } from "../../src/server/catalogue/csv";
 
-const PARTS = 20_000;
+// SPAREPARTS_PERF_PARTS lowers the size for profiling runs only.
+const PARTS = Number(process.env.SPAREPARTS_PERF_PARTS ?? 20_000);
 function syntheticCsv(rows: number): string {
   const makes = ["Toyota", "Nissan", "Honda", "Mazda"];
   const models = ["Corolla", "Camry", "Skyline", "Civic", "Demio", "Hilux"];
@@ -164,14 +165,25 @@ test(
         assert.ok(r.ms < 1500, `${name} took ${r.ms.toFixed(0)} ms`);
       assert.equal((await t.app.inventory.verifyIntegrity(o)).length, 0);
 
-      // hot queries use indexes, not table scans
+      // hot queries use indexes, not table scans. PostgreSQL's planner
+      // rightly prefers a scan of a tiny table, so it is asked whether an
+      // index exists for the query (sequential scans disabled) instead.
       const plan = (sql: string, params: (string | number)[] = []) =>
-        t.container.db.read((h) =>
-          h
-            .all<{ detail: string }>(`EXPLAIN QUERY PLAN ${sql}`, params)
+        t.container.db.read(async (h) => {
+          if (h.dialect === "postgres") {
+            await h.exec("SET LOCAL enable_seqscan = off");
+            return (
+              await h.all<{ "QUERY PLAN": string }>(`EXPLAIN ${sql}`, params)
+            )
+              .map((r) => r["QUERY PLAN"])
+              .join(" | ");
+          }
+          return (
+            await h.all<{ detail: string }>(`EXPLAIN QUERY PLAN ${sql}`, params)
+          )
             .map((r) => r.detail)
-            .join(" | "),
-        );
+            .join(" | ");
+        });
       for (const [what, sql, params] of [
         [
           "balances by product",
@@ -212,7 +224,7 @@ test(
       ] as [string, string, string[]][]) {
         const p = await plan(sql, params);
         assert.ok(
-          /USING (COVERING )?INDEX|USING INTEGER PRIMARY KEY|PRIMARY KEY/i.test(
+          /USING (COVERING )?INDEX|USING INTEGER PRIMARY KEY|PRIMARY KEY|Index (Only )?Scan|Bitmap Index Scan/i.test(
             p,
           ),
           `${what} does not use an index: ${p}`,

@@ -1,4 +1,4 @@
-import type { Database, Handle } from "../../db/connection";
+import type { SqlDatabase, SqlHandle } from "../../db/connection";
 import type {
   DocumentLine,
   Enquiry,
@@ -12,7 +12,7 @@ import type {
 } from "../../domain/types";
 import type { Paged } from "../../providers/data";
 import type { SalesRepository, SalesReturn } from "../../providers/sales";
-import { likeTerm, pageArgs } from "./util";
+import { likeTerm, mapSeq, pageArgs } from "./util";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => String(v ?? "");
@@ -35,8 +35,8 @@ const docLine = (r: Row): DocumentLine => ({
     : {}),
 });
 
-function insertLines(
-  h: Handle,
+async function insertLines(
+  h: SqlHandle,
   table: string,
   fk: string,
   ownerId: string,
@@ -73,7 +73,7 @@ function insertLines(
       l.lineTotalMinor,
       ...Object.values(e),
     ];
-    h.run(
+    await h.run(
       `INSERT INTO ${table}(${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`,
       vals as never,
     );
@@ -81,29 +81,29 @@ function insertLines(
 }
 
 export class SqliteSalesRepository implements SalesRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: SqlDatabase) {}
 
   // ---------------- enquiries ----------------
-  private enquiryFrom(h: Handle, r: Row): Enquiry {
-    const items = h
-      .all<Row>(
+  private async enquiryFrom(h: SqlHandle, r: Row): Promise<Enquiry> {
+    const items = (
+      await h.all<Row>(
         "SELECT * FROM enquiry_items WHERE enquiry_id = ? ORDER BY position",
         [s(r.id)],
       )
-      .map((i): EnquiryItem => ({
-        id: s(i.id),
-        enquiryId: s(i.enquiry_id),
-        position: n(i.position),
-        oemNumber: s(i.oem_number),
-        partName: s(i.part_name),
-        vehicleDescription: s(i.vehicle_description),
-        quantity: n(i.quantity),
-        referencePartId: nn(i.reference_part_id),
-        providerKey: s(i.provider_key),
-        sourceUrl: s(i.source_url),
-        notes: s(i.notes),
-        addedAt: s(i.added_at),
-      }));
+    ).map((i): EnquiryItem => ({
+      id: s(i.id),
+      enquiryId: s(i.enquiry_id),
+      position: n(i.position),
+      oemNumber: s(i.oem_number),
+      partName: s(i.part_name),
+      vehicleDescription: s(i.vehicle_description),
+      quantity: n(i.quantity),
+      referencePartId: nn(i.reference_part_id),
+      providerKey: s(i.provider_key),
+      sourceUrl: s(i.source_url),
+      notes: s(i.notes),
+      addedAt: s(i.added_at),
+    }));
     return {
       id: s(r.id),
       number: s(r.number),
@@ -121,10 +121,10 @@ export class SqliteSalesRepository implements SalesRepository {
       updatedAt: s(r.updated_at),
     };
   }
-  private writeEnquiryItems(h: Handle, e: Enquiry) {
-    h.run("DELETE FROM enquiry_items WHERE enquiry_id = ?", [e.id]);
-    e.items.forEach((i, index) =>
-      h.run(
+  private async writeEnquiryItems(h: SqlHandle, e: Enquiry) {
+    await h.run("DELETE FROM enquiry_items WHERE enquiry_id = ?", [e.id]);
+    for (const [index, i] of e.items.entries())
+      await h.run(
         `INSERT INTO enquiry_items(id,enquiry_id,position,oem_number,part_name,vehicle_description,quantity,reference_part_id,provider_key,source_url,notes,added_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
@@ -141,12 +141,11 @@ export class SqliteSalesRepository implements SalesRepository {
           i.notes,
           i.addedAt,
         ],
-      ),
-    );
+      );
   }
   async insertEnquiry(e: Enquiry) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `INSERT INTO enquiries(id,number,status,customer_id,contact_name,contact_email,contact_phone,vin,notes,created_by,created_at,submitted_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
@@ -165,12 +164,12 @@ export class SqliteSalesRepository implements SalesRepository {
           e.updatedAt,
         ],
       );
-      this.writeEnquiryItems(h, e);
+      await this.writeEnquiryItems(h, e);
     });
   }
   async saveEnquiry(e: Enquiry) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `UPDATE enquiries SET status=?,customer_id=?,contact_name=?,contact_email=?,contact_phone=?,vin=?,notes=?,submitted_at=?,updated_at=? WHERE id=?`,
         [
           e.status,
@@ -185,12 +184,12 @@ export class SqliteSalesRepository implements SalesRepository {
           e.id,
         ],
       );
-      this.writeEnquiryItems(h, e);
+      await this.writeEnquiryItems(h, e);
     });
   }
   getEnquiry(id: string) {
-    return this.db.read((h) => {
-      const r = h.get<Row>("SELECT * FROM enquiries WHERE id = ?", [id]);
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>("SELECT * FROM enquiries WHERE id = ?", [id]);
       return r ? this.enquiryFrom(h, r) : null;
     });
   }
@@ -210,21 +209,25 @@ export class SqliteSalesRepository implements SalesRepository {
       params.push(t, t, t);
     }
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: await mapSeq(
+        await h.all<Row>(
           `SELECT * FROM enquiries ${clause} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`,
           [...params, pageSize, offset] as never,
-        )
-        .map((r) => this.enquiryFrom(h, r)),
-      total: h.count(`SELECT COUNT(*) AS n FROM enquiries ${clause}`, params),
+        ),
+        (r) => this.enquiryFrom(h, r),
+      ),
+      total: await h.count(
+        `SELECT COUNT(*) AS n FROM enquiries ${clause}`,
+        params,
+      ),
       page,
       pageSize,
     }));
   }
   draftEnquiryFor(createdBy: string) {
-    return this.db.read((h) => {
-      const r = h.get<Row>(
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>(
         "SELECT * FROM enquiries WHERE created_by = ? AND status = 'DRAFT' ORDER BY created_at DESC LIMIT 1",
         [createdBy],
       );
@@ -233,7 +236,7 @@ export class SqliteSalesRepository implements SalesRepository {
   }
 
   // ---------------- quotations ----------------
-  private quotationFrom(h: Handle, r: Row): Quotation {
+  private async quotationFrom(h: SqlHandle, r: Row): Promise<Quotation> {
     return {
       id: s(r.id),
       number: s(r.number),
@@ -248,12 +251,12 @@ export class SqliteSalesRepository implements SalesRepository {
       subtotalMinor: n(r.subtotal_minor),
       taxMinor: n(r.tax_minor),
       totalMinor: n(r.total_minor),
-      lines: h
-        .all<Row>(
+      lines: (
+        await h.all<Row>(
           "SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY position",
           [s(r.id)],
         )
-        .map(docLine),
+      ).map(docLine),
       issuedAt: nn(r.issued_at),
       acceptedAt: nn(r.accepted_at),
       createdBy: nn(r.created_by),
@@ -262,8 +265,8 @@ export class SqliteSalesRepository implements SalesRepository {
     };
   }
   async insertQuotation(x: Quotation) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `INSERT INTO quotations(id,number,enquiry_id,customer_id,status,currency,tax_bp,valid_until,notes,terms,subtotal_minor,tax_minor,total_minor,issued_at,accepted_at,created_by,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
@@ -287,12 +290,12 @@ export class SqliteSalesRepository implements SalesRepository {
           x.updatedAt,
         ],
       );
-      insertLines(h, "quotation_items", "quotation_id", x.id, x.lines);
+      await insertLines(h, "quotation_items", "quotation_id", x.id, x.lines);
     });
   }
   async saveQuotation(x: Quotation) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `UPDATE quotations SET customer_id=?,status=?,currency=?,tax_bp=?,valid_until=?,notes=?,terms=?,subtotal_minor=?,tax_minor=?,total_minor=?,issued_at=?,accepted_at=?,updated_at=? WHERE id=?`,
         [
           x.customerId,
@@ -311,13 +314,13 @@ export class SqliteSalesRepository implements SalesRepository {
           x.id,
         ],
       );
-      h.run("DELETE FROM quotation_items WHERE quotation_id = ?", [x.id]);
-      insertLines(h, "quotation_items", "quotation_id", x.id, x.lines);
+      await h.run("DELETE FROM quotation_items WHERE quotation_id = ?", [x.id]);
+      await insertLines(h, "quotation_items", "quotation_id", x.id, x.lines);
     });
   }
   getQuotation(id: string) {
-    return this.db.read((h) => {
-      const r = h.get<Row>("SELECT * FROM quotations WHERE id = ?", [id]);
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>("SELECT * FROM quotations WHERE id = ?", [id]);
       return r ? this.quotationFrom(h, r) : null;
     });
   }
@@ -333,31 +336,37 @@ export class SqliteSalesRepository implements SalesRepository {
     if (q.q?.trim())
       (where.push("number LIKE ? ESCAPE '\\'"), params.push(likeTerm(q.q)));
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: await mapSeq(
+        await h.all<Row>(
           `SELECT * FROM quotations ${clause} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`,
           [...params, pageSize, offset] as never,
-        )
-        .map((r) => this.quotationFrom(h, r)),
-      total: h.count(`SELECT COUNT(*) AS n FROM quotations ${clause}`, params),
+        ),
+        (r) => this.quotationFrom(h, r),
+      ),
+      total: await h.count(
+        `SELECT COUNT(*) AS n FROM quotations ${clause}`,
+        params,
+      ),
       page,
       pageSize,
     }));
   }
   quotationsForEnquiry(enquiryId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
-          "SELECT * FROM quotations WHERE enquiry_id = ? ORDER BY created_at",
-          [enquiryId],
-        )
-        .map((r) => this.quotationFrom(h, r)),
+    return this.db.read(
+      async (h) =>
+        await mapSeq(
+          await h.all<Row>(
+            "SELECT * FROM quotations WHERE enquiry_id = ? ORDER BY created_at",
+            [enquiryId],
+          ),
+          (r) => this.quotationFrom(h, r),
+        ),
     );
   }
 
   // ---------------- sales orders ----------------
-  private orderFrom(h: Handle, r: Row): SalesOrder {
+  private async orderFrom(h: SqlHandle, r: Row): Promise<SalesOrder> {
     return {
       id: s(r.id),
       number: s(r.number),
@@ -371,36 +380,43 @@ export class SqliteSalesRepository implements SalesRepository {
       subtotalMinor: n(r.subtotal_minor),
       taxMinor: n(r.tax_minor),
       totalMinor: n(r.total_minor),
-      lines: h
-        .all<Row>(
+      lines: (
+        await h.all<Row>(
           "SELECT * FROM sales_order_items WHERE order_id = ? ORDER BY position",
           [s(r.id)],
         )
-        .map((l): SalesOrderLine => ({
-          ...docLine(l),
-          quantityFulfilled: n(l.quantity_fulfilled),
-          quantityReturned: n(l.quantity_returned),
-          quantityInvoiced: n(l.quantity_invoiced),
-        })),
+      ).map((l): SalesOrderLine => ({
+        ...docLine(l),
+        quantityFulfilled: n(l.quantity_fulfilled),
+        quantityReturned: n(l.quantity_returned),
+        quantityInvoiced: n(l.quantity_invoiced),
+      })),
       createdBy: nn(r.created_by),
       createdAt: s(r.created_at),
       updatedAt: s(r.updated_at),
     };
   }
-  private writeOrderLines(h: Handle, o: SalesOrder) {
+  private async writeOrderLines(h: SqlHandle, o: SalesOrder) {
     const lines = new Map(o.lines.map((l) => [l.id, l]));
-    insertLines(h, "sales_order_items", "order_id", o.id, o.lines, (l) => {
-      const full = lines.get(l.id)!;
-      return {
-        quantity_fulfilled: full.quantityFulfilled,
-        quantity_returned: full.quantityReturned,
-        quantity_invoiced: full.quantityInvoiced,
-      };
-    });
+    await insertLines(
+      h,
+      "sales_order_items",
+      "order_id",
+      o.id,
+      o.lines,
+      (l) => {
+        const full = lines.get(l.id)!;
+        return {
+          quantity_fulfilled: full.quantityFulfilled,
+          quantity_returned: full.quantityReturned,
+          quantity_invoiced: full.quantityInvoiced,
+        };
+      },
+    );
   }
   async insertOrder(o: SalesOrder) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `INSERT INTO sales_orders(id,number,quotation_id,enquiry_id,customer_id,status,currency,tax_bp,notes,subtotal_minor,tax_minor,total_minor,created_by,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
@@ -421,25 +437,27 @@ export class SqliteSalesRepository implements SalesRepository {
           o.updatedAt,
         ],
       );
-      this.writeOrderLines(h, o);
+      await this.writeOrderLines(h, o);
     });
   }
   async saveOrder(o: SalesOrder) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         "UPDATE sales_orders SET status=?, notes=?, updated_at=? WHERE id=?",
         [o.status, o.notes, o.updatedAt, o.id],
       );
       for (const l of o.lines)
-        h.run(
+        await h.run(
           "UPDATE sales_order_items SET quantity_fulfilled=?, quantity_returned=?, quantity_invoiced=? WHERE id=?",
           [l.quantityFulfilled, l.quantityReturned, l.quantityInvoiced, l.id],
         );
     });
   }
   getOrder(id: string) {
-    return this.db.read((h) => {
-      const r = h.get<Row>("SELECT * FROM sales_orders WHERE id = ?", [id]);
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>("SELECT * FROM sales_orders WHERE id = ?", [
+        id,
+      ]);
       return r ? this.orderFrom(h, r) : null;
     });
   }
@@ -455,14 +473,15 @@ export class SqliteSalesRepository implements SalesRepository {
     if (q.q?.trim())
       (where.push("number LIKE ? ESCAPE '\\'"), params.push(likeTerm(q.q)));
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: await mapSeq(
+        await h.all<Row>(
           `SELECT * FROM sales_orders ${clause} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`,
           [...params, pageSize, offset] as never,
-        )
-        .map((r) => this.orderFrom(h, r)),
-      total: h.count(
+        ),
+        (r) => this.orderFrom(h, r),
+      ),
+      total: await h.count(
         `SELECT COUNT(*) AS n FROM sales_orders ${clause}`,
         params,
       ),
@@ -471,8 +490,8 @@ export class SqliteSalesRepository implements SalesRepository {
     }));
   }
   orderForQuotation(quotationId: string) {
-    return this.db.read((h) => {
-      const r = h.get<Row>(
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>(
         "SELECT * FROM sales_orders WHERE quotation_id = ?",
         [quotationId],
       );
@@ -481,7 +500,7 @@ export class SqliteSalesRepository implements SalesRepository {
   }
 
   // ---------------- invoices & payments ----------------
-  private invoiceFrom(h: Handle, r: Row): Invoice {
+  private async invoiceFrom(h: SqlHandle, r: Row): Promise<Invoice> {
     const total = n(r.total_minor);
     const paid = n(r.amount_paid_minor);
     return {
@@ -501,20 +520,20 @@ export class SqliteSalesRepository implements SalesRepository {
       amountPaidMinor: paid,
       balanceMinor: total - paid,
       notes: s(r.notes),
-      lines: h
-        .all<Row>(
+      lines: (
+        await h.all<Row>(
           "SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY position",
           [s(r.id)],
         )
-        .map(docLine),
+      ).map(docLine),
       createdBy: nn(r.created_by),
       createdAt: s(r.created_at),
       updatedAt: s(r.updated_at),
     };
   }
   async insertInvoice(i: Invoice) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `INSERT INTO invoices(id,number,sales_order_id,quotation_id,customer_id,status,currency,tax_bp,issue_date,due_date,subtotal_minor,tax_minor,total_minor,amount_paid_minor,notes,created_by,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
@@ -538,13 +557,20 @@ export class SqliteSalesRepository implements SalesRepository {
           i.updatedAt,
         ],
       );
-      insertLines(h, "invoice_items", "invoice_id", i.id, i.lines, (l) => ({
-        order_item_id: l.orderItemId ?? null,
-      }));
+      await insertLines(
+        h,
+        "invoice_items",
+        "invoice_id",
+        i.id,
+        i.lines,
+        (l) => ({
+          order_item_id: l.orderItemId ?? null,
+        }),
+      );
     });
   }
   async saveInvoice(i: Invoice) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "UPDATE invoices SET status=?, amount_paid_minor=?, due_date=?, notes=?, updated_at=? WHERE id=?",
         [i.status, i.amountPaidMinor, i.dueDate, i.notes, i.updatedAt, i.id],
@@ -552,8 +578,8 @@ export class SqliteSalesRepository implements SalesRepository {
     );
   }
   getInvoice(id: string) {
-    return this.db.read((h) => {
-      const r = h.get<Row>("SELECT * FROM invoices WHERE id = ?", [id]);
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>("SELECT * FROM invoices WHERE id = ?", [id]);
       return r ? this.invoiceFrom(h, r) : null;
     });
   }
@@ -580,30 +606,36 @@ export class SqliteSalesRepository implements SalesRepository {
     if (q.q?.trim())
       (where.push("number LIKE ? ESCAPE '\\'"), params.push(likeTerm(q.q)));
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: await mapSeq(
+        await h.all<Row>(
           `SELECT * FROM invoices ${clause} ORDER BY issue_date DESC, number DESC LIMIT ? OFFSET ?`,
           [...params, pageSize, offset] as never,
-        )
-        .map((r) => this.invoiceFrom(h, r)),
-      total: h.count(`SELECT COUNT(*) AS n FROM invoices ${clause}`, params),
+        ),
+        (r) => this.invoiceFrom(h, r),
+      ),
+      total: await h.count(
+        `SELECT COUNT(*) AS n FROM invoices ${clause}`,
+        params,
+      ),
       page,
       pageSize,
     }));
   }
   invoicesForOrder(orderId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
-          "SELECT * FROM invoices WHERE sales_order_id = ? ORDER BY created_at",
-          [orderId],
-        )
-        .map((r) => this.invoiceFrom(h, r)),
+    return this.db.read(
+      async (h) =>
+        await mapSeq(
+          await h.all<Row>(
+            "SELECT * FROM invoices WHERE sales_order_id = ? ORDER BY created_at",
+            [orderId],
+          ),
+          (r) => this.invoiceFrom(h, r),
+        ),
     );
   }
   async insertPayment(p: Payment) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "INSERT INTO payments(id,invoice_id,amount_minor,method,reference,paid_at,notes,recorded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
         [
@@ -621,35 +653,35 @@ export class SqliteSalesRepository implements SalesRepository {
     );
   }
   paymentsForInvoice(invoiceId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM payments WHERE invoice_id = ? ORDER BY paid_at, created_at",
           [invoiceId],
         )
-        .map((r): Payment => ({
-          id: s(r.id),
-          invoiceId: s(r.invoice_id),
-          amountMinor: n(r.amount_minor),
-          method: r.method as Payment["method"],
-          reference: s(r.reference),
-          paidAt: s(r.paid_at),
-          notes: s(r.notes),
-          recordedBy: nn(r.recorded_by),
-          createdAt: s(r.created_at),
-        })),
+      ).map((r): Payment => ({
+        id: s(r.id),
+        invoiceId: s(r.invoice_id),
+        amountMinor: n(r.amount_minor),
+        method: r.method as Payment["method"],
+        reference: s(r.reference),
+        paidAt: s(r.paid_at),
+        notes: s(r.notes),
+        recordedBy: nn(r.recorded_by),
+        createdAt: s(r.created_at),
+      })),
     );
   }
 
   // ---------------- returns ----------------
   async insertReturn(r: SalesReturn) {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         "INSERT INTO sales_returns(id,number,sales_order_id,reason,created_by,created_at) VALUES (?,?,?,?,?,?)",
         [r.id, r.number, r.salesOrderId, r.reason, r.createdBy, r.createdAt],
       );
-      r.lines.forEach((l, i) =>
-        h.run(
+      for (const [i, l] of r.lines.entries())
+        await h.run(
           "INSERT INTO sales_return_items(id,return_id,order_item_id,product_id,location_id,quantity) VALUES (?,?,?,?,?,?)",
           [
             `${r.id}:${i}`,
@@ -659,50 +691,53 @@ export class SqliteSalesRepository implements SalesRepository {
             l.locationId,
             l.quantity,
           ],
-        ),
-      );
+        );
     });
   }
-  private returnFrom(h: Handle, r: Row): SalesReturn {
+  private async returnFrom(h: SqlHandle, r: Row): Promise<SalesReturn> {
     return {
       id: s(r.id),
       number: s(r.number),
       salesOrderId: s(r.sales_order_id),
       reason: s(r.reason),
-      lines: h
-        .all<Row>("SELECT * FROM sales_return_items WHERE return_id = ?", [
-          s(r.id),
-        ])
-        .map((l) => ({
-          orderLineId: s(l.order_item_id),
-          productId: s(l.product_id),
-          quantity: n(l.quantity),
-          locationId: s(l.location_id),
-        })),
+      lines: (
+        await h.all<Row>(
+          "SELECT * FROM sales_return_items WHERE return_id = ?",
+          [s(r.id)],
+        )
+      ).map((l) => ({
+        orderLineId: s(l.order_item_id),
+        productId: s(l.product_id),
+        quantity: n(l.quantity),
+        locationId: s(l.location_id),
+      })),
       createdBy: nn(r.created_by),
       createdAt: s(r.created_at),
     };
   }
   returnsForOrder(orderId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
-          "SELECT * FROM sales_returns WHERE sales_order_id = ? ORDER BY created_at",
-          [orderId],
-        )
-        .map((r) => this.returnFrom(h, r)),
+    return this.db.read(
+      async (h) =>
+        await mapSeq(
+          await h.all<Row>(
+            "SELECT * FROM sales_returns WHERE sales_order_id = ? ORDER BY created_at",
+            [orderId],
+          ),
+          (r) => this.returnFrom(h, r),
+        ),
     );
   }
   listReturns(q: Paged): Promise<Page<SalesReturn>> {
     const { page, pageSize, offset } = pageArgs(q.page, q.pageSize);
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: await mapSeq(
+        await h.all<Row>(
           "SELECT * FROM sales_returns ORDER BY created_at DESC LIMIT ? OFFSET ?",
           [pageSize, offset],
-        )
-        .map((r) => this.returnFrom(h, r)),
-      total: h.count("SELECT COUNT(*) AS n FROM sales_returns"),
+        ),
+        (r) => this.returnFrom(h, r),
+      ),
+      total: await h.count("SELECT COUNT(*) AS n FROM sales_returns"),
       page,
       pageSize,
     }));

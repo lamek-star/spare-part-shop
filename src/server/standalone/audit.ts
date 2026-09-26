@@ -1,4 +1,4 @@
-import type { Database } from "../db/connection";
+import type { SqlDatabase } from "../db/connection";
 import type { AuditEvent } from "../domain/types";
 import type { AuditInput, AuditProvider } from "../providers/core";
 import { newId, nowIso } from "../kernel/ids";
@@ -23,13 +23,13 @@ function scrub(value: unknown, depth = 0): unknown {
 }
 
 export class SqliteAuditProvider implements AuditProvider {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: SqlDatabase) {}
   async record(
     actor: { id: string; displayName: string } | null,
     event: AuditInput,
   ): Promise<void> {
-    await this.db.write((h) => {
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
         `INSERT INTO audit_events(id, at, actor_id, actor_label, action, entity_type, entity_id, summary, metadata)
          VALUES (?,?,?,?,?,?,?,?,?)`,
         [
@@ -63,9 +63,9 @@ export class SqliteAuditProvider implements AuditProvider {
       (where.push("actor_id = ?"), params.push(filter.actorId));
     if (filter.before) (where.push("at < ?"), params.push(filter.before));
     const limit = Math.max(1, Math.min(500, filter.limit ?? 100));
-    return this.db.read((h) =>
-      h
-        .all<{
+    return this.db.read(async (h) =>
+      (
+        await h.all<{
           id: string;
           at: string;
           actor_id: string | null;
@@ -80,19 +80,19 @@ export class SqliteAuditProvider implements AuditProvider {
            ORDER BY at DESC, id DESC LIMIT ?`,
           [...params, limit],
         )
-        .map((r) => ({
-          id: r.id,
-          at: r.at,
-          actorId: r.actor_id,
-          actorLabel: r.actor_label,
-          action: r.action,
-          entityType: r.entity_type,
-          entityId: r.entity_id,
-          summary: r.summary,
-          metadata: r.metadata
-            ? (JSON.parse(r.metadata) as Record<string, unknown>)
-            : null,
-        })),
+      ).map((r) => ({
+        id: r.id,
+        at: r.at,
+        actorId: r.actor_id,
+        actorLabel: r.actor_label,
+        action: r.action,
+        entityType: r.entity_type,
+        entityId: r.entity_id,
+        summary: r.summary,
+        metadata: r.metadata
+          ? (JSON.parse(r.metadata) as Record<string, unknown>)
+          : null,
+      })),
     );
   }
 }

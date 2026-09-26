@@ -1,4 +1,4 @@
-import type { Database } from "../../db/connection";
+import type { SqlDatabase } from "../../db/connection";
 import type {
   Branch,
   Customer,
@@ -68,7 +68,7 @@ const warehouse = (r: Row): Warehouse => ({
 });
 
 export class SqliteMasterDataRepository implements MasterDataRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: SqlDatabase) {}
 
   private async listParties<T>(
     table: "customers" | "suppliers",
@@ -87,14 +87,17 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     }
     if (query.status) (where.push("status = ?"), params.push(query.status));
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: (
+        await h.all<Row>(
           `SELECT * FROM ${table} ${clause} ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?`,
           [...params, pageSize, offset],
         )
-        .map(map),
-      total: h.count(`SELECT COUNT(*) AS n FROM ${table} ${clause}`, params),
+      ).map(map),
+      total: await h.count(
+        `SELECT COUNT(*) AS n FROM ${table} ${clause}`,
+        params,
+      ),
       page,
       pageSize,
     }));
@@ -104,13 +107,13 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     return this.listParties("customers", customer, query);
   }
   async getCustomer(id: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>("SELECT * FROM customers WHERE id = ?", [id]),
     );
     return r ? customer(r) : null;
   }
   async insertCustomer(c: Customer) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO customers(id,code,name,contact_person,phone,email,billing_address,shipping_address,country,tax_number,currency,payment_terms,credit_limit_minor,notes,status,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -137,7 +140,7 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     );
   }
   async updateCustomer(c: Customer) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `UPDATE customers SET name=?,contact_person=?,phone=?,email=?,billing_address=?,shipping_address=?,country=?,tax_number=?,currency=?,payment_terms=?,credit_limit_minor=?,notes=?,status=?,updated_at=? WHERE id=?`,
         [
@@ -165,13 +168,13 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     return this.listParties("suppliers", supplier, query);
   }
   async getSupplier(id: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>("SELECT * FROM suppliers WHERE id = ?", [id]),
     );
     return r ? supplier(r) : null;
   }
   async insertSupplier(x: Supplier) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO suppliers(id,code,name,contact_person,phone,email,address,country,tax_number,currency,payment_terms,notes,status,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -196,7 +199,7 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     );
   }
   async updateSupplier(x: Supplier) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `UPDATE suppliers SET name=?,contact_person=?,phone=?,email=?,address=?,country=?,tax_number=?,currency=?,payment_terms=?,notes=?,status=?,updated_at=? WHERE id=?`,
         [
@@ -219,19 +222,19 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
   }
 
   listBranches(): Promise<Branch[]> {
-    return this.db.read((h) =>
-      h
-        .all<Row>("SELECT * FROM branches ORDER BY name COLLATE NOCASE")
-        .map((r) => ({
-          id: s(r.id),
-          name: s(r.name),
-          address: s(r.address),
-          status: r.status as Branch["status"],
-        })),
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>("SELECT * FROM branches ORDER BY name COLLATE NOCASE")
+      ).map((r) => ({
+        id: s(r.id),
+        name: s(r.name),
+        address: s(r.address),
+        status: r.status as Branch["status"],
+      })),
     );
   }
   async saveBranch(b: Branch) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO branches(id,name,address,status) VALUES (?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, address=excluded.address, status=excluded.status`,
@@ -241,20 +244,22 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
   }
 
   listWarehouses(): Promise<Warehouse[]> {
-    return this.db.read((h) =>
-      h
-        .all<Row>("SELECT * FROM warehouses ORDER BY name COLLATE NOCASE")
-        .map(warehouse),
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          "SELECT * FROM warehouses ORDER BY name COLLATE NOCASE",
+        )
+      ).map(warehouse),
     );
   }
   async getWarehouse(id: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>("SELECT * FROM warehouses WHERE id = ?", [id]),
     );
     return r ? warehouse(r) : null;
   }
   async insertWarehouse(w: Warehouse) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "INSERT INTO warehouses(id,code,name,branch_id,address,status) VALUES (?,?,?,?,?,?)",
         [w.id, w.code, w.name, w.branchId, w.address, w.status],
@@ -262,7 +267,7 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     );
   }
   async updateWarehouse(w: Warehouse) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "UPDATE warehouses SET name=?, branch_id=?, address=?, status=? WHERE id=?",
         [w.name, w.branchId, w.address, w.status, w.id],
@@ -270,23 +275,23 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     );
   }
   listLocations(warehouseId?: string): Promise<Location[]> {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           `SELECT * FROM locations ${warehouseId ? "WHERE warehouse_id = ?" : ""} ORDER BY warehouse_id, code`,
           warehouseId ? [warehouseId] : [],
         )
-        .map(location),
+      ).map(location),
     );
   }
   async getLocation(id: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>("SELECT * FROM locations WHERE id = ?", [id]),
     );
     return r ? location(r) : null;
   }
   async insertLocation(l: Location) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "INSERT INTO locations(id,warehouse_id,code,rack,shelf,bin,description) VALUES (?,?,?,?,?,?,?)",
         [l.id, l.warehouseId, l.code, l.rack, l.shelf, l.bin, l.description],
@@ -294,7 +299,7 @@ export class SqliteMasterDataRepository implements MasterDataRepository {
     );
   }
   async updateLocation(l: Location) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "UPDATE locations SET code=?, rack=?, shelf=?, bin=?, description=? WHERE id=?",
         [l.code, l.rack, l.shelf, l.bin, l.description, l.id],

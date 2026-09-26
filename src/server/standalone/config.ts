@@ -1,4 +1,4 @@
-import type { Database } from "../db/connection";
+import type { SqlDatabase } from "../db/connection";
 import type { Actor } from "../domain/types";
 import type {
   AuditProvider,
@@ -26,7 +26,7 @@ export const defaultShopConfig: ShopConfig = {
 
 export class SqliteConfigurationProvider implements ConfigurationProvider {
   constructor(
-    private readonly db: Database,
+    private readonly db: SqlDatabase,
     private readonly audit: AuditProvider,
   ) {}
   async get(): Promise<ShopConfig> {
@@ -63,7 +63,7 @@ export class SqliteConfigurationProvider implements ConfigurationProvider {
         throw validation("Currency must be a 3-letter code.");
       if (next.defaultTaxBp > 100000)
         throw validation("Tax rate is out of range.");
-      h.run(
+      await h.run(
         `INSERT INTO app_config(key,value,updated_at) VALUES ('shop',?,?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
         [JSON.stringify(next), nowIso()],
@@ -79,30 +79,31 @@ export class SqliteConfigurationProvider implements ConfigurationProvider {
   }
   async nextNumber(sequence: string, prefix: string): Promise<string> {
     const year = new Date().getUTCFullYear();
-    const name = `${sequence}:${year}`;
-    const value = await this.db.write((h) => {
-      h.run(
-        "INSERT INTO sequences(name, next_value) VALUES (?, 1) ON CONFLICT(name) DO UPDATE SET next_value = next_value + 1",
-        [name],
-      );
-      return h.get<{ next_value: number }>(
-        "SELECT next_value FROM sequences WHERE name = ?",
-        [name],
-      )!.next_value;
-    });
+    const value = await nextSequenceValue(this.db, `${sequence}:${year}`);
     return `${prefix}-${year}-${String(value).padStart(6, "0")}`;
   }
   async nextCode(sequence: string, prefix: string): Promise<string> {
-    const value = await this.db.write((h) => {
-      h.run(
-        "INSERT INTO sequences(name, next_value) VALUES (?, 1) ON CONFLICT(name) DO UPDATE SET next_value = next_value + 1",
-        [sequence],
-      );
-      return h.get<{ next_value: number }>(
-        "SELECT next_value FROM sequences WHERE name = ?",
-        [sequence],
-      )!.next_value;
-    });
+    const value = await nextSequenceValue(this.db, sequence);
     return `${prefix}-${String(value).padStart(6, "0")}`;
   }
+}
+
+/** Atomically advances a named sequence inside the caller's transaction
+ * (the number commits or rolls back with the document that uses it).
+ * Shared by the standalone and platform configuration providers. */
+export async function nextSequenceValue(
+  db: SqlDatabase,
+  name: string,
+): Promise<number> {
+  return db.write(async (h) => {
+    await h.run(
+      "INSERT INTO sequences(name, next_value) VALUES (?, 1) ON CONFLICT(name) DO UPDATE SET next_value = sequences.next_value + 1",
+      [name],
+    );
+    const row = await h.get<{ next_value: number }>(
+      "SELECT next_value FROM sequences WHERE name = ?",
+      [name],
+    );
+    return Number(row!.next_value);
+  });
 }

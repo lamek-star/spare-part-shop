@@ -10,8 +10,53 @@ const bind = (params: SqlParam[]) =>
     p === undefined ? null : typeof p === "boolean" ? (p ? 1 : 0) : p,
   );
 
-/** Synchronous SQL handle. Only ever handed out inside Database.run(), so
- * every statement executes while the caller holds the database lock. */
+/** Which SQL engine a handle talks to. Repositories write portable SQL and
+ * branch on this only where the engines genuinely differ (full-text search,
+ * date arithmetic, string aggregation). */
+export type Dialect = "sqlite" | "postgres";
+
+/**
+ * The statement API every store implementation hands to repositories.
+ * Asynchronous so the same repository code runs on the embedded SQLite
+ * store and on IntraForge's PostgreSQL. Only ever handed out inside
+ * SqlDatabase.run(), i.e. inside one transaction.
+ */
+export interface SqlHandle {
+  readonly dialect: Dialect;
+  exec(sql: string): Promise<void>;
+  run(sql: string, params?: SqlParam[]): Promise<{ changes: number }>;
+  get<T = Record<string, unknown>>(
+    sql: string,
+    params?: SqlParam[],
+  ): Promise<T | undefined>;
+  all<T = Record<string, unknown>>(
+    sql: string,
+    params?: SqlParam[],
+  ): Promise<T[]>;
+  /** Number of rows matched by a `SELECT COUNT(*) AS n ...` query. */
+  count(sql: string, params?: SqlParam[]): Promise<number>;
+}
+
+export type RunMode = "read" | "write";
+
+/** True when a statement failed on a CHECK constraint, on either engine
+ * (SQLite reports it in the message, PostgreSQL as SQLSTATE 23514). */
+export function isCheckViolation(error: unknown): boolean {
+  const e = error as { code?: unknown; message?: unknown } | null;
+  return e?.code === "23514" || /CHECK constraint/i.test(String(e?.message));
+}
+
+/** A transactional store: every read/write runs as one unit; nested calls
+ * join the outer unit instead of opening a second one. */
+export interface SqlDatabase {
+  readonly dialect: Dialect;
+  run<T>(mode: RunMode, fn: (h: SqlHandle) => Promise<T> | T): Promise<T>;
+  read<T>(fn: (h: SqlHandle) => Promise<T> | T): Promise<T>;
+  write<T>(fn: (h: SqlHandle) => Promise<T> | T): Promise<T>;
+  close(): Promise<void>;
+}
+
+/** Synchronous SQLite statement cache; wrapped by SqliteHandle. */
 export class Handle {
   private cache = new Map<string, StatementSync>();
   constructor(readonly raw: DatabaseSync) {}
@@ -28,10 +73,7 @@ export class Handle {
   }
   run(sql: string, params: SqlParam[] = []) {
     const r = this.stmt(sql).run(...(bind(params) as never[]));
-    return {
-      changes: Number(r.changes),
-      lastInsertRowid: Number(r.lastInsertRowid),
-    };
+    return { changes: Number(r.changes) };
   }
   get<T = Record<string, unknown>>(
     sql: string,
@@ -42,16 +84,32 @@ export class Handle {
   all<T = Record<string, unknown>>(sql: string, params: SqlParam[] = []): T[] {
     return this.stmt(sql).all(...(bind(params) as never[])) as T[];
   }
-  /** Number of rows matched by a `SELECT COUNT(*) AS n ...` query. */
-  count(sql: string, params: SqlParam[] = []): number {
-    const row = this.get<{ n: number }>(sql, params);
+}
+
+/** The async statement API over the synchronous SQLite handle. */
+class SqliteHandle implements SqlHandle {
+  readonly dialect = "sqlite" as const;
+  constructor(private readonly h: Handle) {}
+  async exec(sql: string) {
+    this.h.exec(sql);
+  }
+  async run(sql: string, params: SqlParam[] = []) {
+    return this.h.run(sql, params);
+  }
+  async get<T = Record<string, unknown>>(sql: string, params: SqlParam[] = []) {
+    return this.h.get<T>(sql, params);
+  }
+  async all<T = Record<string, unknown>>(sql: string, params: SqlParam[] = []) {
+    return this.h.all<T>(sql, params);
+  }
+  async count(sql: string, params: SqlParam[] = []) {
+    const row = this.h.get<{ n: number }>(sql, params);
     return Number(row?.n ?? 0);
   }
 }
 
-export type RunMode = "read" | "write";
 interface Context {
-  handle: Handle;
+  handle: SqlHandle;
   mode: RunMode;
 }
 
@@ -62,16 +120,19 @@ interface Context {
  * rows, and a failure rolls the whole operation back. Nested run() calls
  * inside an operation join it instead of re-locking.
  */
-export class Database {
+export class Database implements SqlDatabase {
+  readonly dialect = "sqlite" as const;
   private tail: Promise<void> = Promise.resolve();
   private readonly context = new AsyncLocalStorage<Context>();
   private closed = false;
   readonly handle: Handle;
+  private readonly asyncHandle: SqlHandle;
   private constructor(
     readonly file: string,
     raw: DatabaseSync,
   ) {
     this.handle = new Handle(raw);
+    this.asyncHandle = new SqliteHandle(this.handle);
   }
   static open(file: string): Database {
     if (file !== ":memory:") mkdirSync(dirname(file), { recursive: true });
@@ -84,7 +145,10 @@ export class Database {
     }
     return new Database(file, raw);
   }
-  async run<T>(mode: RunMode, fn: (h: Handle) => Promise<T> | T): Promise<T> {
+  async run<T>(
+    mode: RunMode,
+    fn: (h: SqlHandle) => Promise<T> | T,
+  ): Promise<T> {
     const outer = this.context.getStore();
     if (outer) {
       if (mode === "write" && outer.mode === "read")
@@ -99,31 +163,34 @@ export class Database {
     this.tail = new Promise<void>((resolve) => (release = resolve));
     await previous;
     try {
-      return await this.context.run({ handle: this.handle, mode }, async () => {
-        if (mode === "write") this.handle.exec("BEGIN IMMEDIATE");
-        try {
-          const result = await fn(this.handle);
-          if (mode === "write") this.handle.exec("COMMIT");
-          return result;
-        } catch (error) {
-          if (mode === "write") {
-            try {
-              this.handle.exec("ROLLBACK");
-            } catch {
-              /* connection already rolled back */
+      return await this.context.run(
+        { handle: this.asyncHandle, mode },
+        async () => {
+          if (mode === "write") this.handle.exec("BEGIN IMMEDIATE");
+          try {
+            const result = await fn(this.asyncHandle);
+            if (mode === "write") this.handle.exec("COMMIT");
+            return result;
+          } catch (error) {
+            if (mode === "write") {
+              try {
+                this.handle.exec("ROLLBACK");
+              } catch {
+                /* connection already rolled back */
+              }
             }
+            throw error;
           }
-          throw error;
-        }
-      });
+        },
+      );
     } finally {
       release();
     }
   }
-  read<T>(fn: (h: Handle) => Promise<T> | T) {
+  read<T>(fn: (h: SqlHandle) => Promise<T> | T) {
     return this.run("read", fn);
   }
-  write<T>(fn: (h: Handle) => Promise<T> | T) {
+  write<T>(fn: (h: SqlHandle) => Promise<T> | T) {
     return this.run("write", fn);
   }
   async close() {

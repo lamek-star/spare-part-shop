@@ -20,8 +20,8 @@ test("passwords are stored only as salted scrypt hashes, never reversibly, never
       rows[1].password_hash,
       "same password, different salt",
     );
-    const raw = await t.container.db.read((h) =>
-      JSON.stringify(h.all("SELECT * FROM audit_events")),
+    const raw = await t.container.db.read(async (h) =>
+      JSON.stringify(await h.all("SELECT * FROM audit_events")),
     );
     assert.ok(
       !raw.includes("correct-horse-battery") && !/password_hash/.test(raw),
@@ -46,8 +46,8 @@ test("session tokens are random per sign-in, stored hashed, and useless after si
     await b.login("owner@example.test");
     assert.notEqual(a.cookie, b.cookie);
     const token = decodeURIComponent(a.cookie.split("=")[1]);
-    const stored = await t.container.db.read((h) =>
-      h.all<{ id: string }>("SELECT id FROM sessions").map((r) => r.id),
+    const stored = await t.container.db.read(async (h) =>
+      (await h.all<{ id: string }>("SELECT id FROM sessions")).map((r) => r.id),
     );
     assert.ok(!stored.includes(token), "the raw token is never stored");
     assert.equal(stored.length, before + 2, "one row per sign-in");

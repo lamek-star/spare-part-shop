@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { Database } from "../db/connection";
+import { Database, type SqlDatabase } from "../db/connection";
+import { openTestPostgres, testStoreIsPostgres } from "../db/testStore";
 import { migrate } from "../db/migrate";
 import type { Providers, Repositories, UnitOfWork } from "../providers/uow";
 import { SqliteAuditProvider } from "./audit";
@@ -15,7 +16,7 @@ import { SqliteReportRepository } from "./repos/reports";
 import { SqliteCatalogueRepository } from "./repos/catalogue";
 
 export interface AppContainer extends Providers {
-  db: Database;
+  db: SqlDatabase;
   repos: Repositories;
   dataDir: string;
   close(): Promise<void>;
@@ -36,9 +37,19 @@ export async function createContainer(
   options: { dataDir?: string; memory?: boolean } = {},
 ): Promise<AppContainer> {
   const dataDir = options.dataDir ?? resolveDataDir();
-  const db = options.memory
-    ? Database.open(":memory:")
-    : Database.open(join(dataDir, "spareparts.sqlite"));
+  let db: SqlDatabase;
+  let close: () => Promise<void>;
+  if (testStoreIsPostgres()) {
+    const store = await openTestPostgres(dataDir);
+    db = store.db;
+    close = store.close;
+  } else {
+    const sqlite = options.memory
+      ? Database.open(":memory:")
+      : Database.open(join(dataDir, "spareparts.sqlite"));
+    db = sqlite;
+    close = () => sqlite.close();
+  }
   await migrate(db);
   const audit = new SqliteAuditProvider(db);
   const repos: Repositories = {
@@ -68,7 +79,7 @@ export async function createContainer(
     uow,
     identity: new LocalIdentityProvider(db, audit),
     dataDir,
-    close: () => db.close(),
+    close,
   };
 }
 

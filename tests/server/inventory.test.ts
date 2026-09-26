@@ -137,7 +137,7 @@ test("stock movements are immutable at the database level", async () => {
       t.container.db.write((h) =>
         h.run("UPDATE stock_balances SET on_hand = -1"),
       ),
-      /CHECK/,
+      /check constraint/i,
     );
   } finally {
     await t.cleanup();

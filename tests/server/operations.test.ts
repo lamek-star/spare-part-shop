@@ -10,9 +10,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Database } from "../../src/server/db/connection";
-import { migrate } from "../../src/server/db/migrate";
+import { Database, type SqlDatabase } from "../../src/server/db/connection";
+import { migrate, migrationsFor } from "../../src/server/db/migrate";
 import { migrations } from "../../src/server/db/migrations";
+import {
+  openTestPostgres,
+  testStoreIsPostgres,
+} from "../../src/server/db/testStore";
 import { createContainer } from "../../src/server/standalone/container";
 import { createApp } from "../../src/server/domain/app";
 import {
@@ -23,6 +27,25 @@ import {
 import { makeApp, seedBasics } from "./helpers";
 
 const tmp = (p: string) => mkdtempSync(join(tmpdir(), p));
+/** The store a container opens for a data directory, on whichever engine
+ * the suite runs against (SQLite file, or the PostgreSQL test schema). */
+async function openRawStore(
+  dir: string,
+): Promise<{ db: SqlDatabase; close: () => Promise<void> }> {
+  if (testStoreIsPostgres()) return openTestPostgres(dir);
+  const db = Database.open(join(dir, "spareparts.sqlite"));
+  return { db, close: () => db.close() };
+}
+const tableExists = (
+  h: import("../../src/server/db/connection").SqlHandle,
+  name: string,
+) =>
+  h.count(
+    h.dialect === "postgres"
+      ? "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?"
+      : "SELECT COUNT(*) AS n FROM sqlite_master WHERE name = ?",
+    [name],
+  );
 
 test("migrations: a fresh database gets every migration once, in order, and is internally consistent", async () => {
   const db = Database.open(":memory:");
@@ -38,18 +61,18 @@ test("migrations: a fresh database gets every migration once, in order, and is i
       again.alreadyApplied,
       migrations.map((m) => m.version),
     );
-    await db.read((h) => {
+    await db.read(async (h) => {
       assert.equal(
-        h.get<{ integrity_check: string }>("PRAGMA integrity_check")
+        (await h.get<{ integrity_check: string }>("PRAGMA integrity_check"))
           ?.integrity_check,
         "ok",
       );
-      assert.deepEqual(h.all("PRAGMA foreign_key_check"), []);
-      const tables = h
-        .all<{ name: string }>(
+      assert.deepEqual(await h.all("PRAGMA foreign_key_check"), []);
+      const tables = (
+        await h.all<{ name: string }>(
           "SELECT name FROM sqlite_master WHERE type='table'",
         )
-        .map((r) => r.name);
+      ).map((r) => r.name);
       for (const t of [
         "app_config",
         "users",
@@ -81,70 +104,63 @@ test("migrations: a fresh database gets every migration once, in order, and is i
 
 test("migrations: upgrading a database created by an earlier release keeps its data and adds the new schema", async () => {
   const dir = tmp("sp-upgrade-");
-  const file = join(dir, "spareparts.sqlite");
   try {
     // "release 1": migrations 0001-0003 only, with real rows in it
-    const old = Database.open(file);
-    await migrate(old, migrations.slice(0, 3));
-    await old.write((h) => {
+    const store = await openRawStore(dir);
+    const old = store.db;
+    const all = migrationsFor(old);
+    await migrate(old, all.slice(0, 3));
+    await old.write(async (h) => {
       const now = new Date().toISOString();
-      h.run(
+      await h.run(
         `INSERT INTO customers(id, code, name, currency, status, created_at, updated_at) VALUES ('c1','CUS-000001','Legacy Garage','AED','ACTIVE',?,?)`,
         [now, now],
       );
-      h.run(
+      await h.run(
         `INSERT INTO warehouses(id, code, name, status) VALUES ('w1','WH-000001','Old warehouse','ACTIVE')`,
       );
-      h.run(
+      await h.run(
         `INSERT INTO locations(id, warehouse_id, code) VALUES ('l1','w1','MAIN')`,
       );
     });
     assert.equal(
-      await old.read((h) =>
-        h.count(
-          "SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'import_jobs'",
-        ),
-      ),
+      await old.read((h) => tableExists(h, "import_jobs")),
       0,
       "the catalogue schema does not exist yet",
     );
-    await old.close();
+    await store.close();
 
     // "release 2": start the current application on the same file
     const c = await createContainer({ dataDir: dir });
     try {
-      const applied = await c.db.read((h) =>
-        h
-          .all<{ version: string }>(
+      const applied = await c.db.read(async (h) =>
+        (
+          await h.all<{ version: string }>(
             "SELECT version FROM schema_migrations ORDER BY version",
           )
-          .map((r) => r.version),
+        ).map((r) => r.version),
       );
       assert.deepEqual(
         applied,
-        migrations.map((m) => m.version),
+        all.map((m) => m.version),
       );
       assert.equal(
         await c.db.read(
-          (h) =>
-            h.get<{ name: string }>(
-              "SELECT name FROM customers WHERE id = 'c1'",
+          async (h) =>
+            (
+              await h.get<{ name: string }>(
+                "SELECT name FROM customers WHERE id = 'c1'",
+              )
             )?.name,
         ),
         "Legacy Garage",
       );
-      assert.equal(
-        await c.db.read((h) =>
-          h.count(
-            "SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'import_jobs'",
-          ),
-        ),
-        1,
-      );
-      assert.deepEqual(
-        await c.db.read((h) => h.all("PRAGMA foreign_key_check")),
-        [],
-      );
+      assert.equal(await c.db.read((h) => tableExists(h, "import_jobs")), 1);
+      if (c.db.dialect === "sqlite")
+        assert.deepEqual(
+          await c.db.read((h) => h.all("PRAGMA foreign_key_check")),
+          [],
+        );
       // and the new features work on the upgraded database
       const app = createApp(c);
       const owner = await c.identity.createUser(null, {
@@ -213,94 +229,102 @@ test("a failed migration rolls back completely instead of leaving a half-upgrade
   }
 });
 
-test("backup and restore: everything comes back — data, photos, and stock ledger — and damage is detected", async () => {
-  const t = await makeApp();
-  const backupDir = tmp("sp-backup-");
-  const restoreDir = tmp("sp-restore-");
-  rmSync(backupDir, { recursive: true, force: true });
-  try {
-    const { product } = await seedBasics(t);
-    const png = new Uint8Array(40);
-    png.set([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48,
-      0x44, 0x52,
-    ]);
-    const img = await t.app.products.addImage(t.actors.OWNER, product.id, {
-      bytes: png,
-      fileName: "a.png",
-      primary: true,
-    });
-
-    const manifest = await createBackup(t.container.db, t.dir, backupDir);
-    assert.equal(manifest.files.count, 1);
-    assert.equal(
-      verifyBackup(backupDir).database.sha256,
-      manifest.database.sha256,
-    );
-    await assert.rejects(
-      () => createBackup(t.container.db, t.dir, backupDir),
-      /must be empty/,
-    );
-
-    // the live database keeps working while and after a backup
-    await t.app.masterData.createCustomer(t.actors.OWNER, {
-      name: "After backup",
-    });
-
-    rmSync(restoreDir, { recursive: true, force: true });
-    restoreBackup(backupDir, restoreDir);
-    assert.throws(
-      () => restoreBackup(backupDir, restoreDir),
-      /never overwrites/,
-    );
-    const restored = await createContainer({ dataDir: restoreDir });
+test(
+  "backup and restore: everything comes back — data, photos, and stock ledger — and damage is detected",
+  {
+    skip: testStoreIsPostgres()
+      ? "the standalone file backup covers the SQLite store; on IntraForge the platform backup includes the schema"
+      : false,
+  },
+  async () => {
+    const t = await makeApp();
+    const backupDir = tmp("sp-backup-");
+    const restoreDir = tmp("sp-restore-");
+    rmSync(backupDir, { recursive: true, force: true });
     try {
-      const app = createApp(restored);
-      const owner = await restored.identity.authenticate(
-        (
-          await restored.identity.signIn({
-            email: "owner@example.test",
-            password: "correct-horse-battery",
-            ip: null,
-            userAgent: null,
-          })
-        ).token,
-      );
-      const actor = owner!.actor;
-      assert.equal(
-        (await app.products.detail(actor, product.id)).product.sku,
-        "OIL-001",
-      );
-      assert.equal(
-        (await app.masterData.listCustomers(actor, {})).items.some(
-          (c) => c.name === "After backup",
-        ),
-        false,
-        "the backup is a point in time",
-      );
-      assert.equal(
-        (await app.masterData.listCustomers(actor, {})).items.some(
-          (c) => c.name === "Acme Garage",
-        ),
-        true,
-      );
-      const file = await restored.repos.files.get(img.fileId);
-      assert.deepEqual([...file!.bytes], [...png]);
-      assert.deepEqual(await restored.repos.inventory.verifyIntegrity(), []);
-    } finally {
-      await restored.close();
-    }
+      const { product } = await seedBasics(t);
+      const png = new Uint8Array(40);
+      png.set([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48,
+        0x44, 0x52,
+      ]);
+      const img = await t.app.products.addImage(t.actors.OWNER, product.id, {
+        bytes: png,
+        fileName: "a.png",
+        primary: true,
+      });
 
-    // damage is caught before anything is restored
-    writeFileSync(join(backupDir, "spareparts.sqlite"), "corrupt");
-    assert.throws(() => verifyBackup(backupDir), /damaged/);
-    assert.throws(() => verifyBackup(tmp("sp-notbackup-")), /not a backup/);
-  } finally {
-    await t.cleanup();
-    for (const d of [backupDir, restoreDir])
-      rmSync(d, { recursive: true, force: true });
-  }
-});
+      const manifest = await createBackup(t.container.db, t.dir, backupDir);
+      assert.equal(manifest.files.count, 1);
+      assert.equal(
+        verifyBackup(backupDir).database.sha256,
+        manifest.database.sha256,
+      );
+      await assert.rejects(
+        () => createBackup(t.container.db, t.dir, backupDir),
+        /must be empty/,
+      );
+
+      // the live database keeps working while and after a backup
+      await t.app.masterData.createCustomer(t.actors.OWNER, {
+        name: "After backup",
+      });
+
+      rmSync(restoreDir, { recursive: true, force: true });
+      restoreBackup(backupDir, restoreDir);
+      assert.throws(
+        () => restoreBackup(backupDir, restoreDir),
+        /never overwrites/,
+      );
+      const restored = await createContainer({ dataDir: restoreDir });
+      try {
+        const app = createApp(restored);
+        const owner = await restored.identity.authenticate(
+          (
+            await restored.identity.signIn({
+              email: "owner@example.test",
+              password: "correct-horse-battery",
+              ip: null,
+              userAgent: null,
+            })
+          ).token,
+        );
+        const actor = owner!.actor;
+        assert.equal(
+          (await app.products.detail(actor, product.id)).product.sku,
+          "OIL-001",
+        );
+        assert.equal(
+          (await app.masterData.listCustomers(actor, {})).items.some(
+            (c) => c.name === "After backup",
+          ),
+          false,
+          "the backup is a point in time",
+        );
+        assert.equal(
+          (await app.masterData.listCustomers(actor, {})).items.some(
+            (c) => c.name === "Acme Garage",
+          ),
+          true,
+        );
+        const file = await restored.repos.files.get(img.fileId);
+        assert.deepEqual([...file!.bytes], [...png]);
+        assert.deepEqual(await restored.repos.inventory.verifyIntegrity(), []);
+      } finally {
+        await restored.close();
+      }
+
+      // damage is caught before anything is restored
+      writeFileSync(join(backupDir, "spareparts.sqlite"), "corrupt");
+      assert.throws(() => verifyBackup(backupDir), /damaged/);
+      assert.throws(() => verifyBackup(tmp("sp-notbackup-")), /not a backup/);
+    } finally {
+      await t.cleanup();
+      for (const d of [backupDir, restoreDir])
+        rmSync(d, { recursive: true, force: true });
+    }
+  },
+);
 
 test("offline: the server code contains no outbound network calls, and a full workflow runs with the network cut", async () => {
   // static guard: nothing under src/server may reach for the network

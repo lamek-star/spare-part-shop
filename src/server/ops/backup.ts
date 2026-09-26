@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative } from "node:path";
-import type { Database } from "../db/connection";
+import type { SqlDatabase } from "../db/connection";
 import { migrations } from "../db/migrations";
 
 export interface BackupManifest {
@@ -36,10 +36,14 @@ function walk(dir: string): string[] {
  * personal and commercial data: keep them as protected as the live data.
  */
 export async function createBackup(
-  db: Database,
+  db: SqlDatabase,
   dataDir: string,
   destination: string,
 ): Promise<BackupManifest> {
+  if (db.dialect !== "sqlite")
+    throw new Error(
+      "This backup covers the standalone store only; on IntraForge the platform backup includes the application's data.",
+    );
   if (existsSync(destination) && readdirSync(destination).length)
     throw new Error("The backup folder must be empty.");
   mkdirSync(destination, { recursive: true });

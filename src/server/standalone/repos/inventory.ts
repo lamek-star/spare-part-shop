@@ -1,4 +1,4 @@
-import type { Database } from "../../db/connection";
+import { isCheckViolation, type SqlDatabase } from "../../db/connection";
 import type {
   Page,
   Reservation,
@@ -49,10 +49,10 @@ const balance = (r: Row): StockBalance => ({
 });
 
 export class SqliteInventoryRepository implements InventoryRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: SqlDatabase) {}
 
   async balance(productId: string, locationId: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>(
         `SELECT b.*, l.warehouse_id FROM stock_balances b JOIN locations l ON l.id = b.location_id
           WHERE b.product_id = ? AND b.location_id = ?`,
@@ -70,14 +70,14 @@ export class SqliteInventoryRepository implements InventoryRepository {
     if (q.warehouseId)
       (where.push("l.warehouse_id = ?"), params.push(q.warehouseId));
     if (q.onlyPositive) where.push("b.on_hand > 0");
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           `SELECT b.*, l.warehouse_id FROM stock_balances b JOIN locations l ON l.id = b.location_id
             ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY b.product_id, l.code`,
           params,
         )
-        .map(balance),
+      ).map(balance),
     );
   }
   async applyDelta(
@@ -87,26 +87,26 @@ export class SqliteInventoryRepository implements InventoryRepository {
     reservedDelta: number,
   ) {
     try {
-      await this.db.write((h) => {
-        h.run(
+      await this.db.write(async (h) => {
+        await h.run(
           `INSERT INTO stock_balances(product_id, location_id, on_hand, reserved, updated_at) VALUES (?,?,0,0,?)
            ON CONFLICT(product_id, location_id) DO NOTHING`,
           [productId, locationId, nowIso()],
         );
-        h.run(
+        await h.run(
           `UPDATE stock_balances SET on_hand = on_hand + ?, reserved = reserved + ?, updated_at = ?
             WHERE product_id = ? AND location_id = ?`,
           [onHandDelta, reservedDelta, nowIso(), productId, locationId],
         );
       });
     } catch (error) {
-      if (/CHECK constraint/i.test(String((error as Error).message)))
+      if (isCheckViolation(error))
         throw conflict("Insufficient available stock.", "INSUFFICIENT_STOCK");
       throw error;
     }
   }
   async insertMovement(m: StockMovement & { transferId?: string | null }) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO stock_movements(id,product_id,location_id,type,quantity,reference_type,reference_id,transfer_id,note,created_at,created_by)
          VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
@@ -141,14 +141,14 @@ export class SqliteInventoryRepository implements InventoryRepository {
     if (q.from) (where.push("created_at >= ?"), params.push(q.from));
     if (q.to) (where.push("created_at <= ?"), params.push(q.to));
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: (
+        await h.all<Row>(
           `SELECT * FROM stock_movements ${clause} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
           [...params, pageSize, offset] as never,
         )
-        .map(movement),
-      total: h.count(
+      ).map(movement),
+      total: await h.count(
         `SELECT COUNT(*) AS n FROM stock_movements ${clause}`,
         params,
       ),
@@ -157,7 +157,7 @@ export class SqliteInventoryRepository implements InventoryRepository {
     }));
   }
   async insertReservation(r: Reservation) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO reservations(id,product_id,location_id,quantity,status,reference_type,reference_id,created_at,closed_at)
          VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -176,23 +176,23 @@ export class SqliteInventoryRepository implements InventoryRepository {
     );
   }
   activeReservations(referenceType: string, referenceId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM reservations WHERE reference_type = ? AND reference_id = ? AND status = 'ACTIVE' ORDER BY created_at",
           [referenceType, referenceId],
         )
-        .map(reservation),
+      ).map(reservation),
     );
   }
   reservationsFor(referenceType: string, referenceId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM reservations WHERE reference_type = ? AND reference_id = ? ORDER BY created_at",
           [referenceType, referenceId],
         )
-        .map(reservation),
+      ).map(reservation),
     );
   }
   async closeReservation(
@@ -200,7 +200,7 @@ export class SqliteInventoryRepository implements InventoryRepository {
     status: "RELEASED" | "FULFILLED",
     closedAt: string,
   ) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "UPDATE reservations SET status = ?, closed_at = ? WHERE id = ? AND status = 'ACTIVE'",
         [status, closedAt, id],
@@ -213,8 +213,8 @@ export class SqliteInventoryRepository implements InventoryRepository {
     closedAt: string,
     newId: string,
   ) {
-    await this.db.write((h) => {
-      const r = h.get<Row>(
+    await this.db.write(async (h) => {
+      const r = await h.get<Row>(
         "SELECT * FROM reservations WHERE id = ? AND status = 'ACTIVE'",
         [id],
       );
@@ -222,12 +222,12 @@ export class SqliteInventoryRepository implements InventoryRepository {
       const total = Number(r.quantity);
       if (quantity <= 0 || quantity > total)
         throw conflict("Invalid quantity for this reservation.");
-      h.run(
+      await h.run(
         "UPDATE reservations SET quantity = ?, status = 'FULFILLED', closed_at = ? WHERE id = ?",
         [quantity, closedAt, id],
       );
       if (quantity < total)
-        h.run(
+        await h.run(
           `INSERT INTO reservations(id,product_id,location_id,quantity,status,reference_type,reference_id,created_at,closed_at)
            VALUES (?,?,?,?, 'ACTIVE', ?,?,?,NULL)`,
           [
@@ -243,7 +243,7 @@ export class SqliteInventoryRepository implements InventoryRepository {
     });
   }
   async verifyIntegrity() {
-    return this.db.read((h) => {
+    return this.db.read(async (h) => {
       const problems: {
         productId: string;
         locationId: string;
@@ -251,7 +251,7 @@ export class SqliteInventoryRepository implements InventoryRepository {
         stored: number;
         expected: number;
       }[] = [];
-      const rows = h.all<{
+      const rows = await h.all<{
         product_id: string;
         location_id: string;
         on_hand: number;

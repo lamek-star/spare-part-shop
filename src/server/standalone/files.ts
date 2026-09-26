@@ -8,7 +8,7 @@ import {
   existsSync,
 } from "node:fs";
 import { join } from "node:path";
-import type { Database } from "../db/connection";
+import type { SqlDatabase } from "../db/connection";
 import type { FileStorage, StoredFile } from "../providers/core";
 import { nowIso } from "../kernel/ids";
 
@@ -52,7 +52,7 @@ export function safeFileName(name: string): string {
  */
 export class LocalFileStorage implements FileStorage {
   constructor(
-    private readonly db: Database,
+    private readonly db: SqlDatabase,
     private readonly root: string,
   ) {
     mkdirSync(root, { recursive: true });
@@ -119,13 +119,7 @@ export class LocalFileStorage implements FileStorage {
     entityId: string,
     kind?: string,
   ): Promise<StoredFile[]> {
-    const rows = await this.db.read((h) =>
-      h.all<FileRow>(
-        `SELECT * FROM files WHERE deleted_at IS NULL AND entity_type = ? AND entity_id = ? AND (? IS NULL OR kind = ?) ORDER BY created_at DESC, rowid DESC`,
-        [entityType, entityId, kind ?? null, kind ?? null],
-      ),
-    );
-    return rows.map(toStored);
+    return listFilesFor(this.db, entityType, entityId, kind);
   }
   async get(
     id: string,
@@ -146,23 +140,47 @@ export class LocalFileStorage implements FileStorage {
     return { file: toStored(row), bytes };
   }
   async delete(id: string): Promise<void> {
-    const row = await this.db.write((h) => {
-      const r = h.get<FileRow>("SELECT * FROM files WHERE id = ?", [id]);
-      if (r) h.run("DELETE FROM files WHERE id = ?", [id]);
+    const row = await this.db.write(async (h) => {
+      const r = await h.get<FileRow>("SELECT * FROM files WHERE id = ?", [id]);
+      if (r) await h.run("DELETE FROM files WHERE id = ?", [id]);
       return r;
     });
     if (row) rmSync(this.pathFor(row.storage_key), { force: true });
   }
   async listOrphans(): Promise<StoredFile[]> {
-    // A file is an orphan when nothing that owns files points at it.
-    const rows = await this.db.read((h) =>
-      h.all<FileRow>(
-        `SELECT f.* FROM files f
-          WHERE f.deleted_at IS NULL
-            AND f.kind = 'PRODUCT_IMAGE'
-            AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.file_id = f.id)`,
-      ),
-    );
-    return rows.map(toStored);
+    return listOrphanFiles(this.db);
   }
 }
+
+// ---- metadata queries shared with the platform file storage ----
+
+/** Files attached to one entity, newest first (insertion order breaks
+ * ties: SQLite's rowid, the PostgreSQL table's identity column). */
+export async function listFilesFor(
+  db: SqlDatabase,
+  entityType: string,
+  entityId: string,
+  kind?: string,
+): Promise<StoredFile[]> {
+  const order = db.dialect === "postgres" ? "seq" : "rowid";
+  const rows = await db.read((h) =>
+    h.all<FileRow>(
+      `SELECT * FROM files WHERE deleted_at IS NULL AND entity_type = ? AND entity_id = ? AND (? IS NULL OR kind = ?) ORDER BY created_at DESC, ${order} DESC`,
+      [entityType, entityId, kind ?? null, kind ?? null],
+    ),
+  );
+  return rows.map(toStored);
+}
+/** A file is an orphan when nothing that owns files points at it. */
+export async function listOrphanFiles(db: SqlDatabase): Promise<StoredFile[]> {
+  const rows = await db.read((h) =>
+    h.all<FileRow>(
+      `SELECT f.* FROM files f
+        WHERE f.deleted_at IS NULL
+          AND f.kind = 'PRODUCT_IMAGE'
+          AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.file_id = f.id)`,
+    ),
+  );
+  return rows.map(toStored);
+}
+export { toStored, type FileRow };

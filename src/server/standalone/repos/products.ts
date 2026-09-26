@@ -1,4 +1,4 @@
-import type { Database } from "../../db/connection";
+import type { SqlDatabase } from "../../db/connection";
 import type {
   Page,
   ProductImage,
@@ -58,7 +58,7 @@ const number = (r: Row): ProductNumber => ({
 });
 
 export class SqliteProductRepository implements ProductRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: SqlDatabase) {}
 
   async list(query: ProductQuery): Promise<Page<ProductRow>> {
     const { page, pageSize, offset } = pageArgs(query.page, query.pageSize);
@@ -91,42 +91,45 @@ export class SqliteProductRepository implements ProductRepository {
          COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) <= p.reorder_level`,
       );
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
-    return this.db.read((h) => ({
-      items: h
-        .all<Row>(
+    return this.db.read(async (h) => ({
+      items: (
+        await h.all<Row>(
           `SELECT p.* FROM products p ${clause} ORDER BY p.name COLLATE NOCASE, p.sku LIMIT ? OFFSET ?`,
           [...params, pageSize, offset],
         )
-        .map(product),
-      total: h.count(`SELECT COUNT(*) AS n FROM products p ${clause}`, params),
+      ).map(product),
+      total: await h.count(
+        `SELECT COUNT(*) AS n FROM products p ${clause}`,
+        params,
+      ),
       page,
       pageSize,
     }));
   }
   async get(id: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>("SELECT * FROM products WHERE id = ?", [id]),
     );
     return r ? product(r) : null;
   }
   async getBySku(sku: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>("SELECT * FROM products WHERE sku = ? COLLATE NOCASE", [sku]),
     );
     return r ? product(r) : null;
   }
   async findByNormalizedNumber(normalized: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           `SELECT DISTINCT p.* FROM products p JOIN product_numbers n ON n.product_id = p.id WHERE n.normalized = ? ORDER BY p.name`,
           [normalized],
         )
-        .map(product),
+      ).map(product),
     );
   }
   async insert(p: ProductRow, createdBy: string | null) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO products(id,sku,name,brand,manufacturer,category,description,condition,unit,weight_grams,origin,status,cost_minor,price_minor,currency,tax_category,reorder_level,minimum_level,default_supplier_id,default_location_id,notes,created_by,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -160,7 +163,7 @@ export class SqliteProductRepository implements ProductRepository {
     );
   }
   async update(p: ProductRow) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `UPDATE products SET sku=?,name=?,brand=?,manufacturer=?,category=?,description=?,condition=?,unit=?,weight_grams=?,origin=?,status=?,cost_minor=?,price_minor=?,currency=?,tax_category=?,reorder_level=?,minimum_level=?,default_supplier_id=?,default_location_id=?,notes=?,updated_at=? WHERE id=?`,
         [
@@ -191,27 +194,27 @@ export class SqliteProductRepository implements ProductRepository {
     );
   }
   categories() {
-    return this.db.read((h) =>
-      h
-        .all<{ category: string }>(
-          "SELECT DISTINCT category FROM products WHERE category <> '' ORDER BY category COLLATE NOCASE",
+    return this.db.read(async (h) =>
+      (
+        await h.all<{ category: string }>(
+          "SELECT category FROM products WHERE category <> '' GROUP BY category ORDER BY category COLLATE NOCASE",
         )
-        .map((r) => r.category),
+      ).map((r) => r.category),
     );
   }
 
   numbers(productId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM product_numbers WHERE product_id = ? ORDER BY primary_flag DESC, type, display",
           [productId],
         )
-        .map(number),
+      ).map(number),
     );
   }
   async upsertNumber(n: ProductNumber) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         `INSERT INTO product_numbers(id,product_id,display,normalized,type,brand,source,market,active,primary_flag,notes,supplier_id,superseded_by_number)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -237,38 +240,38 @@ export class SqliteProductRepository implements ProductRepository {
     );
   }
   async removeNumber(id: string) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run("DELETE FROM product_numbers WHERE id = ?", [id]),
     );
   }
 
   suppliers(productId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM product_suppliers WHERE product_id = ? ORDER BY is_default DESC, supplier_id",
           [productId],
         )
-        .map((r) => ({
-          id: s(r.id),
-          productId: s(r.product_id),
-          supplierId: s(r.supplier_id),
-          supplierPartNumber: s(r.supplier_part_number),
-          costMinor: Number(r.cost_minor),
-          currency: s(r.currency),
-          isDefault: Boolean(r.is_default),
-          notes: s(r.notes),
-        })),
+      ).map((r) => ({
+        id: s(r.id),
+        productId: s(r.product_id),
+        supplierId: s(r.supplier_id),
+        supplierPartNumber: s(r.supplier_part_number),
+        costMinor: Number(r.cost_minor),
+        currency: s(r.currency),
+        isDefault: Boolean(r.is_default),
+        notes: s(r.notes),
+      })),
     ) as Promise<(ProductSupplier & { costMinor: number })[]>;
   }
   async upsertSupplier(x: ProductSupplier & { costMinor: number }) {
-    await this.db.write((h) => {
+    await this.db.write(async (h) => {
       if (x.isDefault)
-        h.run(
+        await h.run(
           "UPDATE product_suppliers SET is_default = 0 WHERE product_id = ? AND id <> ?",
           [x.productId, x.id],
         );
-      h.run(
+      await h.run(
         `INSERT INTO product_suppliers(id,product_id,supplier_id,supplier_part_number,cost_minor,currency,is_default,notes)
          VALUES (?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET supplier_part_number=excluded.supplier_part_number, cost_minor=excluded.cost_minor,
@@ -287,7 +290,7 @@ export class SqliteProductRepository implements ProductRepository {
     });
   }
   async removeSupplier(id: string) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run("DELETE FROM product_suppliers WHERE id = ?", [id]),
     );
   }
@@ -303,18 +306,18 @@ export class SqliteProductRepository implements ProductRepository {
     size: Number(r.size),
   });
   images(productId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           `SELECT i.*, f.mime, f.size FROM product_images i JOIN files f ON f.id = i.file_id
             WHERE i.product_id = ? ORDER BY i.position, i.created_at`,
           [productId],
         )
-        .map(this.image),
+      ).map(this.image),
     );
   }
   async getImage(id: string) {
-    const r = await this.db.read((h) =>
+    const r = await this.db.read(async (h) =>
       h.get<Row>(
         "SELECT i.*, f.mime, f.size FROM product_images i JOIN files f ON f.id = i.file_id WHERE i.id = ?",
         [id],
@@ -323,22 +326,25 @@ export class SqliteProductRepository implements ProductRepository {
     return r ? this.image(r) : null;
   }
   async addImage(i: Omit<ProductImage, "url">, createdAt: string) {
-    await this.db.write((h) => {
-      const next = h.get<{ n: number }>(
-        "SELECT COALESCE(MAX(position), -1) + 1 AS n FROM product_images WHERE product_id = ?",
-        [i.productId],
-      )!.n;
+    await this.db.write(async (h) => {
+      const next = Number(
+        (await h.get<{ n: number }>(
+          "SELECT COALESCE(MAX(position), -1) + 1 AS n FROM product_images WHERE product_id = ?",
+          [i.productId],
+        ))!.n,
+      );
       const hasPrimary =
-        h.count(
+        (await h.count(
           "SELECT COUNT(*) AS n FROM product_images WHERE product_id = ? AND is_primary = 1",
           [i.productId],
-        ) > 0;
+        )) > 0;
       if (i.isPrimary && hasPrimary) {
-        h.run("UPDATE product_images SET is_primary = 0 WHERE product_id = ?", [
-          i.productId,
-        ]);
+        await h.run(
+          "UPDATE product_images SET is_primary = 0 WHERE product_id = ?",
+          [i.productId],
+        );
       }
-      h.run(
+      await h.run(
         "INSERT INTO product_images(id,product_id,file_id,position,is_primary,caption,created_at) VALUES (?,?,?,?,?,?,?)",
         [
           i.id,
@@ -353,40 +359,40 @@ export class SqliteProductRepository implements ProductRepository {
     });
   }
   async setPrimaryImage(productId: string, imageId: string) {
-    await this.db.write((h) => {
-      h.run("UPDATE product_images SET is_primary = 0 WHERE product_id = ?", [
-        productId,
-      ]);
-      h.run(
+    await this.db.write(async (h) => {
+      await h.run(
+        "UPDATE product_images SET is_primary = 0 WHERE product_id = ?",
+        [productId],
+      );
+      await h.run(
         "UPDATE product_images SET is_primary = 1 WHERE product_id = ? AND id = ?",
         [productId, imageId],
       );
     });
   }
   async reorderImages(productId: string, orderedIds: string[]) {
-    await this.db.write((h) => {
-      orderedIds.forEach((id, index) =>
-        h.run(
+    await this.db.write(async (h) => {
+      for (const [index, id] of orderedIds.entries())
+        await h.run(
           "UPDATE product_images SET position = ? WHERE product_id = ? AND id = ?",
           [index, productId, id],
-        ),
-      );
+        );
     });
   }
   async removeImage(id: string) {
-    await this.db.write((h) => {
-      const row = h.get<{ product_id: string; is_primary: number }>(
+    await this.db.write(async (h) => {
+      const row = await h.get<{ product_id: string; is_primary: number }>(
         "SELECT product_id, is_primary FROM product_images WHERE id = ?",
         [id],
       );
-      h.run("DELETE FROM product_images WHERE id = ?", [id]);
+      await h.run("DELETE FROM product_images WHERE id = ?", [id]);
       if (row?.is_primary) {
-        const next = h.get<{ id: string }>(
+        const next = await h.get<{ id: string }>(
           "SELECT id FROM product_images WHERE product_id = ? ORDER BY position LIMIT 1",
           [row.product_id],
         );
         if (next)
-          h.run("UPDATE product_images SET is_primary = 1 WHERE id = ?", [
+          await h.run("UPDATE product_images SET is_primary = 1 WHERE id = ?", [
             next.id,
           ]);
       }
@@ -401,29 +407,29 @@ export class SqliteProductRepository implements ProductRepository {
     linkedAt: s(r.linked_at),
   });
   links(productId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM product_reference_links WHERE product_id = ? ORDER BY linked_at",
           [productId],
         )
-        .map(this.link),
+      ).map(this.link),
     );
   }
   linksForReference(referencePartId: string) {
-    return this.db.read((h) =>
-      h
-        .all<Row>(
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
           "SELECT * FROM product_reference_links WHERE reference_part_id = ? ORDER BY linked_at",
           [referencePartId],
         )
-        .map(this.link),
+      ).map(this.link),
     );
   }
   async addLink(
     l: ReferenceLink & { snapshot: unknown; linkedBy: string | null },
   ) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run(
         "INSERT INTO product_reference_links(id,product_id,reference_part_id,oem_number,snapshot,linked_at,linked_by) VALUES (?,?,?,?,?,?,?)",
         [
@@ -439,7 +445,7 @@ export class SqliteProductRepository implements ProductRepository {
     );
   }
   async removeLink(id: string) {
-    await this.db.write((h) =>
+    await this.db.write(async (h) =>
       h.run("DELETE FROM product_reference_links WHERE id = ?", [id]),
     );
   }

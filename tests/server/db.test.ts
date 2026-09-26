@@ -34,11 +34,11 @@ test("a failed write operation rolls back completely", async () => {
   const db = Database.open(":memory:");
   await migrate(db);
   await assert.rejects(
-    db.write((h) => {
-      h.run(
+    db.write(async (h) => {
+      await h.run(
         "INSERT INTO app_config(key,value,updated_at) VALUES ('a','1','t')",
       );
-      h.run(
+      await h.run(
         "INSERT INTO app_config(key,value,updated_at) VALUES ('a','dup','t')",
       );
     }),
@@ -58,18 +58,21 @@ test("concurrent writers are serialized even with async gaps inside the transact
   );
   const bump = () =>
     db.write(async (h) => {
-      const v = h.get<{ next_value: number }>(
+      const v = (await h.get<{ next_value: number }>(
         "SELECT next_value FROM sequences WHERE name='x'",
-      )!.next_value;
+      ))!.next_value;
       await new Promise((r) => setTimeout(r, 5));
-      h.run("UPDATE sequences SET next_value = ? WHERE name='x'", [v + 1]);
+      await h.run("UPDATE sequences SET next_value = ? WHERE name='x'", [
+        v + 1,
+      ]);
     });
   await Promise.all(Array.from({ length: 25 }, bump));
   assert.equal(
     await db.read(
-      (h) =>
-        h.get<{ next_value: number }>("SELECT next_value FROM sequences")!
-          .next_value,
+      async (h) =>
+        (await h.get<{ next_value: number }>(
+          "SELECT next_value FROM sequences",
+        ))!.next_value,
     ),
     25,
   );
