@@ -797,3 +797,48 @@ test("package import is permission controlled", async () => {
     await t.cleanup();
   }
 });
+
+test("manual provider: a part typed in by staff goes through the same validated, idempotent path", async () => {
+  const t = await makeApp();
+  try {
+    const a = t.actors.ADMIN;
+    const r = await t.app.catalogueImport.addManual(a, {
+      oem_number: "12345-67890",
+      manufacturer: "Toyota",
+      description: "Custom bracket",
+      vehicle: "Hilux",
+      chassis: "KUN25",
+    });
+    assert.equal(r.created, true);
+    const part = (await t.app.catalogue.part(a, r.partId))!;
+    assert.equal(part.sources[0].source, "Manual entry");
+    assert.equal(part.fitments[0].model, "Hilux");
+    assert.equal(part.verification, "UNVERIFIED");
+    const again = await t.app.catalogueImport.addManual(a, {
+      oem_number: "1234567890",
+      manufacturer: "toyota",
+      description: "Custom bracket",
+      vehicle: "Hilux",
+      chassis: "KUN25",
+    });
+    assert.equal(again.created, false);
+    assert.equal((await t.app.catalogue.stats(a)).parts, 1);
+    assert.equal(
+      await code(
+        t.app.catalogueImport.addManual(a, { manufacturer: "Toyota" }),
+      ),
+      "VALIDATION",
+    );
+    assert.equal(
+      await code(
+        t.app.catalogueImport.addManual(t.actors.SALES, {
+          oem_number: "X1",
+          manufacturer: "T",
+        }),
+      ),
+      "FORBIDDEN",
+    );
+  } finally {
+    await t.cleanup();
+  }
+});

@@ -356,3 +356,30 @@ test("offline: the server code contains no outbound network calls, and a full wo
   }
   assert.ok(existsSync(process.cwd()));
 });
+
+test("generated reference documentation is up to date with the code", async () => {
+  const { apiRoutes, permissionsMatrix, schemaReference } =
+    await import("../../src/server/ops/generatedDocs");
+  const prettier = await import("prettier");
+  const fmt = (s: string) => prettier.format(s, { parser: "markdown" });
+  const read = (f: string) =>
+    readFileSync(join(process.cwd(), "docs/generated", f), "utf8").replace(
+      /\r\n/g,
+      "\n",
+    );
+  assert.equal(
+    read("PERMISSIONS_MATRIX.md"),
+    await fmt(permissionsMatrix()),
+    "run npm run docs:generate",
+  );
+  assert.equal(
+    read("API_ROUTES.md"),
+    await fmt(apiRoutes()),
+    "run npm run docs:generate",
+  );
+  assert.equal(
+    read("SCHEMA.md"),
+    await fmt(await schemaReference()),
+    "run npm run docs:generate",
+  );
+});

@@ -495,6 +495,48 @@ export class CatalogueImportService {
       throw e;
     }
   }
+  /**
+   * Manual provider: one reference part typed in by staff. It goes through
+   * exactly the same validation, provenance and idempotent write as a CSV
+   * row, with the source recorded as "Manual entry".
+   */
+  async addManual(
+    actor: Actor,
+    raw: unknown,
+  ): Promise<{ partId: string; created: boolean }> {
+    requirePermission(actor, "catalogue.import");
+    const input = asRecord(raw);
+    const headers = [...catalogueFields] as string[];
+    const cells = headers.map((h) => {
+      const v = input[h];
+      return typeof v === "string" || typeof v === "number" ? String(v) : "";
+    });
+    const mapping = Object.fromEntries(
+      catalogueFields.map((f) => [f, f]),
+    ) as ColumnMapping;
+    const { record, errors } = normalizeRow(headers, cells, mapping, {
+      defaultSource: "Manual entry",
+    });
+    if (!record || errors.length) throw validation(errors.join(" "));
+    return this.uow.write(async (r) => {
+      const w = r.catalogue.writer();
+      const result = await applyRecord(w, record, {
+        importJobId: null,
+        observedAt: nowIso(),
+      });
+      const found = await r.catalogue.findPartIdsByOem(
+        normalizeNumber(record.oemNumber),
+      );
+      await r.audit.record(actor, {
+        action: "catalogue.manual_part",
+        entityType: "catalogue_part",
+        entityId: found[0] ?? null,
+        summary: `${record.oemNumber} ${result.created ? "added" : "updated"} manually`,
+      });
+      return { partId: found[0], created: result.created };
+    });
+  }
+
   /** Step 1: read the file's columns and suggest a mapping. Writes nothing. */
   async detect(
     actor: Actor,

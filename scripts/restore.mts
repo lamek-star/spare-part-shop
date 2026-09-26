@@ -1,3 +1,7 @@
+process.on("uncaughtException", (e) => {
+  console.error(e instanceof Error ? e.message : String(e));
+  process.exit(1);
+});
 import { resolveDataDir } from "../src/server/standalone/container";
 import { restoreBackup } from "../src/server/ops/backup";
 

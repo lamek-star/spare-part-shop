@@ -1,209 +1,191 @@
-# Admin catalogue warm-up / import
+# Reference Catalogue — import
 
-A controlled way to pre-resolve a specific, operator-supplied list of
-Toyota OEM part numbers into the private IntraForge catalogue (see
-`docs/CATALOGUE_STORAGE.md`) while online, so the site keeps working for
-exactly those parts once offline. This is **not** a bulk-scrape
-mechanism — see "Do not" below.
+Three ways to put data in the Reference Catalogue, all through the same
+validated, idempotent, provenance-keeping write path. None of them touch My
+Products, prices or stock. **Nothing is ever fetched from the internet by the
+application.**
 
-## Workflow
+| Provider                                            | Where                                                      | Network |
+| --------------------------------------------------- | ---------------------------------------------------------- | ------- |
+| CSV file                                            | Import → CSV import                                        | no      |
+| Offline package (`.ifcatalog`, `.zip`, or a folder) | Import → Offline package, or `npm run catalogue:import`    | no      |
+| Manual entry                                        | `POST /api/v1/catalogue/parts`                             | no      |
+| Online providers (Toyota EPC, Nengun)               | **not shipped** — need the data owner's licence/permission | would   |
 
-```
-Owner/Administrator persona
-  → Catalogue → Import / Warm Up
-  → single part number, pasted list, or CSV upload
-  → Start import
-  → job runs in the background, one part at a time, rate limited
-  → per-item result: IMPORTED / ALREADY AVAILABLE / NOT FOUND /
-    PROVIDER ERROR / RESTRICTED / INVALID INPUT
-  → job saved to Import History; Offline Readiness shows real counts
-```
+The provider registry (`src/server/providers/contracts.ts`) records this. A
+future online provider must emit the same normalized rows and should also be
+able to export an offline package, so the shop can work without it.
 
-## Files
+Permission: `catalogue.import` (Owner and Admin). Image-rights changes and
+source management need `catalogue.admin` (Owner and Admin).
 
-| File                                        | Role                                                                                                    |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `src/catalogue/importParsing.ts`             | Pure, browser-safe: `ImportLine`, `parseImportLines`, `importLinesFromCsv`. No `node:fs` — importable from client components. |
-| `src/catalogue/importStore.ts`               | File-backed job history + the "offline readiness" observation index (`.catalogue-import-data/`, dev-only, same pattern as `src/catalogue/server.ts`). |
-| `src/catalogue/importRunner.ts`              | Orchestration: `startImportJob`, `retryFailedItems`, batching/rate limiting. Re-exports importParsing.ts's helpers for server-side callers. |
-| `src/app/api/catalogue/route.ts`             | `import-start` / `import-cancel` / `import-retry` (POST), `import-jobs` / `import-job` / `import-overview` (GET) — all gated by `isCatalogueAdmin(role)`. |
-| `src/components/CatalogueImportAdmin.tsx`    | The admin page — mounted at Catalogue → "Import / Warm Up" in `Workspace.tsx`.                          |
+## CSV import (wizard)
 
-## Why this is not "bulk scraping"
+1. **Choose a file.** UTF-8 CSV (a byte-order mark, quoted fields, commas and
+   line breaks inside quotes are handled). Limits: 100 MB, 500,000 rows, 80
+   columns, 8,192 characters per field. Binary files are refused.
+2. **Detect and map.** The file's columns are matched to catalogue fields by
+   name (e.g. `OEM No`, `part_number`, `Part Number` → `oem_number`); nothing
+   depends on a fixed header set. You can override every mapping and set a
+   default manufacturer, source name and market. Required: part number and
+   manufacturer (or a default manufacturer). Fields: `oem_number`,
+   `description`, `manufacturer`, `pnc`, `part_group`, `status`,
+   `vehicle_make`, `vehicle`, `generation`, `chassis`, `frame`, `body`,
+   `engine`, `transmission`, `production_from`, `production_to`, `market`,
+   `category`, `catalogue`, `figures`, `callout`, `supersedes`,
+   `superseded_by`, `price_usd`, `price_jpy`, `source`, `source_url`,
+   `source_record_id`, `notes`.
+3. **Confirm rights to use the data** (a required checkbox, recorded), then
+   **validate and preview**. Every row is checked and classified:
+   VALID (create or update), DUPLICATE (same key repeated in the file),
+   INVALID (with the reason and line number), CONFLICT, and warnings (missing
+   description, spreadsheet-formula-looking cells). The job page shows counts
+   of rows detected / valid / invalid / duplicates / new / existing / updated /
+   warnings / errors, and you can exclude individual rows.
+4. **Import.** Rows are committed in chunks of 500, each chunk in its own
+   transaction with a savepoint per row, so one bad row never blocks the rest.
+   Small files finish within the request; large ones continue in the
+   background while the page polls. An interrupted job can be **resumed**
+   (remaining rows only) and a running job can be **cancelled** (rows already
+   imported remain).
+5. **Summary and history.** The job records status, counts, the mapping used,
+   the file's SHA-256 and who ran it; Import → History lists every job.
 
-`importRunner.ts` resolves each part through the **exact same** functions
-the ordinary search cache-miss path already uses one at a time —
-`searchOemPart` → `resolveToyotaOemPart` → `importOemPart` (see
-`src/app/api/catalogue/route.ts`'s `oem-search` action and
-`docs/CATALOGUE_STORAGE.md`). The only thing this feature adds is
-orchestration over an **explicit, operator-supplied, bounded list**
-(hard cap: 500 items per job — `MAX_IMPORT_ITEMS`), processed strictly
-sequentially (never in parallel) with a delay between requests and a
-longer cooldown every `batchSize` items. Nothing here calls
-`providerPolicy.ts`'s `assertBulkSyncAllowed` / `catalogue/sync.ts`'s
-whole-catalogue sync path — that governs a different store (this app's
-own `ReferenceCatalogue`) and stays exactly as unreachable as it was.
+Job statuses: `PENDING`, `REVIEW_REQUIRED`, `RUNNING`, `COMPLETED`,
+`COMPLETED_WITH_WARNINGS`, `FAILED`, `CANCELLED`.
 
-There is no "discover more parts" or "crawl this vehicle/diagram" mode —
-only parts the operator explicitly typed, pasted, or uploaded are ever
-touched.
+Importing the same file again is idempotent: rows are keyed on source + part
+number + vehicle + market + production range + catalogue, so nothing is
+duplicated and unchanged rows are reported as "already present".
 
-## Batch control
+`tests/fixtures/catalogue/intraforge_reference_catalogue_batch_001.csv`
+("Batch 001") is used as a test fixture only. No column of it is hard-coded
+anywhere in the importer.
 
-- **Batch size** (default 5, max 25): after every N items, a cooldown of
-  `2 × delayMs` is inserted (on top of the per-item delay).
-- **Delay between requests** (default 750ms, min 200ms, max 10s):
-  inserted between items that actually made a network call (a pure
-  cache hit doesn't wait).
-- **Retry policy**: handled at the HTTP transport layer already —
-  `src/integrations/catalogues/toyota-epc/transport.ts`'s existing
-  bounded retry-with-backoff for 429/5xx (2 retries, 250ms/500ms
-  backoff). The import runner does not add its own retry loop; a failed
-  item is recorded as `PROVIDER_ERROR` and can be re-run via "Retry
-  failed items", which starts a **new** job containing only the
-  `PROVIDER_ERROR` / `NOT_FOUND` / `RESTRICTED` items from the prior job.
-- **Timeout**: inherited from the same transport (8s) and from
-  `intraforge-storage/client.ts`'s own 8s `AbortSignal.timeout`.
-- **Progress**: the job document accumulates `items[]` as it goes;
-  `GET ?action=import-job&id=...` is safe to poll (the admin UI polls it
-  every 1s while the job is `PENDING`/`RUNNING`).
-- **Cancel**: `POST {action:"import-cancel", id}` sets a flag the runner
-  checks before starting each next item — in-flight items still finish,
-  no partial item is left inconsistent. True pause/resume across a
-  server restart was not built (the job runner is an in-process
-  background task, matching this app's existing "development-only
-  single-process store" pattern elsewhere) — see Known limitations.
+## Offline package
 
-## Result statuses
-
-| Status | Meaning |
-| --- | --- |
-| `IMPORTED` | Not cached; resolved via Toyota EPC and persisted to IntraForge. |
-| `ALREADY_AVAILABLE` | Already present in IntraForge — no write made, existing record left untouched. |
-| `NOT_FOUND` | Toyota EPC was queried but had no match. |
-| `PROVIDER_ERROR` | A lookup or persist call threw (network/HTTP failure). |
-| `RESTRICTED` | Not cached, and could not be resolved — the provider is disabled (`TOYOTA_EPC_ENABLED` unset) or this job's "resolve via provider" checkbox was off (cache-only check). |
-| `INVALID_INPUT` | The line didn't normalize to a plausible OEM number (e.g. empty, or non-alphanumeric after normalization). |
-
-Job-level counters (`imported_count`, `already_available_count`,
-`not_found_count`, `error_count`) roll `PROVIDER_ERROR`/`RESTRICTED`/
-`INVALID_INPUT` into `error_count`; the full per-item detail (with the
-precise one of the six statuses) is always in `items[]`.
-
-## CSV format
-
-Minimum: a `part_number` column. Optional: `manufacturer`, `notes`,
-`internal_sku` — carried through per row for display only; there is no
-field on the IntraForge `OEMPart`/`Diagram`/`DiagramPart` models yet to
-persist them (see `docs/CATALOGUE_STORAGE.md`'s data model) — a natural
-follow-up once a real need for them appears.
-
-## Offline readiness
-
-`GET ?action=import-overview` returns real counts derived from this
-app's own **observation index** (`importStore.ts`'s `offlineIndex`,
-updated whenever a search or import actually sees a part from
-IntraForge) — not a live count against IntraForge's full table, because
-`catalogue_storage` exposes search/import endpoints only, no
-listing/count endpoint. Every number shown (cached parts, diagrams,
-callouts, parts with hotspot data) is something this app has actually
-observed, never estimated or extrapolated.
-
-## Image rule (unchanged)
-
-Exactly the same licensing posture as the rest of this integration:
-metadata (diagram code, source image URL, callout, hotspot rect,
-provenance) is always recorded; the actual image bytes are never
-fetched or stored by this path. `Diagram.license_status` stays
-`EXTERNAL_REFERENCE_ONLY` for every ordinary import — nothing in this
-feature can promote it to `LOCALLY_STORED` (that still requires a
-separately-licensed import on the IntraForge side, per
-`docs/CATALOGUE_STORAGE.md`). If a licensed image package is added
-later, the existing records attach to it the same way any other
-`Diagram` row would.
-
-## Authorization
-
-Every `import-*` action requires `isCatalogueAdmin(role)` — the
-`x-demo-role` header's role must be `Owner` or `Administrator` (same
-gate as the existing `providers` admin action), enforced server-side in
-the route handler, not just hidden in the UI.
-
-## Known limitations / deferred
-
-- **Pause/resume across a server restart** — not built; only cancel
-  (which is safe and immediate-ish). The job runner is in-process, same
-  constraint as `src/catalogue/server.ts`'s existing dev store.
-- **CSV's `manufacturer`/`notes`/`internal_sku` are not persisted** —
-  no IntraForge field exists yet for them.
-- **Offline-readiness counts are an observation log, not a live
-  IntraForge query** — see "Offline readiness" above.
-
-## Whole-figure import (added after the first release)
-
-A single part number used to cache only that one number, so searching it
-showed one line instead of the drawing's parts list. Now the resolver
-(`intraforge-storage/toyotaResolver.ts`) keeps the **entire figure** it
-just fetched — it was already downloading it — and `importFigure`
-(`POST /api/v1/catalogue/diagrams/import/` on IntraForge) stores:
-
-- a display snapshot on the `Diagram` (`figure_data`: hotspots, one group
-  per callout, every production/fitment line with dates, ended flag,
-  fitment codes and the "note" marker), and
-- every distinct number on it as a searchable `OEMPart` + `DiagramPart`
-  (callout and hotspot rect), so any number on the drawing can be
-  searched offline, not just the one asked for.
-
-Still bounded: one search, one sections lookup, one figure fetch (plus at
-most two more figures via the part's own group when the number is not on
-the section's primary drawing). No crawling. A part cached before this
-change is upgraded by re-running it through a job with provider lookup on
-(result `IMPORTED`, "its full figure … was added"); with the provider off
-it stays `ALREADY_AVAILABLE`.
-
-The search page (`OEMPartSearch.tsx` → `OEMFigureViewer.tsx`) renders that
-snapshot as a parts-catalogue page: drawing with clickable callout boxes,
-a filter, "N parts on this figure", groups by callout, part number /
-description / dates / ended / fitment chips / stock-or-price / Add. Add
-requires sign-in and puts the number in the enquiry, like before.
-
-### The drawing image
-
-Nothing is downloaded or stored. When the diagram is not locally stored,
-the drawing is shown only if `CATALOGUE_SHOW_EXTERNAL_DIAGRAMS=true`
-(server env, default off): the visitor's browser then loads the image
-straight from the source's URL with the source credited on screen. The
-source's own legal notice disclaims a redistribution licence, so turning
-this on is a deliberate decision — it is on in `.env.local` for local
-development only. With it off the viewer shows the full parts list and a
-link to open the drawing at its source. A locally stored, permission-
-confirmed image always wins and is unaffected by the flag.
-
-## Drawings from local files, and choosing the vehicle
-
-**Local drawings.** A folder of saved catalogue pages (`<figure key>.png`
-files, e.g. `MA4481A.png`) can be attached to catalogue diagrams so they
-are shown from IntraForge's own storage — no dependence on the source
-website. On the IntraForge side:
+A package is a folder or a single archive (`.ifcatalog` is a ZIP with a
+different extension):
 
 ```
-python manage.py import_diagram_images --dir <folder> --license-confirmed [--dry-run]
+manifest.json
+sources.csv  manufacturers.csv  vehicles.csv  catalogues.csv
+parts.csv  fitments.csv  supersessions.csv  drawings.csv  drawing_parts.csv
+images/diagrams/…   images/reference/…
 ```
 
-It refuses to run without `--license-confirmed` (storing the bytes is an
-explicit decision by someone who may use the files), matches files to
-diagrams by figure key, creates the diagram if no part is on it yet (so
-the picture is already there when a part is imported later), skips
-anything that is not really a PNG/JPEG, and is idempotent. The app shows
-such a drawing through `GET /api/catalogue/diagram-image?id=…`, a proxy
-that keeps the IntraForge credential on the server and only ever serves
-diagrams IntraForge itself marks as locally stored. A stored drawing is
-preferred over the external-display flag.
+`manifest.json`:
 
-**Choosing the vehicle.** The same part is drawn on many vehicles' figures.
-A line in a pasted list may name the catalogue code —
-`15600-25010, 221230` — and a CSV may carry a `catalogue` column; the
-resolver then takes that vehicle's drawing (and a wrong code is
-`NOT_FOUND`, not a guess). A cached part with a catalogue named gets that
-drawing added. A part drawn on several figures shows a switcher above the
-viewer, opening on one whose picture is stored.
+```json
+{
+  "package_format_version": 1,
+  "package_id": "toyota-carina-eu-221230",
+  "provider": "toyota-epc",
+  "manufacturer": "Toyota",
+  "market": "EU",
+  "catalogue": "221230",
+  "source": "Toyota parts catalogue",
+  "created_at": "2026-09-20T00:00:00Z",
+  "record_counts": {
+    "parts": 3,
+    "fitments": 2,
+    "drawings": 1,
+    "drawing_parts": 3,
+    "supersessions": 1
+  },
+  "asset_counts": { "diagrams": 1 },
+  "checksums": {
+    "parts.csv": "<sha256>",
+    "images/diagrams/MA4481A.png": "<sha256>"
+  }
+}
+```
+
+Tables and columns (all optional unless marked; `manufacturer` may be given
+once in the manifest instead of per row):
+
+| Table                                                                | Columns                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parts.csv`                                                          | **`oem_number`**, `manufacturer`, `description`, `pnc`, `part_group`, `status`, `source_record_id`, `source_url`, `price_usd`, `price_jpy`, `notes`                                                                                                 |
+| `fitments.csv`                                                       | **`oem_number`**, **`model`** (or `vehicle`), `manufacturer`, `make`, `generation`, `chassis` (`;`-separated), `frame`, `body`, `engine`, `transmission`, `market`, `production_from`, `production_to`, `catalogue`, `section`, `position`, `notes` |
+| `supersessions.csv`                                                  | **`oem_number`**, **`related_number`**, `manufacturer`, `relation` (SUPERSEDES, SUPERSEDED_BY, REPLACEMENT, INTERCHANGE, ALTERNATIVE, EQUIVALENT, CROSS_REFERENCE), `notes`                                                                         |
+| `drawings.csv`                                                       | **`code`**, `title`, `catalogue`, `section`, `image_file`, `source_image_url`, `rights`                                                                                                                                                             |
+| `drawing_parts.csv`                                                  | **`drawing`**, **`oem_number`**, `manufacturer`, `callout`, `x1 y1 x2 y2`, `space` (PIXEL or PERCENT), `quantity`, `sequence`                                                                                                                       |
+| `sources.csv`, `manufacturers.csv`, `vehicles.csv`, `catalogues.csv` | reference tables for shared metadata                                                                                                                                                                                                                |
+
+Validation before anything is written (Import → Offline package shows this as
+a check report and `npm run catalogue:import` prints it):
+
+- format version supported; manifest well formed; `package_id` restricted to
+  letters, digits, dots, dashes and underscores;
+- every listed file present and its **SHA-256 equal to the manifest**;
+  `record_counts` and `asset_counts` equal to what is actually in the package;
+- a package with no catalogue data at all is refused;
+- row-level problems (missing part number, bad date, inverted hotspot,
+  unknown relation, part missing from `parts.csv`…) are reported **with the
+  file and line**, the bad rows are skipped, and the good rows import
+  (status `COMPLETED_WITH_WARNINGS`);
+- a manifest/checksum/structure failure rejects the **whole** package and
+  imports nothing (a `FAILED` job records why).
+
+Safe extraction: entry names are normalized and must stay inside the package
+(no `..`, absolute paths, drive letters, backslash tricks, NUL bytes,
+duplicate names); symbolic links are refused; ZIP64 and encryption are
+refused; at most 200,000 entries, 256 MB per file, a compression ratio ≤ 250,
+and every member's declared size and CRC-32 must match its bytes (so a zip
+bomb or a tampered archive cannot be expanded). Nothing is ever extracted to
+disk: entries are read in memory and stored through `FileStorage`.
+
+After import the catalogue lives entirely inside the application's own
+storage. **The USB stick, folder or archive can be removed** and search, part
+pages, drawings and hotspots keep working (a test deletes the source and cuts
+the network first).
+
+### Drawings and image rights
+
+Drawing **metadata and hotspots are data**, imported regardless. Image
+**bytes** are stored only when the operator ticks "I confirm we are licensed to
+store and display these images". Without it the drawing keeps its
+`source_image_url` (shown as a link) and rights `EXTERNAL_REFERENCE`, the job
+reports a warning, and the viewer shows the parts list without the picture.
+A stored image is served only while its rights are one of
+LICENSED_FOR_INTERNAL_USE, LICENSED_FOR_DISPLAY, COMPANY_OWNED or
+MANUFACTURER_AUTHORIZED; setting `DO_NOT_REPUBLISH` (with at least a short
+written evidence note) stops display at once. A stored image is never silently
+replaced by a later import (the warning says so).
+
+Images are validated by content, not extension: PNG, JPEG, GIF or WebP only (SVG is
+refused because it can carry script), ≤ 64 MB, with dimensions read from the
+header so hotspots in pixel space can be scaled.
+
+For a folder of loose drawings named `<figure code>.png|jpg` (for example a
+saved page's `_files` folder) use `PackageImportService.importDrawingImages`
+(rights confirmation required; duplicate codes are ignored; non-images
+counted as skipped).
+
+## Manual entry
+
+`POST /api/v1/catalogue/parts` with the same field names as the CSV fields
+(`oem_number`, `manufacturer`, `description`, `vehicle`, `chassis`, …). It is
+validated like a CSV row and stored with source "Manual entry",
+verification UNVERIFIED.
+
+## Governance
+
+- **Sources** (`catalogue_sources`): provider key, name, licence status,
+  redistribution status, image-usage status, priority (higher priority wins
+  the displayed description), active flag.
+- **Verification** per part: UNVERIFIED → SOURCE_VERIFIED / MANUALLY_VERIFIED /
+  DISPUTED (Owner/Admin).
+- Every import, cancellation, rights change and verification is written to
+  the audit log.
+- CSV formula injection: cells starting with `= + - @` (or tab/CR) are stored
+  as plain text and prefixed with `'` on export.
+
+## Command line
+
+```
+npm run catalogue:import -- <folder | file.ifcatalog | file.zip> [--images-licensed]
+```
+
+Runs as the first active Owner. Exit code 1 when the package is rejected.

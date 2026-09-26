@@ -217,6 +217,10 @@ export function buildRouter(): Router {
   r.get("/catalogue/stats", { permission: "catalogue.read" }, async (c) => ({
     data: await c.app.catalogue.stats(c.actor),
   }));
+  r.post("/catalogue/parts", { permission: "catalogue.import" }, async (c) => ({
+    status: 201,
+    data: await c.app.catalogueImport.addManual(c.actor, await c.json()),
+  }));
   r.get(
     "/catalogue/parts/by-oem/:oem",
     { permission: "catalogue.read" },

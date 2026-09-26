@@ -107,6 +107,14 @@ export class Router {
   delete(pattern: string, options: RouteOptions, handler: Handler) {
     this.add("DELETE", pattern, options, handler);
   }
+  /** Every registered route, for generated documentation and tests. */
+  entries(): { method: string; path: string; options: RouteOptions }[] {
+    return this.routes.map((r) => ({
+      method: r.method,
+      path: "/" + r.parts.join("/"),
+      options: r.options,
+    }));
+  }
   match(
     method: string,
     segments: string[],
@@ -475,7 +483,7 @@ export function createHttpHandler(
           cookieOut =
             t === null
               ? `${SESSION_COOKIE}=; Max-Age=0; ${attrs.join("; ")}`
-              : `${SESSION_COOKIE}=${encodeURIComponent(t)}; Max-Age=${60 * 60 * 24 * 14}; ${attrs.join("; ")}`;
+              : `${SESSION_COOKIE}=${encodeURIComponent(t)}; Max-Age=${60 * 60 * 24 * 7}; ${attrs.join("; ")}`;
         },
       };
       const result = await route.handler(ctx);

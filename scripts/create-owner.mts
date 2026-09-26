@@ -1,3 +1,7 @@
+process.on("uncaughtException", (e) => {
+  console.error(e instanceof Error ? e.message : String(e));
+  process.exit(1);
+});
 import { createContainer } from "../src/server/standalone/container";
 
 // Usage: npm run owner:create -- <email> "<Display Name>"   (password read from SPAREPARTS_OWNER_PASSWORD)
