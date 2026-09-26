@@ -21,7 +21,7 @@ import { sniffImage } from "../domain/products";
  *   manifest.json                package_format_version, package_id, provider, ...
  *   sources.csv manufacturers.csv vehicles.csv catalogues.csv parts.csv
  *   fitments.csv supersessions.csv drawings.csv drawing_parts.csv
- *   images/diagrams/*  images/reference/*
+ *   images/diagrams/*  (images/reference/* is reserved; not imported in version 1)
  *
  * Every table and every column is optional except where a row cannot make
  * sense without it. Importing is idempotent, so re-running a package (for

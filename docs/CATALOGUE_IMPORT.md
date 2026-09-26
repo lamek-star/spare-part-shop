@@ -71,7 +71,8 @@ different extension):
 manifest.json
 sources.csv  manufacturers.csv  vehicles.csv  catalogues.csv
 parts.csv  fitments.csv  supersessions.csv  drawings.csv  drawing_parts.csv
-images/diagrams/…   images/reference/…
+images/diagrams/…   (drawings referenced from drawings.csv)
+images/reference/…  (reserved: reference-part photos are not imported in format version 1)
 ```
 
 `manifest.json`:
