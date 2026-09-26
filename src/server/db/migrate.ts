@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Database } from "./connection";
-import { migrations } from "./migrations";
+import { migrations as allMigrations, type Migration } from "./migrations";
 
 export interface MigrationReport {
   applied: string[];
@@ -14,7 +14,10 @@ const checksum = (sql: string) =>
  * An already-applied migration whose text has since changed is a hard
  * error: schema history is append-only, never edited in place.
  */
-export async function migrate(db: Database): Promise<MigrationReport> {
+export async function migrate(
+  db: Database,
+  migrations: readonly Migration[] = allMigrations,
+): Promise<MigrationReport> {
   return db.write((h) => {
     h.exec(
       `CREATE TABLE IF NOT EXISTS schema_migrations (

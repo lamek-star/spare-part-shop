@@ -1,5 +1,10 @@
 import type { Database } from "../../db/connection";
-import type { DashboardMetrics, ProductSalesHistory, ReportRepository, StockLevelRow } from "../../providers/sales";
+import type {
+  DashboardMetrics,
+  ProductSalesHistory,
+  ReportRepository,
+  StockLevelRow,
+} from "../../providers/sales";
 import { likeTerm, pageArgs } from "./util";
 
 type Row = Record<string, unknown>;
@@ -77,12 +82,19 @@ export class SqliteReportRepository implements ReportRepository {
         })),
     );
   }
-  stockLevels(q: { q?: string; warehouseId?: string; page?: number; pageSize?: number }) {
+  stockLevels(q: {
+    q?: string;
+    warehouseId?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
     const { page, pageSize, offset } = pageArgs(q.page, q.pageSize, 200);
     const where = ["(b.on_hand > 0 OR b.reserved > 0)"];
     const params: (string | number)[] = [];
     if (q.q?.trim()) {
-      where.push("(p.name LIKE ? ESCAPE '\\' OR p.sku LIKE ? ESCAPE '\\' OR l.code LIKE ? ESCAPE '\\')");
+      where.push(
+        "(p.name LIKE ? ESCAPE '\\' OR p.sku LIKE ? ESCAPE '\\' OR l.code LIKE ? ESCAPE '\\')",
+      );
       const t = likeTerm(q.q);
       params.push(t, t, t);
     }
@@ -90,8 +102,22 @@ export class SqliteReportRepository implements ReportRepository {
     const from = `FROM stock_balances b JOIN products p ON p.id = b.product_id JOIN locations l ON l.id = b.location_id JOIN warehouses w ON w.id = l.warehouse_id WHERE ${where.join(" AND ")}`;
     return this.db.read((h) => ({
       items: h
-        .all<Row>(`SELECT p.id, p.sku, p.name, w.id AS wid, w.name AS warehouse, l.id AS lid, l.code AS location, b.on_hand, b.reserved ${from} ORDER BY p.name COLLATE NOCASE, w.name, l.code LIMIT ? OFFSET ?`, [...params, pageSize, offset])
-        .map((r): StockLevelRow => ({ productId: s(r.id), sku: s(r.sku), name: s(r.name), warehouseId: s(r.wid), warehouse: s(r.warehouse), locationId: s(r.lid), location: s(r.location), onHand: n(r.on_hand), reserved: n(r.reserved), available: n(r.on_hand) - n(r.reserved) })),
+        .all<Row>(
+          `SELECT p.id, p.sku, p.name, w.id AS wid, w.name AS warehouse, l.id AS lid, l.code AS location, b.on_hand, b.reserved ${from} ORDER BY p.name COLLATE NOCASE, w.name, l.code LIMIT ? OFFSET ?`,
+          [...params, pageSize, offset],
+        )
+        .map((r): StockLevelRow => ({
+          productId: s(r.id),
+          sku: s(r.sku),
+          name: s(r.name),
+          warehouseId: s(r.wid),
+          warehouse: s(r.warehouse),
+          locationId: s(r.lid),
+          location: s(r.location),
+          onHand: n(r.on_hand),
+          reserved: n(r.reserved),
+          available: n(r.on_hand) - n(r.reserved),
+        })),
       total: h.count(`SELECT COUNT(*) AS n ${from}`, params),
       page,
       pageSize,
@@ -178,7 +204,13 @@ export class SqliteReportRepository implements ReportRepository {
           unitPriceMinor: n(r.unit_price_minor),
           totalMinor: n(r.line_total_minor),
         }));
-      return { quantity: n(totals.q), totalMinor: n(totals.t), invoices: n(totals.c), lastSoldAt: totals.last ? s(totals.last) : null, recent };
+      return {
+        quantity: n(totals.q),
+        totalMinor: n(totals.t),
+        invoices: n(totals.c),
+        lastSoldAt: totals.last ? s(totals.last) : null,
+        recent,
+      };
     });
   }
   salesByProduct(from: string, to: string) {

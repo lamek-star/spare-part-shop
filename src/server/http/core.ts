@@ -1,5 +1,10 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
-import { AppError, forbidden, unauthorized, validation } from "../kernel/errors";
+import {
+  AppError,
+  forbidden,
+  unauthorized,
+  validation,
+} from "../kernel/errors";
 import type { App } from "../domain/app";
 import type { AppContainer } from "../standalone/container";
 import type { Actor } from "../domain/types";
@@ -42,8 +47,19 @@ export interface Ctx {
 }
 export type Result =
   | { status?: number; data?: unknown }
-  | { status?: number; binary: { bytes: Uint8Array; mime: string; fileName?: string; inline?: boolean } }
-  | { status?: number; text: { body: string; mime: string; fileName?: string } };
+  | {
+      status?: number;
+      binary: {
+        bytes: Uint8Array;
+        mime: string;
+        fileName?: string;
+        inline?: boolean;
+      };
+    }
+  | {
+      status?: number;
+      text: { body: string; mime: string; fileName?: string };
+    };
 export interface RouteOptions {
   /** No session required (login, first-run setup). */
   public?: boolean;
@@ -63,8 +79,18 @@ interface Route {
 
 export class Router {
   private readonly routes: Route[] = [];
-  add(method: string, pattern: string, options: RouteOptions, handler: Handler) {
-    this.routes.push({ method, parts: pattern.split("/").filter(Boolean), options, handler });
+  add(
+    method: string,
+    pattern: string,
+    options: RouteOptions,
+    handler: Handler,
+  ) {
+    this.routes.push({
+      method,
+      parts: pattern.split("/").filter(Boolean),
+      options,
+      handler,
+    });
   }
   get(pattern: string, options: RouteOptions, handler: Handler) {
     this.add("GET", pattern, options, handler);
@@ -81,7 +107,13 @@ export class Router {
   delete(pattern: string, options: RouteOptions, handler: Handler) {
     this.add("DELETE", pattern, options, handler);
   }
-  match(method: string, segments: string[]): { route: Route; params: Record<string, string> } | { methods: string[] } | null {
+  match(
+    method: string,
+    segments: string[],
+  ):
+    | { route: Route; params: Record<string, string> }
+    | { methods: string[] }
+    | null {
     const allowed = new Set<string>();
     for (const route of this.routes) {
       if (route.parts.length !== segments.length) continue;
@@ -132,7 +164,12 @@ function safeEqual(a: string, b: string): boolean {
 /** Reads a request body but stops (and refuses) as soon as it exceeds `max`. */
 async function readBounded(req: Request, max: number): Promise<Uint8Array> {
   const declared = Number(req.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > max) throw new AppError("PAYLOAD_TOO_LARGE", `The upload is larger than the ${Math.round(max / 1024 / 1024)} MB limit.`, 413);
+  if (Number.isFinite(declared) && declared > max)
+    throw new AppError(
+      "PAYLOAD_TOO_LARGE",
+      `The upload is larger than the ${Math.round(max / 1024 / 1024)} MB limit.`,
+      413,
+    );
   if (!req.body) return new Uint8Array(0);
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -143,7 +180,11 @@ async function readBounded(req: Request, max: number): Promise<Uint8Array> {
     total += value.byteLength;
     if (total > max) {
       reader.releaseLock();
-      throw new AppError("PAYLOAD_TOO_LARGE", `The upload is larger than the ${Math.round(max / 1024 / 1024)} MB limit.`, 413);
+      throw new AppError(
+        "PAYLOAD_TOO_LARGE",
+        `The upload is larger than the ${Math.round(max / 1024 / 1024)} MB limit.`,
+        413,
+      );
     }
     chunks.push(value);
   }
@@ -164,7 +205,8 @@ const query = (u: URL): Query => ({
   int: (n) => {
     const v = u.searchParams.get(n);
     if (v === null || v === "") return undefined;
-    if (!/^-?\d{1,9}$/.test(v)) throw validation(`${n} must be a whole number.`);
+    if (!/^-?\d{1,9}$/.test(v))
+      throw validation(`${n} must be a whole number.`);
     return Number(v);
   },
   bool: (n) => {
@@ -183,7 +225,11 @@ export interface HttpOptions {
   log?: (line: string) => void;
 }
 
-export function createHttpHandler(router: Router, boot: () => Promise<{ app: App; container: AppContainer }>, opts: HttpOptions = {}) {
+export function createHttpHandler(
+  router: Router,
+  boot: () => Promise<{ app: App; container: AppContainer }>,
+  opts: HttpOptions = {},
+) {
   const log = opts.log ?? ((line: string) => console.error(line));
   const loginBuckets = new Map<string, { n: number; reset: number }>();
 
@@ -196,11 +242,18 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
     } catch {
       return false;
     }
-    const own = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? new URL(req.url).host;
+    const own =
+      req.headers.get("x-forwarded-host") ??
+      req.headers.get("host") ??
+      new URL(req.url).host;
     return host === own || (opts.allowedOrigins ?? []).includes(origin);
   }
 
-  function respond(result: Result | void, cookie: string | undefined, requestId: string): Response {
+  function respond(
+    result: Result | void,
+    cookie: string | undefined,
+    requestId: string,
+  ): Response {
     const headers = new Headers(SECURITY_HEADERS);
     headers.set("X-Request-Id", requestId);
     if (cookie !== undefined) headers.append("Set-Cookie", cookie);
@@ -208,22 +261,38 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
       const b = result.binary;
       headers.set("Content-Type", b.mime);
       headers.set("Content-Length", String(b.bytes.byteLength));
-      headers.set("Content-Disposition", `${b.inline ? "inline" : "attachment"}${b.fileName ? `; filename="${b.fileName.replace(/[^\w.\- ]/g, "_")}"` : ""}`);
+      headers.set(
+        "Content-Disposition",
+        `${b.inline ? "inline" : "attachment"}${b.fileName ? `; filename="${b.fileName.replace(/[^\w.\- ]/g, "_")}"` : ""}`,
+      );
       // Stored files are never allowed to run script, whatever their type.
-      if (b.mime !== "application/pdf") headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+      if (b.mime !== "application/pdf")
+        headers.set(
+          "Content-Security-Policy",
+          "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+        );
       headers.set("Cache-Control", "private, max-age=300");
-      return new Response(b.bytes as unknown as BodyInit, { status: result.status ?? 200, headers });
+      return new Response(b.bytes as unknown as BodyInit, {
+        status: result.status ?? 200,
+        headers,
+      });
     }
     if (result && "text" in result) {
       const t = result.text;
       headers.set("Content-Type", `${t.mime}; charset=utf-8`);
-      headers.set("Content-Disposition", `attachment${t.fileName ? `; filename="${t.fileName.replace(/[^\w.\- ]/g, "_")}"` : ""}`);
+      headers.set(
+        "Content-Disposition",
+        `attachment${t.fileName ? `; filename="${t.fileName.replace(/[^\w.\- ]/g, "_")}"` : ""}`,
+      );
       return new Response(t.body, { status: result.status ?? 200, headers });
     }
     headers.set("Content-Type", "application/json; charset=utf-8");
     const status = result?.status ?? 200;
     if (status === 204) return new Response(null, { status, headers });
-    return new Response(JSON.stringify({ data: result && "data" in result ? result.data : null }), { status, headers });
+    return new Response(
+      JSON.stringify({ data: result && "data" in result ? result.data : null }),
+      { status, headers },
+    );
   }
   function fail(e: unknown, requestId: string, cookie?: string): Response {
     const headers = new Headers(SECURITY_HEADERS);
@@ -232,11 +301,32 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
     if (cookie !== undefined) headers.append("Set-Cookie", cookie);
     if (e instanceof AppError) {
       if (e.status === 429) headers.set("Retry-After", "60");
-      return new Response(JSON.stringify({ error: { code: e.code, message: e.message, details: e.details, requestId } }), { status: e.status, headers });
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: e.code,
+            message: e.message,
+            details: e.details,
+            requestId,
+          },
+        }),
+        { status: e.status, headers },
+      );
     }
     // An unexpected fault: full detail goes to the server log only.
-    log(`[${requestId}] ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
-    return new Response(JSON.stringify({ error: { code: "INTERNAL", message: `Something went wrong on the server. Reference: ${requestId}.`, requestId } }), { status: 500, headers });
+    log(
+      `[${requestId}] ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+    );
+    return new Response(
+      JSON.stringify({
+        error: {
+          code: "INTERNAL",
+          message: `Something went wrong on the server. Reference: ${requestId}.`,
+          requestId,
+        },
+      }),
+      { status: 500, headers },
+    );
   }
 
   return async function handle(req: Request): Promise<Response> {
@@ -244,29 +334,46 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
     let cookieOut: string | undefined;
     try {
       const url = new URL(req.url);
-      const path = url.pathname.startsWith(API_PREFIX) ? url.pathname.slice(API_PREFIX.length) : url.pathname;
+      const path = url.pathname.startsWith(API_PREFIX)
+        ? url.pathname.slice(API_PREFIX.length)
+        : url.pathname;
       let segments: string[];
       try {
-        segments = path.split("/").filter(Boolean).map((s) => decodeURIComponent(s));
+        segments = path
+          .split("/")
+          .filter(Boolean)
+          .map((s) => decodeURIComponent(s));
       } catch {
         throw validation("The address is malformed.");
       }
-      if (segments.some((s) => s.includes("\0") || s.length > 300)) throw validation("The address is malformed.");
+      if (segments.some((s) => s.includes("\0") || s.length > 300))
+        throw validation("The address is malformed.");
       const matched = router.match(req.method.toUpperCase(), segments);
       if (!matched) throw new AppError("NOT_FOUND", "No such endpoint.", 404);
       if ("methods" in matched) {
-        const e = new AppError("METHOD_NOT_ALLOWED", "That method is not allowed here.", 405);
+        const e = new AppError(
+          "METHOD_NOT_ALLOWED",
+          "That method is not allowed here.",
+          405,
+        );
         const res = fail(e, requestId);
         res.headers.set("Allow", matched.methods.join(", "));
         return res;
       }
       const { route, params } = matched;
       const unsafe = !["GET", "HEAD"].includes(req.method.toUpperCase());
-      if (unsafe && !sameOrigin(req)) throw forbidden("Cross-site requests are not allowed.");
+      if (unsafe && !sameOrigin(req))
+        throw forbidden("Cross-site requests are not allowed.");
 
       const { app, container } = await boot();
-      const ip = (req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip")) ?? null;
-      const secure = opts.secureCookies ?? (url.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https");
+      const ip =
+        (req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+          req.headers.get("x-real-ip")) ??
+        null;
+      const secure =
+        opts.secureCookies ??
+        (url.protocol === "https:" ||
+          req.headers.get("x-forwarded-proto") === "https");
       const cookies = parseCookies(req.headers.get("cookie"));
       const token = cookies[SESSION_COOKIE];
 
@@ -276,17 +383,34 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
         if (!session) throw unauthorized();
         if (unsafe) {
           const sent = req.headers.get("x-csrf-token") ?? "";
-          if (!sent || !safeEqual(sent, session.csrfToken)) throw forbidden("The security token is missing or has expired. Reload the page and try again.");
+          if (!sent || !safeEqual(sent, session.csrfToken))
+            throw forbidden(
+              "The security token is missing or has expired. Reload the page and try again.",
+            );
         }
-        if (session.mustChangePassword && !route.options.allowMustChange) throw new AppError("PASSWORD_CHANGE_REQUIRED", "You must change your password before continuing.", 403);
-        if (route.options.permission) requirePermission(session.actor, route.options.permission);
+        if (session.mustChangePassword && !route.options.allowMustChange)
+          throw new AppError(
+            "PASSWORD_CHANGE_REQUIRED",
+            "You must change your password before continuing.",
+            403,
+          );
+        if (route.options.permission)
+          requirePermission(session.actor, route.options.permission);
       } else if (unsafe && route.options.public) {
         const key = ip ?? "unknown";
         const now = Date.now();
         const b = loginBuckets.get(key);
-        if (!b || b.reset < now) loginBuckets.set(key, { n: 1, reset: now + 60_000 });
-        else if (++b.n > 30) throw new AppError("RATE_LIMITED", "Too many attempts. Wait a minute and try again.", 429);
-        if (loginBuckets.size > 5000) for (const [k, v] of loginBuckets) if (v.reset < now) loginBuckets.delete(k);
+        if (!b || b.reset < now)
+          loginBuckets.set(key, { n: 1, reset: now + 60_000 });
+        else if (++b.n > 30)
+          throw new AppError(
+            "RATE_LIMITED",
+            "Too many attempts. Wait a minute and try again.",
+            429,
+          );
+        if (loginBuckets.size > 5000)
+          for (const [k, v] of loginBuckets)
+            if (v.reset < now) loginBuckets.delete(k);
       }
 
       let cached: Promise<Uint8Array> | null = null;
@@ -303,32 +427,55 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
         ip,
         json: async () => {
           const ct = req.headers.get("content-type") ?? "";
-          if (!/^application\/json\b/i.test(ct)) throw new AppError("UNSUPPORTED_MEDIA_TYPE", "Send the request as application/json.", 415);
+          if (!/^application\/json\b/i.test(ct))
+            throw new AppError(
+              "UNSUPPORTED_MEDIA_TYPE",
+              "Send the request as application/json.",
+              415,
+            );
           const bytes = await bodyBytes(Math.min(max, JSON_LIMIT));
           if (!bytes.length) return {};
           let parsed: unknown;
           try {
-            parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+            parsed = JSON.parse(
+              new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+            );
           } catch {
             throw validation("The request body is not valid JSON.");
           }
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw validation("The request body must be a JSON object.");
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+            throw validation("The request body must be a JSON object.");
           return parsed as Record<string, unknown>;
         },
         bytes: () => bodyBytes(max),
         form: async () => {
           const ct = req.headers.get("content-type") ?? "";
-          if (!/^multipart\/form-data\b/i.test(ct)) throw new AppError("UNSUPPORTED_MEDIA_TYPE", "Send the request as multipart/form-data.", 415);
+          if (!/^multipart\/form-data\b/i.test(ct))
+            throw new AppError(
+              "UNSUPPORTED_MEDIA_TYPE",
+              "Send the request as multipart/form-data.",
+              415,
+            );
           const bytes = await bodyBytes(max);
           try {
-            return await new Response(bytes as unknown as BodyInit, { headers: { "content-type": ct } }).formData();
+            return await new Response(bytes as unknown as BodyInit, {
+              headers: { "content-type": ct },
+            }).formData();
           } catch {
             throw validation("The upload could not be read.");
           }
         },
         setSession: (t) => {
-          const attrs = ["Path=/", "HttpOnly", "SameSite=Lax", secure ? "Secure" : ""].filter(Boolean);
-          cookieOut = t === null ? `${SESSION_COOKIE}=; Max-Age=0; ${attrs.join("; ")}` : `${SESSION_COOKIE}=${encodeURIComponent(t)}; Max-Age=${60 * 60 * 24 * 14}; ${attrs.join("; ")}`;
+          const attrs = [
+            "Path=/",
+            "HttpOnly",
+            "SameSite=Lax",
+            secure ? "Secure" : "",
+          ].filter(Boolean);
+          cookieOut =
+            t === null
+              ? `${SESSION_COOKIE}=; Max-Age=0; ${attrs.join("; ")}`
+              : `${SESSION_COOKIE}=${encodeURIComponent(t)}; Max-Age=${60 * 60 * 24 * 14}; ${attrs.join("; ")}`;
         },
       };
       const result = await route.handler(ctx);

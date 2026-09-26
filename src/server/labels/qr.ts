@@ -8,10 +8,29 @@
 const ECC_CODEWORDS_PER_BLOCK = [0, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26];
 // [blocks in group 1, data codewords in group 1 blocks, blocks in group 2, data codewords in group 2 blocks]
 const BLOCKS: Record<number, [number, number, number, number]> = {
-  1: [1, 16, 0, 0], 2: [1, 28, 0, 0], 3: [1, 44, 0, 0], 4: [2, 32, 0, 0], 5: [2, 43, 0, 0],
-  6: [4, 27, 0, 0], 7: [4, 31, 0, 0], 8: [2, 38, 2, 39], 9: [3, 36, 2, 37], 10: [4, 43, 1, 44],
+  1: [1, 16, 0, 0],
+  2: [1, 28, 0, 0],
+  3: [1, 44, 0, 0],
+  4: [2, 32, 0, 0],
+  5: [2, 43, 0, 0],
+  6: [4, 27, 0, 0],
+  7: [4, 31, 0, 0],
+  8: [2, 38, 2, 39],
+  9: [3, 36, 2, 37],
+  10: [4, 43, 1, 44],
 };
-const ALIGNMENT: Record<number, number[]> = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50] };
+const ALIGNMENT: Record<number, number[]> = {
+  1: [],
+  2: [6, 18],
+  3: [6, 22],
+  4: [6, 26],
+  5: [6, 30],
+  6: [6, 34],
+  7: [6, 22, 38],
+  8: [6, 24, 42],
+  9: [6, 26, 46],
+  10: [6, 28, 50],
+};
 export const MAX_QR_BYTES = 213;
 
 // ---- Reed-Solomon over GF(256), polynomial 0x11D
@@ -27,7 +46,8 @@ const LOG = new Uint8Array(256);
   }
   for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
 })();
-const gmul = (a: number, b: number) => (a === 0 || b === 0 ? 0 : EXP[LOG[a] + LOG[b]]);
+const gmul = (a: number, b: number) =>
+  a === 0 || b === 0 ? 0 : EXP[LOG[a] + LOG[b]];
 function rsGenerator(degree: number): number[] {
   let poly = [1];
   for (let i = 0; i < degree; i++) {
@@ -54,14 +74,18 @@ function rsRemainder(data: number[], degree: number): number[] {
 function bch(value: number, poly: number, bits: number): number {
   let rem = value;
   const degree = Math.floor(Math.log2(poly));
-  for (let i = 0; i < bits; i++) rem = (rem << 1) ^ ((rem >>> (degree - 1)) * poly);
+  for (let i = 0; i < bits; i++)
+    rem = (rem << 1) ^ ((rem >>> (degree - 1)) * poly);
   return rem;
 }
 
 export function qrMatrix(text: string): boolean[][] {
   const data = [...new TextEncoder().encode(text)];
   if (!data.length) throw new Error("A QR code needs some text.");
-  if (data.length > MAX_QR_BYTES) throw new Error(`Too long for a QR code (${data.length} bytes; the limit is ${MAX_QR_BYTES}).`);
+  if (data.length > MAX_QR_BYTES)
+    throw new Error(
+      `Too long for a QR code (${data.length} bytes; the limit is ${MAX_QR_BYTES}).`,
+    );
   let version = 1;
   for (; version <= 10; version++) {
     const [g1, d1, g2, d2] = BLOCKS[version];
@@ -83,27 +107,38 @@ export function qrMatrix(text: string): boolean[][] {
   put(0, Math.min(4, dataCodewords * 8 - bits.length));
   while (bits.length % 8) bits.push(0);
   const codewords: number[] = [];
-  for (let i = 0; i < bits.length; i += 8) codewords.push(parseInt(bits.slice(i, i + 8).join(""), 2));
-  for (let pad = 0xec; codewords.length < dataCodewords; pad ^= 0xec ^ 0x11) codewords.push(pad);
+  for (let i = 0; i < bits.length; i += 8)
+    codewords.push(parseInt(bits.slice(i, i + 8).join(""), 2));
+  for (let pad = 0xec; codewords.length < dataCodewords; pad ^= 0xec ^ 0x11)
+    codewords.push(pad);
 
   // ---- blocks + error correction, interleaved
   const eccLen = ECC_CODEWORDS_PER_BLOCK[version];
   const blocks: { data: number[]; ecc: number[] }[] = [];
   let at = 0;
-  for (const [count, size] of [[g1, d1], [g2, d2]] as const)
+  for (const [count, size] of [
+    [g1, d1],
+    [g2, d2],
+  ] as const)
     for (let i = 0; i < count; i++) {
       const chunk = codewords.slice(at, at + size);
       at += size;
       blocks.push({ data: chunk, ecc: rsRemainder(chunk, eccLen) });
     }
   const stream: number[] = [];
-  for (let i = 0; i < Math.max(d1, d2); i++) for (const b of blocks) if (i < b.data.length) stream.push(b.data[i]);
-  for (let i = 0; i < eccLen; i++) for (const b of blocks) stream.push(b.ecc[i]);
+  for (let i = 0; i < Math.max(d1, d2); i++)
+    for (const b of blocks) if (i < b.data.length) stream.push(b.data[i]);
+  for (let i = 0; i < eccLen; i++)
+    for (const b of blocks) stream.push(b.ecc[i]);
 
   // ---- matrix with function patterns
   const size = version * 4 + 17;
-  const modules: boolean[][] = Array.from({ length: size }, () => new Array(size).fill(false));
-  const reserved: boolean[][] = Array.from({ length: size }, () => new Array(size).fill(false));
+  const modules: boolean[][] = Array.from({ length: size }, () =>
+    new Array(size).fill(false),
+  );
+  const reserved: boolean[][] = Array.from({ length: size }, () =>
+    new Array(size).fill(false),
+  );
   const set = (x: number, y: number, dark: boolean) => {
     modules[y][x] = dark;
     reserved[y][x] = true;
@@ -128,8 +163,15 @@ export function qrMatrix(text: string): boolean[][] {
   const positions = ALIGNMENT[version];
   for (const cy of positions)
     for (const cx of positions) {
-      if ((cx === 6 && cy === 6) || (cx === 6 && cy === size - 7) || (cx === size - 7 && cy === 6)) continue;
-      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      if (
+        (cx === 6 && cy === 6) ||
+        (cx === 6 && cy === size - 7) ||
+        (cx === size - 7 && cy === 6)
+      )
+        continue;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++)
+          set(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
     }
   // reserve format/version areas
   for (let i = 0; i < 9; i++) {
@@ -154,7 +196,8 @@ export function qrMatrix(text: string): boolean[][] {
 
   // ---- place data bits in the zig-zag order
   const dataBits: number[] = [];
-  for (const cw of stream) for (let i = 7; i >= 0; i--) dataBits.push((cw >>> i) & 1);
+  for (const cw of stream)
+    for (let i = 7; i >= 0; i--) dataBits.push((cw >>> i) & 1);
   let bit = 0;
   const placed: [number, number][] = [];
   for (let right = size - 1; right >= 1; right -= 2) {
@@ -213,8 +256,32 @@ export function qrMatrix(text: string): boolean[][] {
     };
     const pattern = (line: boolean[]) => {
       let s = 0;
-      const a = [true, false, true, true, true, false, true, false, false, false, false];
-      const b = [false, false, false, false, true, false, true, true, true, false, true];
+      const a = [
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+      ];
+      const b = [
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+      ];
       for (let i = 0; i + 11 <= line.length; i++) {
         const w = line.slice(i, i + 11);
         if (w.every((v, k) => v === a[k])) s += 40;
@@ -228,7 +295,13 @@ export function qrMatrix(text: string): boolean[][] {
       score += runs(col) + pattern(col);
     }
     for (let y = 0; y < size - 1; y++)
-      for (let x = 0; x < size - 1; x++) if (m[y][x] === m[y][x + 1] && m[y][x] === m[y + 1][x] && m[y][x] === m[y + 1][x + 1]) score += 3;
+      for (let x = 0; x < size - 1; x++)
+        if (
+          m[y][x] === m[y][x + 1] &&
+          m[y][x] === m[y + 1][x] &&
+          m[y][x] === m[y + 1][x + 1]
+        )
+          score += 3;
     const dark = m.flat().filter(Boolean).length;
     score += Math.floor(Math.abs((dark * 100) / (size * size) - 50) / 5) * 10;
     return score;
@@ -246,7 +319,10 @@ export function qrMatrix(text: string): boolean[][] {
   return best;
 }
 
-export function qrSvg(text: string, opts: { scale?: number; quiet?: number; caption?: string } = {}): string {
+export function qrSvg(
+  text: string,
+  opts: { scale?: number; quiet?: number; caption?: string } = {},
+): string {
   const m = qrMatrix(text);
   const scale = opts.scale ?? 6;
   const quiet = opts.quiet ?? 4;
@@ -254,11 +330,17 @@ export function qrSvg(text: string, opts: { scale?: number; quiet?: number; capt
   let path = "";
   m.forEach((row, y) =>
     row.forEach((dark, x) => {
-      if (dark) path += `M${(x + quiet) * scale} ${(y + quiet) * scale}h${scale}v${scale}h-${scale}z`;
+      if (dark)
+        path += `M${(x + quiet) * scale} ${(y + quiet) * scale}h${scale}v${scale}h-${scale}z`;
     }),
   );
-  const esc = (opts.caption ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-  const cap = esc ? `<text x="${dim / 2}" y="${dim + 14}" text-anchor="middle" font-family="monospace" font-size="12">${esc}</text>` : "";
+  const esc = (opts.caption ?? "").replace(
+    /[&<>"']/g,
+    (c) => `&#${c.charCodeAt(0)};`,
+  );
+  const cap = esc
+    ? `<text x="${dim / 2}" y="${dim + 14}" text-anchor="middle" font-family="monospace" font-size="12">${esc}</text>`
+    : "";
   const h = dim + (esc ? 20 : 0);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${h}" width="${dim}" height="${h}" role="img" aria-label="QR code"><rect width="${dim}" height="${h}" fill="#fff"/><path d="${path}" fill="#000"/>${cap}</svg>`;
 }

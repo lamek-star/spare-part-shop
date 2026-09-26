@@ -18,7 +18,11 @@ import { notFound, validation } from "../kernel/errors";
 import { can, requirePermission } from "./permissions";
 import { record, text } from "./validate";
 
-async function linkedProducts(r: Repositories, actor: Actor, referencePartId: string): Promise<LinkedProduct[]> {
+async function linkedProducts(
+  r: Repositories,
+  actor: Actor,
+  referencePartId: string,
+): Promise<LinkedProduct[]> {
   if (!can(actor, "products.read")) return [];
   const links = await r.products.linksForReference(referencePartId);
   const canStock = can(actor, "inventory.read");
@@ -30,7 +34,12 @@ async function linkedProducts(r: Repositories, actor: Actor, referencePartId: st
       productId: p.id,
       sku: p.sku,
       name: p.name,
-      available: canStock ? (await r.inventory.balances({ productId: p.id })).reduce((n, b) => n + b.available, 0) : null,
+      available: canStock
+        ? (await r.inventory.balances({ productId: p.id })).reduce(
+            (n, b) => n + b.available,
+            0,
+          )
+        : null,
     });
   }
   return out;
@@ -42,11 +51,15 @@ async function linkedProducts(r: Repositories, actor: Actor, referencePartId: st
 export class CatalogueService {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async search(actor: Actor, q: CatalogueSearchQuery): Promise<Page<PartSummary>> {
+  async search(
+    actor: Actor,
+    q: CatalogueSearchQuery,
+  ): Promise<Page<PartSummary>> {
     requirePermission(actor, "catalogue.read");
     return this.uow.read(async (r) => {
       const page = await r.catalogue.search(q);
-      for (const item of page.items) item.linkedProducts = await linkedProducts(r, actor, item.id);
+      for (const item of page.items)
+        item.linkedProducts = await linkedProducts(r, actor, item.id);
       return page;
     });
   }
@@ -63,7 +76,9 @@ export class CatalogueService {
   async partByOem(actor: Actor, oem: string): Promise<PartDetail | null> {
     requirePermission(actor, "catalogue.read");
     return this.uow.read(async (r) => {
-      const ids = await r.catalogue.findPartIdsByOem(oem.toUpperCase().replace(/[\s-]/g, ""));
+      const ids = await r.catalogue.findPartIdsByOem(
+        oem.toUpperCase().replace(/[\s-]/g, ""),
+      );
       if (!ids.length) return null;
       const part = await r.catalogue.getPart(ids[0]);
       if (part) part.linkedProducts = await linkedProducts(r, actor, ids[0]);
@@ -76,7 +91,9 @@ export class CatalogueService {
       const d = await r.catalogue.getDrawing(id);
       if (!d) throw notFound("Drawing");
       d.linked = {};
-      for (const partId of new Set(d.callouts.flatMap((c) => c.parts.map((p) => p.id)))) {
+      for (const partId of new Set(
+        d.callouts.flatMap((c) => c.parts.map((p) => p.id)),
+      )) {
         const l = await linkedProducts(r, actor, partId);
         if (l.length) d.linked[partId] = l;
       }
@@ -95,7 +112,10 @@ export class CatalogueService {
   // ---------------- images ----------------
   /** Bytes of a locally stored drawing — only when its recorded rights
    * allow this application to show it. Otherwise nothing is served. */
-  async assetBytes(actor: Actor, assetId: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  async assetBytes(
+    actor: Actor,
+    assetId: string,
+  ): Promise<{ bytes: Uint8Array; mime: string } | null> {
     requirePermission(actor, "catalogue.read");
     return this.uow.read(async (r) => {
       const a = await r.catalogue.getAsset(assetId);
@@ -113,8 +133,14 @@ export class CatalogueService {
   async saveSource(actor: Actor, raw: unknown): Promise<CatalogueSource> {
     requirePermission(actor, "catalogue.admin");
     const i = record(raw);
-    const providerKey = text(i.providerKey, "Provider key", { required: true, max: 60 });
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(providerKey)) throw validation("Provider key may use lower-case letters, digits and hyphens.");
+    const providerKey = text(i.providerKey, "Provider key", {
+      required: true,
+      max: 60,
+    });
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(providerKey))
+      throw validation(
+        "Provider key may use lower-case letters, digits and hyphens.",
+      );
     return this.uow.write(async (r) => {
       const s = await r.catalogue.saveSource({
         providerKey,
@@ -123,34 +149,85 @@ export class CatalogueService {
         url: text(i.url, "URL", { max: 300 }),
         manufacturer: text(i.manufacturer, "Manufacturer", { max: 100 }),
         market: text(i.market, "Market", { max: 80 }),
-        licenseStatus: text(i.licenseStatus, "License status", { max: 80 }) || undefined,
-        redistributionStatus: text(i.redistributionStatus, "Redistribution", { max: 80 }) || undefined,
+        licenseStatus:
+          text(i.licenseStatus, "License status", { max: 80 }) || undefined,
+        redistributionStatus:
+          text(i.redistributionStatus, "Redistribution", { max: 80 }) ||
+          undefined,
         notes: text(i.notes, "Notes", { max: 1000 }),
-        priority: typeof i.priority === "number" && Number.isInteger(i.priority) && i.priority >= 0 && i.priority <= 1000 ? i.priority : undefined,
+        priority:
+          typeof i.priority === "number" &&
+          Number.isInteger(i.priority) &&
+          i.priority >= 0 &&
+          i.priority <= 1000
+            ? i.priority
+            : undefined,
         active: i.active === undefined ? undefined : Boolean(i.active),
       });
-      await r.audit.record(actor, { action: "catalogue.source.save", entityType: "catalogue_source", entityId: s.id, summary: `Source ${s.name} saved` });
+      await r.audit.record(actor, {
+        action: "catalogue.source.save",
+        entityType: "catalogue_source",
+        entityId: s.id,
+        summary: `Source ${s.name} saved`,
+      });
       return s;
     });
   }
-  async setVerification(actor: Actor, partId: string, status: unknown): Promise<void> {
+  async setVerification(
+    actor: Actor,
+    partId: string,
+    status: unknown,
+  ): Promise<void> {
     requirePermission(actor, "catalogue.admin");
-    const allowed: Verification[] = ["UNVERIFIED", "SOURCE_VERIFIED", "MANUALLY_VERIFIED", "DISPUTED"];
-    if (typeof status !== "string" || !allowed.includes(status as Verification)) throw validation("Unknown verification state.");
+    const allowed: Verification[] = [
+      "UNVERIFIED",
+      "SOURCE_VERIFIED",
+      "MANUALLY_VERIFIED",
+      "DISPUTED",
+    ];
+    if (typeof status !== "string" || !allowed.includes(status as Verification))
+      throw validation("Unknown verification state.");
     await this.uow.write(async (r) => {
-      if (!(await r.catalogue.getPart(partId))) throw notFound("Reference part");
+      if (!(await r.catalogue.getPart(partId)))
+        throw notFound("Reference part");
       await r.catalogue.setVerification(partId, status as Verification);
-      await r.audit.record(actor, { action: "catalogue.verify", entityType: "catalogue_part", entityId: partId, summary: `Verification set to ${status}` });
+      await r.audit.record(actor, {
+        action: "catalogue.verify",
+        entityType: "catalogue_part",
+        entityId: partId,
+        summary: `Verification set to ${status}`,
+      });
     });
   }
-  async setImageRights(actor: Actor, assetId: string, rights: unknown, evidence: unknown): Promise<void> {
+  async setImageRights(
+    actor: Actor,
+    assetId: string,
+    rights: unknown,
+    evidence: unknown,
+  ): Promise<void> {
     requirePermission(actor, "catalogue.admin");
-    if (typeof rights !== "string" || !imageRightsValues.includes(rights as ImageRights)) throw validation("Unknown image-rights state.");
+    if (
+      typeof rights !== "string" ||
+      !imageRightsValues.includes(rights as ImageRights)
+    )
+      throw validation("Unknown image-rights state.");
     const ev = text(evidence, "Evidence", { required: true, max: 1000 });
-    if (ev.length < 12) throw validation("Record the rights evidence or reason (at least 12 characters).");
+    if (ev.length < 12)
+      throw validation(
+        "Record the rights evidence or reason (at least 12 characters).",
+      );
     await this.uow.write(async (r) => {
-      if (!(await r.catalogue.setAssetRights(assetId, rights as ImageRights, ev))) throw notFound("Image");
-      await r.audit.record(actor, { action: "catalogue.image_rights", entityType: "asset", entityId: assetId, summary: `Image rights set to ${rights}`, metadata: { evidence: ev } });
+      if (
+        !(await r.catalogue.setAssetRights(assetId, rights as ImageRights, ev))
+      )
+        throw notFound("Image");
+      await r.audit.record(actor, {
+        action: "catalogue.image_rights",
+        entityType: "asset",
+        entityId: assetId,
+        summary: `Image rights set to ${rights}`,
+        metadata: { evidence: ev },
+      });
     });
   }
   async assets(actor: Actor, page = 1, pageSize = 50) {

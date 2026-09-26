@@ -28,18 +28,37 @@ export default function Customers() {
         searchPlaceholder="Search name, code, phone or email"
         statuses={["ACTIVE", "INACTIVE"]}
         refreshKey={tick}
-        actions={s.can("customers.write") && <button className="primary" onClick={() => setCreating(true)}>New customer</button>}
+        actions={
+          s.can("customers.write") && (
+            <button className="primary" onClick={() => setCreating(true)}>
+              New customer
+            </button>
+          )
+        }
         rowKey={(c) => c.id}
         columns={[
           { header: "Code", cell: (c) => c.code },
-          { header: "Name", cell: (c) => <Link href={`/customers/${c.id}`}>{c.name}</Link> },
+          {
+            header: "Name",
+            cell: (c) => <Link href={`/customers/${c.id}`}>{c.name}</Link>,
+          },
           { header: "Contact", cell: (c) => c.contactPerson },
           { header: "Phone", cell: (c) => c.phone },
           { header: "Email", cell: (c) => c.email },
           { header: "Status", cell: (c) => <Badge value={c.status} /> },
         ]}
       />
-      {creating && <FormModal title="New customer" fields={customerFields} onClose={() => setCreating(false)} onSubmit={async (v) => (await post("/customers", v), setTick((t) => t + 1))} />}
+      {creating && (
+        <FormModal
+          title="New customer"
+          fields={customerFields}
+          onClose={() => setCreating(false)}
+          onSubmit={async (v) => (
+            await post("/customers", v),
+            setTick((t) => t + 1)
+          )}
+        />
+      )}
     </>
   );
 }

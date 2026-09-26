@@ -1,6 +1,12 @@
 "use client";
 import { useState } from "react";
-import { DataTable, ErrorBanner, PageHead, Panel, useApi } from "../../../../ui/kit";
+import {
+  DataTable,
+  ErrorBanner,
+  PageHead,
+  Panel,
+  useApi,
+} from "../../../../ui/kit";
 import { formatDateTime, qs } from "../../../../ui/api";
 
 interface Event {
@@ -16,14 +22,35 @@ export default function AuditLog() {
   const [entityType, setEntityType] = useState("");
   const [before, setBefore] = useState<string[]>([]);
   const cursor = before[before.length - 1];
-  const r = useApi<Event[]>(`/audit${qs({ entityType, limit: 50, before: cursor })}`);
+  const r = useApi<Event[]>(
+    `/audit${qs({ entityType, limit: 50, before: cursor })}`,
+  );
   return (
     <>
-      <PageHead title="Audit log" subtitle="A permanent record of who changed what. Passwords and secrets are never recorded." />
+      <PageHead
+        title="Audit log"
+        subtitle="A permanent record of who changed what. Passwords and secrets are never recorded."
+      />
       <div className="toolbar">
-        <select aria-label="Type" value={entityType} onChange={(e) => (setEntityType(e.target.value), setBefore([]))}>
+        <select
+          aria-label="Type"
+          value={entityType}
+          onChange={(e) => (setEntityType(e.target.value), setBefore([]))}
+        >
           <option value="">Everything</option>
-          {["product", "customer", "supplier", "quotation", "order", "invoice", "purchase_order", "user", "import_job", "catalogue_source", "settings"].map((t) => (
+          {[
+            "product",
+            "customer",
+            "supplier",
+            "quotation",
+            "order",
+            "invoice",
+            "purchase_order",
+            "user",
+            "import_job",
+            "catalogue_source",
+            "settings",
+          ].map((t) => (
             <option key={t}>{t}</option>
           ))}
         </select>
@@ -44,10 +71,18 @@ export default function AuditLog() {
               ]}
             />
             <div className="pagination">
-              <button disabled={before.length === 0} onClick={() => setBefore(before.slice(0, -1))}>
+              <button
+                disabled={before.length === 0}
+                onClick={() => setBefore(before.slice(0, -1))}
+              >
                 Newer
               </button>
-              <button disabled={r.data.length < 50} onClick={() => setBefore([...before, r.data![r.data!.length - 1].at])}>
+              <button
+                disabled={r.data.length < 50}
+                onClick={() =>
+                  setBefore([...before, r.data![r.data!.length - 1].at])
+                }
+              >
                 Older
               </button>
             </div>

@@ -20,15 +20,28 @@ export default function Orders() {
       title="Sales orders"
       subtitle="Orders are created from accepted quotations. Stock is reserved when an order is created and deducted when goods are delivered."
       endpoint="/orders"
-      statuses={["CONFIRMED", "PARTIALLY_FULFILLED", "FULFILLED", "INVOICED", "CANCELLED"]}
+      statuses={[
+        "CONFIRMED",
+        "PARTIALLY_FULFILLED",
+        "FULFILLED",
+        "INVOICED",
+        "CANCELLED",
+      ]}
       searchPlaceholder="Search order number"
       rowKey={(o) => o.id}
       onRow={(o) => router.push(`/orders/${o.id}`)}
       columns={[
-        { header: "Number", cell: (o) => <Link href={`/orders/${o.id}`}>{o.number}</Link> },
+        {
+          header: "Number",
+          cell: (o) => <Link href={`/orders/${o.id}`}>{o.number}</Link>,
+        },
         { header: "Created", cell: (o) => formatDate(o.createdAt) },
         { header: "Status", cell: (o) => <Badge value={o.status} /> },
-        { header: "Total", align: "right", cell: (o) => <Money minor={o.totalMinor} currency={o.currency} /> },
+        {
+          header: "Total",
+          align: "right",
+          cell: (o) => <Money minor={o.totalMinor} currency={o.currency} />,
+        },
       ]}
     />
   );

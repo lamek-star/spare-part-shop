@@ -27,12 +27,20 @@ export function createApp(providers: Providers) {
       },
       async create(actor: Actor, user: NewUser) {
         requirePermission(actor, "users.manage");
-        return identity.createUser(actor, { ...user, mustChangePassword: user.mustChangePassword ?? true });
+        return identity.createUser(actor, {
+          ...user,
+          mustChangePassword: user.mustChangePassword ?? true,
+        });
       },
       async update(
         actor: Actor,
         id: string,
-        patch: { displayName?: string; role?: Role; status?: "ACTIVE" | "DISABLED"; password?: string },
+        patch: {
+          displayName?: string;
+          role?: Role;
+          status?: "ACTIVE" | "DISABLED";
+          password?: string;
+        },
       ) {
         requirePermission(actor, "users.manage");
         return identity.updateUser(actor, id, patch);

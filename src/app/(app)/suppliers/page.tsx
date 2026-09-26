@@ -28,18 +28,37 @@ export default function Suppliers() {
         searchPlaceholder="Search name, code, phone or email"
         statuses={["ACTIVE", "INACTIVE"]}
         refreshKey={tick}
-        actions={s.can("suppliers.write") && <button className="primary" onClick={() => setCreating(true)}>New supplier</button>}
+        actions={
+          s.can("suppliers.write") && (
+            <button className="primary" onClick={() => setCreating(true)}>
+              New supplier
+            </button>
+          )
+        }
         rowKey={(c) => c.id}
         columns={[
           { header: "Code", cell: (c) => c.code },
-          { header: "Name", cell: (c) => <Link href={`/suppliers/${c.id}`}>{c.name}</Link> },
+          {
+            header: "Name",
+            cell: (c) => <Link href={`/suppliers/${c.id}`}>{c.name}</Link>,
+          },
           { header: "Contact", cell: (c) => c.contactPerson },
           { header: "Phone", cell: (c) => c.phone },
           { header: "Email", cell: (c) => c.email },
           { header: "Status", cell: (c) => <Badge value={c.status} /> },
         ]}
       />
-      {creating && <FormModal title="New supplier" fields={supplierFields} onClose={() => setCreating(false)} onSubmit={async (v) => (await post("/suppliers", v), setTick((t) => t + 1))} />}
+      {creating && (
+        <FormModal
+          title="New supplier"
+          fields={supplierFields}
+          onClose={() => setCreating(false)}
+          onSubmit={async (v) => (
+            await post("/suppliers", v),
+            setTick((t) => t + 1)
+          )}
+        />
+      )}
     </>
   );
 }

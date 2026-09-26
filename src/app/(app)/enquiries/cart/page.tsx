@@ -2,7 +2,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Empty, ErrorBanner, FieldBox, Loading, PageHead, Panel, DataTable, useAction, useApi, useToast } from "../../../../ui/kit";
+import {
+  Empty,
+  ErrorBanner,
+  FieldBox,
+  Loading,
+  PageHead,
+  Panel,
+  DataTable,
+  useAction,
+  useApi,
+  useToast,
+} from "../../../../ui/kit";
 import { del, post } from "../../../../ui/api";
 
 interface Item {
@@ -25,14 +36,34 @@ export default function EnquiryCart() {
   const router = useRouter();
   const toast = useToast();
   const cart = useApi<Enquiry | null>("/enquiries/current");
-  const customers = useApi<{ items: Customer[] }>("/customers?pageSize=100&status=ACTIVE");
+  const customers = useApi<{ items: Customer[] }>(
+    "/customers?pageSize=100&status=ACTIVE",
+  );
   const act = useAction(cart.reload);
-  const [form, setForm] = useState({ customerId: "", contactName: "", contactEmail: "", contactPhone: "", vin: "", notes: "" });
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const [form, setForm] = useState({
+    customerId: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    vin: "",
+    notes: "",
+  });
+  const set =
+    (k: keyof typeof form) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >,
+    ) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
   const items = cart.data?.items ?? [];
   return (
     <>
-      <PageHead title="Enquiry cart" subtitle="Parts collected for one customer request. Submit it to start a quotation." back={{ href: "/enquiries", label: "Enquiries" }} />
+      <PageHead
+        title="Enquiry cart"
+        subtitle="Parts collected for one customer request. Submit it to start a quotation."
+        back={{ href: "/enquiries", label: "Enquiries" }}
+      />
       <ErrorBanner message={cart.error || act.error} />
       {cart.loading && !cart.data && <Loading />}
       <Panel title={`Items (${items.length})`}>
@@ -41,11 +72,35 @@ export default function EnquiryCart() {
           rows={items}
           empty="The cart is empty. Find parts in the Reference Catalogue and choose “Add to enquiry”."
           columns={[
-            { header: "Part number", cell: (i) => (i.referencePartId ? <Link href={`/catalogue/parts/${i.referencePartId}`}>{i.oemNumber}</Link> : i.oemNumber) },
+            {
+              header: "Part number",
+              cell: (i) =>
+                i.referencePartId ? (
+                  <Link href={`/catalogue/parts/${i.referencePartId}`}>
+                    {i.oemNumber}
+                  </Link>
+                ) : (
+                  i.oemNumber
+                ),
+            },
             { header: "Description", cell: (i) => i.partName },
             { header: "Vehicle", cell: (i) => i.vehicleDescription },
             { header: "Qty", align: "right", cell: (i) => i.quantity },
-            { header: "", cell: (i) => <button onClick={() => act.run(() => del(`/enquiries/${cart.data!.id}/items/${i.id}`), "Removed")}>Remove</button> },
+            {
+              header: "",
+              cell: (i) => (
+                <button
+                  onClick={() =>
+                    act.run(
+                      () => del(`/enquiries/${cart.data!.id}/items/${i.id}`),
+                      "Removed",
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              ),
+            },
           ]}
         />
       </Panel>
@@ -54,7 +109,12 @@ export default function EnquiryCart() {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              const done = await act.run(() => post<{ id: string }>(`/enquiries/${cart.data!.id}/submit`, { ...form, customerId: form.customerId || undefined }));
+              const done = await act.run(() =>
+                post<{ id: string }>(`/enquiries/${cart.data!.id}/submit`, {
+                  ...form,
+                  customerId: form.customerId || undefined,
+                }),
+              );
               if (done) {
                 toast("Enquiry submitted");
                 router.push(`/enquiries/${done.id}`);
@@ -73,13 +133,24 @@ export default function EnquiryCart() {
                 </select>
               </FieldBox>
               <FieldBox label="Contact name">
-                <input value={form.contactName} onChange={set("contactName")} required />
+                <input
+                  value={form.contactName}
+                  onChange={set("contactName")}
+                  required
+                />
               </FieldBox>
               <FieldBox label="Email">
-                <input type="email" value={form.contactEmail} onChange={set("contactEmail")} />
+                <input
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={set("contactEmail")}
+                />
               </FieldBox>
               <FieldBox label="Phone">
-                <input value={form.contactPhone} onChange={set("contactPhone")} />
+                <input
+                  value={form.contactPhone}
+                  onChange={set("contactPhone")}
+                />
               </FieldBox>
               <FieldBox label="VIN / chassis number">
                 <input value={form.vin} onChange={set("vin")} />
@@ -96,7 +167,9 @@ export default function EnquiryCart() {
           </form>
         </Panel>
       )}
-      {!cart.loading && items.length === 0 && <Empty>Nothing in the cart.</Empty>}
+      {!cart.loading && items.length === 0 && (
+        <Empty>Nothing in the cart.</Empty>
+      )}
     </>
   );
 }

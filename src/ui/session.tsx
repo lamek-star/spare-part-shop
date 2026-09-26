@@ -1,5 +1,13 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { api, get, post, setCsrfToken, UNAUTHENTICATED_EVENT } from "./api";
 
 export type Role = "OWNER" | "ADMIN" | "SALES" | "INVENTORY" | "VIEWER";
@@ -25,7 +33,12 @@ interface SessionState {
   can(permission: string): boolean;
   reload(): Promise<void>;
   signIn(email: string, password: string): Promise<void>;
-  setup(input: { email: string; displayName: string; password: string; shopName: string }): Promise<void>;
+  setup(input: {
+    email: string;
+    displayName: string;
+    password: string;
+    shopName: string;
+  }): Promise<void>;
   signOut(): Promise<void>;
 }
 const Ctx = createContext<SessionState | null>(null);
@@ -52,7 +65,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setMe(null);
       setCsrfToken("");
       try {
-        const s = await get<{ needsSetup: boolean; shopName: string }>("/auth/status");
+        const s = await get<{ needsSetup: boolean; shopName: string }>(
+          "/auth/status",
+        );
         setNeedsSetup(s.needsSetup);
         setShopName(s.shopName);
       } catch {

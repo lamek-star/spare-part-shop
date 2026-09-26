@@ -2,8 +2,25 @@
 import Link from "next/link";
 import { use, useState } from "react";
 import { useSession } from "../../../../ui/session";
-import { Badge, DataTable, ErrorBanner, FormModal, KeyValues, Loading, Money, PageHead, Panel, useApi } from "../../../../ui/kit";
-import { formatDate, formatDateTime, minorToInput, post, titleCase } from "../../../../ui/api";
+import {
+  Badge,
+  DataTable,
+  ErrorBanner,
+  FormModal,
+  KeyValues,
+  Loading,
+  Money,
+  PageHead,
+  Panel,
+  useApi,
+} from "../../../../ui/kit";
+import {
+  formatDate,
+  formatDateTime,
+  minorToInput,
+  post,
+  titleCase,
+} from "../../../../ui/api";
 import { DocLines, TotalsBox, type DocLine } from "../../../../ui/doc";
 
 interface Invoice {
@@ -32,11 +49,19 @@ interface Payment {
   paidAt: string;
   notes: string;
 }
-export default function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default function InvoicePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const s = useSession();
-  const r = useApi<{ invoice: Invoice; payments: Payment[] }>(`/invoices/${id}`);
-  const customer = useApi<{ name: string }>(r.data ? `/customers/${r.data.invoice.customerId}` : null);
+  const r = useApi<{ invoice: Invoice; payments: Payment[] }>(
+    `/invoices/${id}`,
+  );
+  const customer = useApi<{ name: string }>(
+    r.data ? `/customers/${r.data.invoice.customerId}` : null,
+  );
   const [paying, setPaying] = useState(false);
   const [voiding, setVoiding] = useState(false);
   if (r.loading && !r.data) return <Loading />;
@@ -55,7 +80,12 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         back={{ href: "/invoices", label: "Invoices" }}
         actions={
           <>
-            <a className="button" href={`/api/v1/invoices/${id}/pdf`} target="_blank" rel="noreferrer">
+            <a
+              className="button"
+              href={`/api/v1/invoices/${id}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+            >
               Download PDF
             </a>
             {s.can("payments.record") && open && (
@@ -63,19 +93,39 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 Record payment
               </button>
             )}
-            {s.can("invoices.write") && x.status !== "VOID" && x.amountPaidMinor === 0 && (
-              <button className="danger" onClick={() => setVoiding(true)}>
-                Void
-              </button>
-            )}
+            {s.can("invoices.write") &&
+              x.status !== "VOID" &&
+              x.amountPaidMinor === 0 && (
+                <button className="danger" onClick={() => setVoiding(true)}>
+                  Void
+                </button>
+              )}
           </>
         }
       />
       <Panel title="Invoice">
         <KeyValues
           items={[
-            ["Customer", customer.data ? <Link key="c" href={`/customers/${x.customerId}`}>{customer.data.name}</Link> : ""],
-            ["Order", x.salesOrderId ? <Link key="o" href={`/orders/${x.salesOrderId}`}>Open order</Link> : ""],
+            [
+              "Customer",
+              customer.data ? (
+                <Link key="c" href={`/customers/${x.customerId}`}>
+                  {customer.data.name}
+                </Link>
+              ) : (
+                ""
+              ),
+            ],
+            [
+              "Order",
+              x.salesOrderId ? (
+                <Link key="o" href={`/orders/${x.salesOrderId}`}>
+                  Open order
+                </Link>
+              ) : (
+                ""
+              ),
+            ],
             ["Issued", formatDate(x.issueDate)],
             ["Notes", x.notes],
           ]}
@@ -104,10 +154,19 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             { header: "Date", cell: (p) => formatDateTime(p.paidAt) },
             { header: "Method", cell: (p) => titleCase(p.method) },
             { header: "Reference", cell: (p) => p.reference },
-            { header: "Amount", align: "right", cell: (p) => <Money minor={p.amountMinor} currency={x.currency} /> },
+            {
+              header: "Amount",
+              align: "right",
+              cell: (p) => (
+                <Money minor={p.amountMinor} currency={x.currency} />
+              ),
+            },
           ]}
         />
-        <p className="muted">Payments are permanent records. To correct a mistake, contact an administrator.</p>
+        <p className="muted">
+          Payments are permanent records. To correct a mistake, contact an
+          administrator.
+        </p>
       </Panel>
       {paying && (
         <FormModal
@@ -115,9 +174,26 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           submitLabel="Record payment"
           initial={{ amountMinor: x.balanceMinor, method: "CASH" }}
           fields={[
-            { name: "amountMinor", label: `Amount (balance ${minorToInput(x.balanceMinor)})`, type: "money", required: true },
-            { name: "method", label: "Method", type: "select", options: ["CASH", "BANK_TRANSFER", "CARD", "OTHER"].map((m) => ({ value: m, label: titleCase(m) })) },
-            { name: "reference", label: "Reference (receipt / transfer no.)", optional: true },
+            {
+              name: "amountMinor",
+              label: `Amount (balance ${minorToInput(x.balanceMinor)})`,
+              type: "money",
+              required: true,
+            },
+            {
+              name: "method",
+              label: "Method",
+              type: "select",
+              options: ["CASH", "BANK_TRANSFER", "CARD", "OTHER"].map((m) => ({
+                value: m,
+                label: titleCase(m),
+              })),
+            },
+            {
+              name: "reference",
+              label: "Reference (receipt / transfer no.)",
+              optional: true,
+            },
             { name: "notes", label: "Notes", type: "textarea", optional: true },
           ]}
           onClose={() => setPaying(false)}
@@ -131,7 +207,15 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         <FormModal
           title="Void invoice"
           submitLabel="Void invoice"
-          fields={[{ name: "reason", label: "Reason", type: "textarea", required: true, help: "The delivered goods become billable again on the order." }]}
+          fields={[
+            {
+              name: "reason",
+              label: "Reason",
+              type: "textarea",
+              required: true,
+              help: "The delivered goods become billable again on the order.",
+            },
+          ]}
           onClose={() => setVoiding(false)}
           onSubmit={async (v) => {
             await post(`/invoices/${id}/void`, v);

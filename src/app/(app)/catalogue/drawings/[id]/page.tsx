@@ -16,14 +16,26 @@ function Inner({ id }: { id: string }) {
       <PageHead
         title={`Drawing ${d.data.code}`}
         subtitle={d.data.title}
-        back={part ? { href: `/catalogue/parts/${part}`, label: "Reference part" } : { href: "/catalogue", label: "Reference Catalogue" }}
-        actions={<Link className="button" href="/catalogue">Search catalogue</Link>}
+        back={
+          part
+            ? { href: `/catalogue/parts/${part}`, label: "Reference part" }
+            : { href: "/catalogue", label: "Reference Catalogue" }
+        }
+        actions={
+          <Link className="button" href="/catalogue">
+            Search catalogue
+          </Link>
+        }
       />
       <DrawingViewer drawing={d.data} highlightPartId={part} />
     </>
   );
 }
-export default function DrawingPage({ params }: { params: Promise<{ id: string }> }) {
+export default function DrawingPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   return (
     <Suspense fallback={<Loading />}>

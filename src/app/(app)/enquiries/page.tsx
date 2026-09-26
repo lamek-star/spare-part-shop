@@ -25,11 +25,20 @@ export default function Enquiries() {
       endpoint="/enquiries"
       statuses={["SUBMITTED", "QUOTED", "CLOSED", "CANCELLED"]}
       searchPlaceholder="Search number, contact, part number"
-      actions={s.can("enquiries.write") && <Link className="button primary" href="/enquiries/cart">Open enquiry cart</Link>}
+      actions={
+        s.can("enquiries.write") && (
+          <Link className="button primary" href="/enquiries/cart">
+            Open enquiry cart
+          </Link>
+        )
+      }
       rowKey={(e) => e.id}
       onRow={(e) => router.push(`/enquiries/${e.id}`)}
       columns={[
-        { header: "Number", cell: (e) => <Link href={`/enquiries/${e.id}`}>{e.number}</Link> },
+        {
+          header: "Number",
+          cell: (e) => <Link href={`/enquiries/${e.id}`}>{e.number}</Link>,
+        },
         { header: "Contact", cell: (e) => e.contactName },
         { header: "Email", cell: (e) => e.contactEmail },
         { header: "Items", align: "right", cell: (e) => e.items.length },

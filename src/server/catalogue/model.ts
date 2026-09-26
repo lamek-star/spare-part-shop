@@ -5,7 +5,8 @@
  * price, cost, supplier or stock quantity.
  */
 export type StatusClass = "ACTIVE" | "ENDED" | "SUPERSEDED" | "UNKNOWN";
-export type Verification = "UNVERIFIED" | "SOURCE_VERIFIED" | "MANUALLY_VERIFIED" | "DISPUTED";
+export type Verification =
+  "UNVERIFIED" | "SOURCE_VERIFIED" | "MANUALLY_VERIFIED" | "DISPUTED";
 export type ImageRights =
   | "EXTERNAL_REFERENCE"
   | "LICENSE_UNKNOWN"
@@ -156,7 +157,13 @@ export interface PartDetail {
   createdAt: string;
   updatedAt: string;
   fitments: FitmentView[];
-  catalogues: { id: string; code: string; name: string; source: string; market: string }[];
+  catalogues: {
+    id: string;
+    code: string;
+    name: string;
+    source: string;
+    market: string;
+  }[];
   drawings: DrawingRef[];
   relations: RelationView[];
   facts: FactView[];
@@ -172,7 +179,13 @@ export interface CalloutView {
   space: "PIXEL" | "PERCENT";
   resolved: boolean;
   notes: string;
-  parts: { id: string; oemNumber: string; description: string; quantity: number | null; statusClass: StatusClass }[];
+  parts: {
+    id: string;
+    oemNumber: string;
+    description: string;
+    quantity: number | null;
+    statusClass: StatusClass;
+  }[];
 }
 export interface DrawingDetail {
   id: string;
@@ -265,7 +278,10 @@ export const catalogueFields = [
 ] as const;
 export type CatalogueField = (typeof catalogueFields)[number];
 export type ColumnMapping = Partial<Record<CatalogueField, string>>;
-export const requiredCatalogueFields: CatalogueField[] = ["oem_number", "manufacturer"];
+export const requiredCatalogueFields: CatalogueField[] = [
+  "oem_number",
+  "manufacturer",
+];
 
 /** One normalized row, ready to import (independent of the CSV's shape). */
 export interface CatalogueRecord {
@@ -309,7 +325,15 @@ export type ImportStatus =
   | "COMPLETED_WITH_WARNINGS"
   | "FAILED"
   | "CANCELLED";
-export type RowStatus = "VALID" | "INVALID" | "DUPLICATE" | "CONFLICT" | "EXCLUDED" | "IMPORTED" | "UPDATED" | "UNCHANGED";
+export type RowStatus =
+  | "VALID"
+  | "INVALID"
+  | "DUPLICATE"
+  | "CONFLICT"
+  | "EXCLUDED"
+  | "IMPORTED"
+  | "UPDATED"
+  | "UNCHANGED";
 export interface ImportJob {
   id: string;
   kind: ImportKind;

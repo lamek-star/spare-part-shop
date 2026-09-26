@@ -14,7 +14,7 @@ import type {
   SalesOrderLine,
 } from "./types";
 import { paymentMethods } from "./types";
-import { conflict, notFound, validation } from "../kernel/errors";
+import { conflict, forbidden, notFound, validation } from "../kernel/errors";
 import { documentTotals, lineTotal } from "../kernel/money";
 import { newId, normalizeNumber, nowIso } from "../kernel/ids";
 import { InventoryOps } from "./inventory";
@@ -113,6 +113,19 @@ const totalsOf = (lines: DocumentLine[], taxBp: number) => {
 };
 function taxBpOf(raw: unknown, fallback: number): number {
   return integer(raw, "Tax rate", { min: 0, max: 100000, default: fallback });
+}
+
+/** An enquiry cart is personal until it is submitted: only its owner (or an Owner/Admin) may change it. */
+function assertCartAccess(
+  actor: Actor,
+  e: { status: string; createdBy: string | null },
+) {
+  if (
+    e.status === "DRAFT" &&
+    e.createdBy !== actor.id &&
+    !["OWNER", "ADMIN"].includes(actor.role)
+  )
+    throw forbidden("This enquiry cart belongs to another user.");
 }
 
 export class SalesService {
@@ -220,6 +233,7 @@ export class SalesService {
     return this.uow.write(async (r) => {
       const e = await r.sales.getEnquiry(enquiryId);
       if (!e) throw notFound("Enquiry");
+      assertCartAccess(actor, e);
       if (e.status !== "DRAFT")
         throw conflict("Only a draft enquiry can be edited.");
       e.items = e.items.filter((x) => x.id !== itemId);
@@ -244,6 +258,7 @@ export class SalesService {
     return this.uow.write(async (r) => {
       const e = await r.sales.getEnquiry(id);
       if (!e) throw notFound("Enquiry");
+      assertCartAccess(actor, e);
       if (e.status !== "DRAFT")
         throw conflict("This enquiry has already been submitted.");
       if (e.items.length === 0)
@@ -282,6 +297,7 @@ export class SalesService {
     return this.uow.write(async (r) => {
       const e = await r.sales.getEnquiry(id);
       if (!e) throw notFound("Enquiry");
+      assertCartAccess(actor, e);
       if (["QUOTED", "CLOSED", "CANCELLED"].includes(e.status))
         throw conflict(
           `A ${e.status.toLowerCase()} enquiry cannot be cancelled.`,

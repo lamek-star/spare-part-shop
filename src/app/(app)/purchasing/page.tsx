@@ -23,17 +23,37 @@ export default function Purchasing() {
       title="Purchase orders"
       subtitle="Goods ordered from suppliers. Receiving a purchase order adds the goods to stock."
       endpoint="/purchase-orders"
-      statuses={["DRAFT", "CONFIRMED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED", "CANCELLED"]}
+      statuses={[
+        "DRAFT",
+        "CONFIRMED",
+        "PARTIALLY_RECEIVED",
+        "RECEIVED",
+        "CLOSED",
+        "CANCELLED",
+      ]}
       searchPlaceholder="Search PO number"
-      actions={s.can("purchasing.write") && <Link className="button primary" href="/purchasing/new">New purchase order</Link>}
+      actions={
+        s.can("purchasing.write") && (
+          <Link className="button primary" href="/purchasing/new">
+            New purchase order
+          </Link>
+        )
+      }
       rowKey={(p) => p.id}
       onRow={(p) => router.push(`/purchasing/${p.id}`)}
       columns={[
-        { header: "Number", cell: (p) => <Link href={`/purchasing/${p.id}`}>{p.number}</Link> },
+        {
+          header: "Number",
+          cell: (p) => <Link href={`/purchasing/${p.id}`}>{p.number}</Link>,
+        },
         { header: "Created", cell: (p) => formatDate(p.createdAt) },
         { header: "Expected", cell: (p) => formatDate(p.expectedDate) },
         { header: "Status", cell: (p) => <Badge value={p.status} /> },
-        { header: "Total", align: "right", cell: (p) => <Money minor={p.totalMinor} currency={p.currency} /> },
+        {
+          header: "Total",
+          align: "right",
+          cell: (p) => <Money minor={p.totalMinor} currency={p.currency} />,
+        },
       ]}
     />
   );

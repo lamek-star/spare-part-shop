@@ -1,6 +1,14 @@
 import type { FieldSpec } from "./kit";
 
-const status: FieldSpec = { name: "status", label: "Status", type: "select", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Inactive" }] };
+const status: FieldSpec = {
+  name: "status",
+  label: "Status",
+  type: "select",
+  options: [
+    { value: "ACTIVE", label: "Active" },
+    { value: "INACTIVE", label: "Inactive" },
+  ],
+};
 const common: FieldSpec[] = [
   { name: "name", label: "Name", required: true },
   { name: "contactPerson", label: "Contact person" },
@@ -17,7 +25,12 @@ export const customerFields: FieldSpec[] = [
   ...common,
   { name: "billingAddress", label: "Billing address", type: "textarea" },
   { name: "shippingAddress", label: "Shipping address", type: "textarea" },
-  { name: "creditLimitMinor", label: "Credit limit", type: "money", optional: true },
+  {
+    name: "creditLimitMinor",
+    label: "Credit limit",
+    type: "money",
+    optional: true,
+  },
   notes,
   status,
 ];

@@ -149,7 +149,17 @@ export interface StockLevelRow {
 }
 export interface ReportRepository {
   dashboard(): Promise<DashboardMetrics>;
-  stockLevels(q: { q?: string; warehouseId?: string; page?: number; pageSize?: number }): Promise<{ items: StockLevelRow[]; total: number; page: number; pageSize: number }>;
+  stockLevels(q: {
+    q?: string;
+    warehouseId?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{
+    items: StockLevelRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>;
   productSales(productId: string, limit: number): Promise<ProductSalesHistory>;
   inventoryValuation(): Promise<
     {

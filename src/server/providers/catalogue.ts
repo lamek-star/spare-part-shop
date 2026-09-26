@@ -25,7 +25,10 @@ import type { Page } from "../domain/types";
  * lookup — feeds the same normalized model.
  */
 export interface CatalogueWriter {
-  ensureSource(providerKey: string, defaults?: Partial<Omit<CatalogueSource, "id" | "providerKey">>): Promise<CatalogueSource>;
+  ensureSource(
+    providerKey: string,
+    defaults?: Partial<Omit<CatalogueSource, "id" | "providerKey">>,
+  ): Promise<CatalogueSource>;
   ensureManufacturer(name: string): Promise<string>;
   ensureModel(manufacturerId: string, name: string): Promise<string>;
   ensureVehicle(v: {
@@ -51,7 +54,11 @@ export interface CatalogueWriter {
     productionFrom?: string | null;
     productionTo?: string | null;
   }): Promise<string>;
-  ensureSection(catalogueId: string, code: string, name: string): Promise<string>;
+  ensureSection(
+    catalogueId: string,
+    code: string,
+    name: string,
+  ): Promise<string>;
   upsertPart(p: {
     manufacturerId: string;
     oemNumber: string;
@@ -97,8 +104,18 @@ export interface CatalogueWriter {
     notes?: string;
     sourceRecordId?: string | null;
   }): Promise<{ created: boolean }>;
-  ensureDrawing(d: { sourceId: string; code: string; title?: string; revision?: string; notes?: string }): Promise<string>;
-  linkCatalogueDrawing(catalogueId: string, drawingId: string, sectionId?: string | null): Promise<void>;
+  ensureDrawing(d: {
+    sourceId: string;
+    code: string;
+    title?: string;
+    revision?: string;
+    notes?: string;
+  }): Promise<string>;
+  linkCatalogueDrawing(
+    catalogueId: string,
+    drawingId: string,
+    sectionId?: string | null,
+  ): Promise<void>;
   ensureCallout(c: {
     drawingId: string;
     label: string;
@@ -109,7 +126,11 @@ export interface CatalogueWriter {
     keyType?: string;
     notes?: string;
   }): Promise<string>;
-  linkCalloutPart(calloutId: string, partId: string, quantity?: number | null): Promise<"created" | "updated" | "unchanged">;
+  linkCalloutPart(
+    calloutId: string,
+    partId: string,
+    quantity?: number | null,
+  ): Promise<"created" | "updated" | "unchanged">;
   recordSourceRecord(r: {
     sourceId: string;
     externalId: string;
@@ -143,8 +164,15 @@ export interface CatalogueWriter {
   /** Links relation rows whose related number now exists as a part. */
   linkPendingRelations(): Promise<void>;
   // read probes used to classify staged rows without writing
-  findPart(manufacturerName: string, oemNormalized: string): Promise<{ id: string; description: string } | null>;
-  factExists(partId: string, sourceKey: string, description: string): Promise<boolean>;
+  findPart(
+    manufacturerName: string,
+    oemNormalized: string,
+  ): Promise<{ id: string; description: string } | null>;
+  factExists(
+    partId: string,
+    sourceKey: string,
+    description: string,
+  ): Promise<boolean>;
 }
 
 export interface CatalogueRepository {
@@ -164,23 +192,60 @@ export interface CatalogueRepository {
 
   // ----- governance -----
   listSources(): Promise<CatalogueSource[]>;
-  saveSource(s: Partial<CatalogueSource> & { providerKey: string; name: string }): Promise<CatalogueSource>;
+  saveSource(
+    s: Partial<CatalogueSource> & { providerKey: string; name: string },
+  ): Promise<CatalogueSource>;
   setVerification(partId: string, v: Verification): Promise<void>;
-  getAsset(id: string): Promise<{ id: string; fileId: string | null; mime: string; rights: ImageRights; sourceUrl: string } | null>;
-  setAssetRights(assetId: string, rights: ImageRights, evidence: string): Promise<boolean>;
-  listAssets(page: number, pageSize: number): Promise<Page<{ id: string; drawingCode: string; rights: ImageRights; hasFile: boolean; sourceUrl: string; rightsEvidence: string }>>;
+  getAsset(id: string): Promise<{
+    id: string;
+    fileId: string | null;
+    mime: string;
+    rights: ImageRights;
+    sourceUrl: string;
+  } | null>;
+  setAssetRights(
+    assetId: string,
+    rights: ImageRights,
+    evidence: string,
+  ): Promise<boolean>;
+  listAssets(
+    page: number,
+    pageSize: number,
+  ): Promise<
+    Page<{
+      id: string;
+      drawingCode: string;
+      rights: ImageRights;
+      hasFile: boolean;
+      sourceUrl: string;
+      rightsEvidence: string;
+    }>
+  >;
 
   // ----- import jobs -----
-  createJob(j: Partial<ImportJob> & { kind: ImportJob["kind"]; providerKey: string }): Promise<ImportJob>;
+  createJob(
+    j: Partial<ImportJob> & { kind: ImportJob["kind"]; providerKey: string },
+  ): Promise<ImportJob>;
   getJob(id: string): Promise<ImportJob | null>;
   listJobs(limit: number): Promise<ImportJob[]>;
   updateJob(id: string, patch: Partial<ImportJob>): Promise<void>;
   requestCancel(id: string): Promise<boolean>;
   insertRows(jobId: string, rows: Omit<ImportRow, "id">[]): Promise<void>;
-  listRows(jobId: string, opts: { status?: RowStatus; page: number; pageSize: number }): Promise<Page<ImportRow>>;
+  listRows(
+    jobId: string,
+    opts: { status?: RowStatus; page: number; pageSize: number },
+  ): Promise<Page<ImportRow>>;
   nextRows(jobId: string, limit: number): Promise<ImportRow[]>;
-  setRowStatus(rowId: string, status: RowStatus, warnings?: string[]): Promise<void>;
-  setRowExcluded(jobId: string, rowId: string, excluded: boolean): Promise<boolean>;
+  setRowStatus(
+    rowId: string,
+    status: RowStatus,
+    warnings?: string[],
+  ): Promise<void>;
+  setRowExcluded(
+    jobId: string,
+    rowId: string,
+    excluded: boolean,
+  ): Promise<boolean>;
   countRows(jobId: string): Promise<Record<RowStatus, number>>;
   /** All persisted rows removed once a job is old enough to not need them. */
   purgeRows(jobId: string): Promise<void>;

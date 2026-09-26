@@ -22,33 +22,93 @@ interface ProductHit {
   brand: string;
 }
 let counter = 0;
-export const newLine = (over: Partial<EditLine> = {}): EditLine => ({ key: `l${++counter}`, productId: null, sku: "", oemNumber: "", description: "", quantity: "1", price: "", discount: "", ...over });
-export const linesFromDocument = (lines: { productId: string | null; sku: string; oemNumber: string; description: string; quantity: number; unitPriceMinor: number; discountBp: number }[]): EditLine[] =>
-  lines.map((l) => newLine({ productId: l.productId, sku: l.sku, oemNumber: l.oemNumber, description: l.description, quantity: String(l.quantity), price: minorToInput(l.unitPriceMinor), discount: l.discountBp ? String(l.discountBp / 100) : "" }));
+export const newLine = (over: Partial<EditLine> = {}): EditLine => ({
+  key: `l${++counter}`,
+  productId: null,
+  sku: "",
+  oemNumber: "",
+  description: "",
+  quantity: "1",
+  price: "",
+  discount: "",
+  ...over,
+});
+export const linesFromDocument = (
+  lines: {
+    productId: string | null;
+    sku: string;
+    oemNumber: string;
+    description: string;
+    quantity: number;
+    unitPriceMinor: number;
+    discountBp: number;
+  }[],
+): EditLine[] =>
+  lines.map((l) =>
+    newLine({
+      productId: l.productId,
+      sku: l.sku,
+      oemNumber: l.oemNumber,
+      description: l.description,
+      quantity: String(l.quantity),
+      price: minorToInput(l.unitPriceMinor),
+      discount: l.discountBp ? String(l.discountBp / 100) : "",
+    }),
+  );
 
 /** Validates the editor rows and turns them into the API payload. */
 export function linesPayload(lines: EditLine[], kind: "sales" | "purchase") {
   if (!lines.length) throw new Error("Add at least one line.");
   return lines.map((l, i) => {
     const n = i + 1;
-    if (!/^\d+$/.test(l.quantity.trim()) || Number(l.quantity) < 1) throw new Error(`Line ${n}: quantity must be a whole number of at least 1.`);
+    if (!/^\d+$/.test(l.quantity.trim()) || Number(l.quantity) < 1)
+      throw new Error(
+        `Line ${n}: quantity must be a whole number of at least 1.`,
+      );
     const price = l.price.trim() === "" ? 0 : parseMinor(l.price);
-    if (price === null) throw new Error(`Line ${n}: the price must be an amount such as 12.50.`);
+    if (price === null)
+      throw new Error(`Line ${n}: the price must be an amount such as 12.50.`);
     let discountBp = 0;
     if (l.discount.trim()) {
-      if (!/^\d+(\.\d{1,2})?$/.test(l.discount.trim()) || Number(l.discount) > 100) throw new Error(`Line ${n}: the discount must be a percentage between 0 and 100.`);
+      if (
+        !/^\d+(\.\d{1,2})?$/.test(l.discount.trim()) ||
+        Number(l.discount) > 100
+      )
+        throw new Error(
+          `Line ${n}: the discount must be a percentage between 0 and 100.`,
+        );
       discountBp = Math.round(Number(l.discount) * 100);
     }
     if (kind === "purchase") {
       if (!l.productId) throw new Error(`Line ${n}: choose a product.`);
-      return { productId: l.productId, quantity: Number(l.quantity), unitCostMinor: price, discountBp };
+      return {
+        productId: l.productId,
+        quantity: Number(l.quantity),
+        unitCostMinor: price,
+        discountBp,
+      };
     }
-    if (!l.productId && !l.description.trim()) throw new Error(`Line ${n}: choose a product or type a description.`);
-    return { productId: l.productId, sku: l.sku, oemNumber: l.oemNumber, description: l.description.trim() || undefined, quantity: Number(l.quantity), unitPriceMinor: price, discountBp };
+    if (!l.productId && !l.description.trim())
+      throw new Error(`Line ${n}: choose a product or type a description.`);
+    return {
+      productId: l.productId,
+      sku: l.sku,
+      oemNumber: l.oemNumber,
+      description: l.description.trim() || undefined,
+      quantity: Number(l.quantity),
+      unitPriceMinor: price,
+      discountBp,
+    };
   });
 }
 
-export function ProductPicker({ onPick, placeholder = "Search my products by name, SKU or part number…" }: { onPick: (p: ProductHit) => void; placeholder?: string }) {
+export function ProductPicker({
+  onPick,
+  placeholder = "Search my products by name, SKU or part number…",
+}: {
+  onPick: (p: ProductHit) => void;
+  placeholder?: string;
+}) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [open, setOpen] = useState(false);
@@ -61,7 +121,9 @@ export function ProductPicker({ onPick, placeholder = "Search my products by nam
     }
     const mine = ++seq.current;
     const t = setTimeout(() => {
-      get<{ items: ProductHit[] }>(`/products${qs({ q: term, pageSize: 8, status: "ACTIVE" })}`).then(
+      get<{ items: ProductHit[] }>(
+        `/products${qs({ q: term, pageSize: 8, status: "ACTIVE" })}`,
+      ).then(
         (r) => mine === seq.current && setHits(r.items),
         () => mine === seq.current && setHits([]),
       );
@@ -70,9 +132,26 @@ export function ProductPicker({ onPick, placeholder = "Search my products by nam
   }, [q]);
   return (
     <div style={{ position: "relative" }}>
-      <input aria-label="Find a product" placeholder={placeholder} value={q} onChange={(e) => (setQ(e.target.value), setOpen(true))} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} style={{ width: "100%" }} />
+      <input
+        aria-label="Find a product"
+        placeholder={placeholder}
+        value={q}
+        onChange={(e) => (setQ(e.target.value), setOpen(true))}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        style={{ width: "100%" }}
+      />
       {open && hits.length > 0 && (
-        <div className="search-results" style={{ position: "absolute", zIndex: 30, left: 0, right: 0, top: "100%" }}>
+        <div
+          className="search-results"
+          style={{
+            position: "absolute",
+            zIndex: 30,
+            left: 0,
+            right: 0,
+            top: "100%",
+          }}
+        >
           {hits.map((h) => (
             <button
               type="button"
@@ -97,17 +176,48 @@ export function ProductPicker({ onPick, placeholder = "Search my products by nam
   );
 }
 
-export function LineEditor({ lines, onChange, kind }: { lines: EditLine[]; onChange: (l: EditLine[]) => void; kind: "sales" | "purchase" }) {
-  const set = (key: string, patch: Partial<EditLine>) => onChange(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  const cols = kind === "sales" ? "minmax(200px,3fr) 70px 110px 80px 32px" : "minmax(200px,3fr) 70px 110px 80px 32px";
+export function LineEditor({
+  lines,
+  onChange,
+  kind,
+}: {
+  lines: EditLine[];
+  onChange: (l: EditLine[]) => void;
+  kind: "sales" | "purchase";
+}) {
+  const set = (key: string, patch: Partial<EditLine>) =>
+    onChange(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const cols =
+    kind === "sales"
+      ? "minmax(200px,3fr) 70px 110px 80px 32px"
+      : "minmax(200px,3fr) 70px 110px 80px 32px";
   return (
     <div>
       <ProductPicker
         onPick={(p) =>
-          onChange([...lines, newLine({ productId: p.id, sku: p.sku, description: p.name, price: minorToInput(kind === "sales" ? p.priceMinor : (p.costMinor ?? 0)) })])
+          onChange([
+            ...lines,
+            newLine({
+              productId: p.id,
+              sku: p.sku,
+              description: p.name,
+              price: minorToInput(
+                kind === "sales" ? p.priceMinor : (p.costMinor ?? 0),
+              ),
+            }),
+          ])
         }
       />
-      <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "center", margin: "12px 0 6px" }} className="muted">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: cols,
+          gap: 8,
+          alignItems: "center",
+          margin: "12px 0 6px",
+        }}
+        className="muted"
+      >
         <small>Item</small>
         <small>Qty</small>
         <small>{kind === "sales" ? "Unit price" : "Unit cost"}</small>
@@ -115,7 +225,16 @@ export function LineEditor({ lines, onChange, kind }: { lines: EditLine[]; onCha
         <span />
       </div>
       {lines.map((l) => (
-        <div key={l.key} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "center", marginBottom: 8 }}>
+        <div
+          key={l.key}
+          style={{
+            display: "grid",
+            gridTemplateColumns: cols,
+            gap: 8,
+            alignItems: "center",
+            marginBottom: 8,
+          }}
+        >
           <div>
             {l.productId ? (
               <div>
@@ -125,13 +244,39 @@ export function LineEditor({ lines, onChange, kind }: { lines: EditLine[]; onCha
                 </small>
               </div>
             ) : (
-              <input aria-label="Description" placeholder="Description (item not in My Products)" value={l.description} onChange={(e) => set(l.key, { description: e.target.value })} style={{ width: "100%" }} />
+              <input
+                aria-label="Description"
+                placeholder="Description (item not in My Products)"
+                value={l.description}
+                onChange={(e) => set(l.key, { description: e.target.value })}
+                style={{ width: "100%" }}
+              />
             )}
           </div>
-          <input aria-label="Quantity" inputMode="numeric" value={l.quantity} onChange={(e) => set(l.key, { quantity: e.target.value })} />
-          <input aria-label="Price" inputMode="decimal" value={l.price} onChange={(e) => set(l.key, { price: e.target.value })} />
-          <input aria-label="Discount percent" inputMode="decimal" value={l.discount} onChange={(e) => set(l.key, { discount: e.target.value })} />
-          <button type="button" aria-label="Remove line" onClick={() => onChange(lines.filter((x) => x.key !== l.key))} style={{ padding: 6 }}>
+          <input
+            aria-label="Quantity"
+            inputMode="numeric"
+            value={l.quantity}
+            onChange={(e) => set(l.key, { quantity: e.target.value })}
+          />
+          <input
+            aria-label="Price"
+            inputMode="decimal"
+            value={l.price}
+            onChange={(e) => set(l.key, { price: e.target.value })}
+          />
+          <input
+            aria-label="Discount percent"
+            inputMode="decimal"
+            value={l.discount}
+            onChange={(e) => set(l.key, { discount: e.target.value })}
+          />
+          <button
+            type="button"
+            aria-label="Remove line"
+            onClick={() => onChange(lines.filter((x) => x.key !== l.key))}
+            style={{ padding: 6 }}
+          >
             <Trash2 size={15} />
           </button>
         </div>

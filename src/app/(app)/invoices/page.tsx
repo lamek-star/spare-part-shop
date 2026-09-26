@@ -28,18 +28,34 @@ export default function Invoices() {
       extraFilters={{ unpaidOnly: unpaid || undefined }}
       actions={
         <label>
-          <input type="checkbox" checked={unpaid} onChange={(e) => setUnpaid(e.target.checked)} /> Unpaid only
+          <input
+            type="checkbox"
+            checked={unpaid}
+            onChange={(e) => setUnpaid(e.target.checked)}
+          />{" "}
+          Unpaid only
         </label>
       }
       rowKey={(i) => i.id}
       onRow={(i) => router.push(`/invoices/${i.id}`)}
       columns={[
-        { header: "Number", cell: (i) => <Link href={`/invoices/${i.id}`}>{i.number}</Link> },
+        {
+          header: "Number",
+          cell: (i) => <Link href={`/invoices/${i.id}`}>{i.number}</Link>,
+        },
         { header: "Issued", cell: (i) => formatDate(i.issueDate) },
         { header: "Due", cell: (i) => formatDate(i.dueDate) },
         { header: "Status", cell: (i) => <Badge value={i.status} /> },
-        { header: "Total", align: "right", cell: (i) => <Money minor={i.totalMinor} currency={i.currency} /> },
-        { header: "Balance", align: "right", cell: (i) => <Money minor={i.balanceMinor} currency={i.currency} /> },
+        {
+          header: "Total",
+          align: "right",
+          cell: (i) => <Money minor={i.totalMinor} currency={i.currency} />,
+        },
+        {
+          header: "Balance",
+          align: "right",
+          cell: (i) => <Money minor={i.balanceMinor} currency={i.currency} />,
+        },
       ]}
     />
   );

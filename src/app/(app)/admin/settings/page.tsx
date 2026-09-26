@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ErrorBanner, FieldBox, Loading, PageHead, Panel, useAction, useApi } from "../../../../ui/kit";
+import {
+  ErrorBanner,
+  FieldBox,
+  Loading,
+  PageHead,
+  Panel,
+  useAction,
+  useApi,
+} from "../../../../ui/kit";
 import { put } from "../../../../ui/api";
 
 interface Settings {
@@ -23,12 +31,17 @@ export default function ShopSettings() {
   useEffect(() => {
     if (s.data)
       setF({
-        ...Object.fromEntries(Object.entries(s.data).map(([k, v]) => [k, String(v)])),
+        ...Object.fromEntries(
+          Object.entries(s.data).map(([k, v]) => [k, String(v)]),
+        ),
         defaultTaxPercent: String(s.data.defaultTaxBp / 100),
       });
   }, [s.data]);
   if (!f) return s.error ? <ErrorBanner message={s.error} /> : <Loading />;
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
+  const set =
+    (k: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setF({ ...f, [k]: e.target.value });
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const pct = Number(f!.defaultTaxPercent);
@@ -53,7 +66,10 @@ export default function ShopSettings() {
   }
   return (
     <>
-      <PageHead title="Shop settings" subtitle="These details appear on quotations and invoices." />
+      <PageHead
+        title="Shop settings"
+        subtitle="These details appear on quotations and invoices."
+      />
       <ErrorBanner message={act.error} onClose={act.clear} />
       <form onSubmit={save}>
         <Panel title="Business">
@@ -62,7 +78,10 @@ export default function ShopSettings() {
               <input value={f.shopName} onChange={set("shopName")} required />
             </FieldBox>
             <FieldBox label="Tax registration number">
-              <input value={f.taxRegistration} onChange={set("taxRegistration")} />
+              <input
+                value={f.taxRegistration}
+                onChange={set("taxRegistration")}
+              />
             </FieldBox>
             <FieldBox label="Phone">
               <input value={f.phone} onChange={set("phone")} />
@@ -77,23 +96,50 @@ export default function ShopSettings() {
         </Panel>
         <Panel title="Sales defaults">
           <div className="form-grid">
-            <FieldBox label="Currency" help="3-letter code. Existing documents keep the currency they were issued in.">
-              <input value={f.currency} onChange={set("currency")} maxLength={3} />
+            <FieldBox
+              label="Currency"
+              help="3-letter code. Existing documents keep the currency they were issued in."
+            >
+              <input
+                value={f.currency}
+                onChange={set("currency")}
+                maxLength={3}
+              />
             </FieldBox>
             <FieldBox label="Default tax rate (%)">
-              <input inputMode="decimal" value={f.defaultTaxPercent} onChange={set("defaultTaxPercent")} />
+              <input
+                inputMode="decimal"
+                value={f.defaultTaxPercent}
+                onChange={set("defaultTaxPercent")}
+              />
             </FieldBox>
             <FieldBox label="Quotation valid for (days)">
-              <input inputMode="numeric" value={f.quotationValidityDays} onChange={set("quotationValidityDays")} />
+              <input
+                inputMode="numeric"
+                value={f.quotationValidityDays}
+                onChange={set("quotationValidityDays")}
+              />
             </FieldBox>
             <FieldBox label="Invoice due after (days)">
-              <input inputMode="numeric" value={f.invoiceDueDays} onChange={set("invoiceDueDays")} />
+              <input
+                inputMode="numeric"
+                value={f.invoiceDueDays}
+                onChange={set("invoiceDueDays")}
+              />
             </FieldBox>
             <FieldBox label="Standard quotation terms">
-              <textarea rows={3} value={f.quotationTerms} onChange={set("quotationTerms")} />
+              <textarea
+                rows={3}
+                value={f.quotationTerms}
+                onChange={set("quotationTerms")}
+              />
             </FieldBox>
             <FieldBox label="Standard invoice notes">
-              <textarea rows={3} value={f.invoiceNotes} onChange={set("invoiceNotes")} />
+              <textarea
+                rows={3}
+                value={f.invoiceNotes}
+                onChange={set("invoiceNotes")}
+              />
             </FieldBox>
           </div>
           <div className="form-actions">

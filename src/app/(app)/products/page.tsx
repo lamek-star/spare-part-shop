@@ -31,7 +31,9 @@ export default function Products() {
   const [low, setLow] = useState(false);
   const [category, setCategory] = useState("");
   const cats = useApi<string[]>("/products/categories");
-  const suppliers = useApi<{ items: { id: string; name: string }[] }>(creating && s.can("suppliers.read") ? "/suppliers?pageSize=100" : null);
+  const suppliers = useApi<{ items: { id: string; name: string }[] }>(
+    creating && s.can("suppliers.read") ? "/suppliers?pageSize=100" : null,
+  );
   const wh = useWarehouses(creating && s.can("inventory.read"));
   return (
     <>
@@ -41,17 +43,29 @@ export default function Products() {
         endpoint="/products"
         statuses={["ACTIVE", "INACTIVE"]}
         searchPlaceholder="Search name, SKU, brand or part number"
-        extraFilters={{ lowStockOnly: low || undefined, category: category || undefined }}
+        extraFilters={{
+          lowStockOnly: low || undefined,
+          category: category || undefined,
+        }}
         actions={
           <>
-            <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select
+              aria-label="Category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
               <option value="">All categories</option>
               {cats.data?.filter(Boolean).map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
             <label>
-              <input type="checkbox" checked={low} onChange={(e) => setLow(e.target.checked)} /> Low stock only
+              <input
+                type="checkbox"
+                checked={low}
+                onChange={(e) => setLow(e.target.checked)}
+              />{" "}
+              Low stock only
             </label>
             {s.can("products.write") && (
               <button className="primary" onClick={() => setCreating(true)}>
@@ -66,12 +80,33 @@ export default function Products() {
           {
             header: "Product",
             cell: (p) => (
-              <div className="part-cell" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <div
+                className="part-cell"
+                style={{ display: "flex", gap: 10, alignItems: "center" }}
+              >
                 {p.primaryImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- served by the authenticated API
-                  <img src={p.primaryImageUrl} alt="" width={38} height={38} style={{ objectFit: "cover", borderRadius: 4, border: "1px solid var(--line)" }} />
+                  <img
+                    src={p.primaryImageUrl}
+                    alt=""
+                    width={38}
+                    height={38}
+                    style={{
+                      objectFit: "cover",
+                      borderRadius: 4,
+                      border: "1px solid var(--line)",
+                    }}
+                  />
                 ) : (
-                  <span style={{ width: 38, height: 38, background: "#eef2f5", borderRadius: 4, display: "inline-block" }} />
+                  <span
+                    style={{
+                      width: 38,
+                      height: 38,
+                      background: "#eef2f5",
+                      borderRadius: 4,
+                      display: "inline-block",
+                    }}
+                  />
                 )}
                 <div>
                   <Link href={`/products/${p.id}`}>{p.name}</Link>
@@ -84,21 +119,52 @@ export default function Products() {
             ),
           },
           { header: "Category", cell: (p) => p.category },
-          { header: "Available", align: "right", cell: (p) => (p.reorderLevel > 0 && p.available <= p.reorderLevel ? <strong style={{ color: "#a4323e" }}>{p.available}</strong> : p.available) },
+          {
+            header: "Available",
+            align: "right",
+            cell: (p) =>
+              p.reorderLevel > 0 && p.available <= p.reorderLevel ? (
+                <strong style={{ color: "#a4323e" }}>{p.available}</strong>
+              ) : (
+                p.available
+              ),
+          },
           { header: "On hand", align: "right", cell: (p) => p.onHand },
-          { header: "Price", align: "right", cell: (p) => <Money minor={p.priceMinor} currency={p.currency} /> },
-          ...(s.can("products.cost.read") ? [{ header: "Cost", align: "right" as const, cell: (p: Product) => <Money minor={p.costMinor} currency={p.currency} /> }] : []),
+          {
+            header: "Price",
+            align: "right",
+            cell: (p) => <Money minor={p.priceMinor} currency={p.currency} />,
+          },
+          ...(s.can("products.cost.read")
+            ? [
+                {
+                  header: "Cost",
+                  align: "right" as const,
+                  cell: (p: Product) => (
+                    <Money minor={p.costMinor} currency={p.currency} />
+                  ),
+                },
+              ]
+            : []),
           { header: "Status", cell: (p) => <Badge value={p.status} /> },
         ]}
       />
       {creating && (
         <FormModal
           title="New product"
-          fields={productFields({ canCost: s.can("products.cost.read"), suppliers: suppliers.data?.items ?? [], creating: true, locations: locationOptions(wh.data) })}
+          fields={productFields({
+            canCost: s.can("products.cost.read"),
+            suppliers: suppliers.data?.items ?? [],
+            creating: true,
+            locations: locationOptions(wh.data),
+          })}
           initial={{ condition: "NEW", status: "ACTIVE", currency: "AED" }}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
-            const p = await post<{ id: string }>("/products", productPayload(v));
+            const p = await post<{ id: string }>(
+              "/products",
+              productPayload(v),
+            );
             router.push(`/products/${p.id}`);
           }}
         />

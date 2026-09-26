@@ -440,6 +440,8 @@ export class SqliteProductRepository implements ProductRepository {
     );
   }
   async removeLink(id: string) {
-    await this.db.write((h) => h.run("DELETE FROM product_reference_links WHERE id = ?", [id]));
+    await this.db.write((h) =>
+      h.run("DELETE FROM product_reference_links WHERE id = ?", [id]),
+    );
   }
 }
