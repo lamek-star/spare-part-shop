@@ -1,6 +1,8 @@
 import { AppError, notFound, validation } from "../kernel/errors";
 import { permissionsFor, requirePermission } from "../domain/permissions";
 import { toCsv } from "../catalogue/csv";
+import { code128Svg } from "../labels/code128";
+import { qrSvg } from "../labels/qr";
 import { PackageError, ZipSource } from "../catalogue/packageSource";
 import type { ColumnMapping, CatalogueSearchQuery, RowStatus, StatusClass } from "../catalogue/model";
 import type { Role } from "../domain/types";
@@ -212,6 +214,18 @@ export function buildRouter(): Router {
   r.post("/products", { permission: "products.write" }, async (c) => ({ status: 201, data: await c.app.products.create(c.actor, await c.json()) }));
   r.get("/products/:id", { permission: "products.read" }, async (c) => ({ data: await c.app.products.detail(c.actor, c.params.id) }));
   r.patch("/products/:id", { permission: "products.write" }, async (c) => ({ data: await c.app.products.update(c.actor, c.params.id, await c.json()) }));
+  r.get("/products/:id/label.svg", { permission: "products.read" }, async (c) => {
+    const kind = c.query.str("type") ?? "code128";
+    if (kind !== "code128" && kind !== "qr") throw validation("type must be code128 or qr.");
+    const { product } = await c.app.products.detail(c.actor, c.params.id);
+    let svg: string;
+    try {
+      svg = kind === "qr" ? qrSvg(product.sku, { caption: product.sku }) : code128Svg(product.sku);
+    } catch (e) {
+      throw validation(e instanceof Error ? e.message : "This SKU cannot be turned into a label.");
+    }
+    return { binary: { bytes: new TextEncoder().encode(svg), mime: "image/svg+xml", inline: true } };
+  });
   r.post("/products/:id/numbers", { permission: "products.write" }, async (c) => ({ status: 201, data: await c.app.products.addNumber(c.actor, c.params.id, await c.json()) }));
   r.delete("/products/:id/numbers/:numberId", { permission: "products.write" }, async (c) => {
     await c.app.products.removeNumber(c.actor, c.params.id, c.params.numberId);
@@ -279,6 +293,10 @@ export function buildRouter(): Router {
   r.post("/quotations", { permission: "quotations.write" }, async (c) => ({ status: 201, data: await c.app.sales.createQuotation(c.actor, await c.json()) }));
   r.get("/quotations/:id", { permission: "quotations.read" }, async (c) => ({ data: await c.app.sales.getQuotation(c.actor, c.params.id) }));
   r.patch("/quotations/:id", { permission: "quotations.write" }, async (c) => ({ data: await c.app.sales.updateQuotation(c.actor, c.params.id, await c.json()) }));
+  r.get("/quotations/:id/pdf", { permission: "quotations.read" }, async (c) => {
+    const d = await c.app.documents.quotationPdf(c.actor, c.params.id);
+    return { binary: { bytes: d.bytes, mime: "application/pdf", fileName: d.fileName, inline: true } };
+  });
   r.post("/quotations/:id/issue", { permission: "quotations.write" }, async (c) => ({ data: await c.app.sales.issueQuotation(c.actor, c.params.id) }));
   r.post("/quotations/:id/accept", { permission: "quotations.write" }, async (c) => ({ data: await c.app.sales.acceptQuotation(c.actor, c.params.id) }));
   r.post("/quotations/:id/reject", { permission: "quotations.write" }, async (c) => ({ data: await c.app.sales.rejectQuotation(c.actor, c.params.id) }));
@@ -302,6 +320,10 @@ export function buildRouter(): Router {
     data: await c.app.sales.listInvoices(c.actor, { ...paged(c.query), status: c.query.str("status"), customerId: c.query.str("customerId"), unpaidOnly: c.query.bool("unpaidOnly") }),
   }));
   r.get("/invoices/:id", { permission: "invoices.read" }, async (c) => ({ data: await c.app.sales.getInvoice(c.actor, c.params.id) }));
+  r.get("/invoices/:id/pdf", { permission: "invoices.read" }, async (c) => {
+    const d = await c.app.documents.invoicePdf(c.actor, c.params.id);
+    return { binary: { bytes: d.bytes, mime: "application/pdf", fileName: d.fileName, inline: true } };
+  });
   r.post("/invoices/:id/payments", { permission: "payments.record" }, async (c) => ({ status: 201, data: await c.app.sales.recordPayment(c.actor, c.params.id, await c.json()) }));
   r.post("/invoices/:id/void", { permission: "invoices.write" }, async (c) => ({ data: await c.app.sales.voidInvoice(c.actor, c.params.id, await c.json()) }));
 

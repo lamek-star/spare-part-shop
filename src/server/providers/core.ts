@@ -111,6 +111,8 @@ export interface FileStorage {
   }): Promise<StoredFile>;
   get(id: string): Promise<{ file: StoredFile; bytes: Uint8Array } | null>;
   meta(id: string): Promise<StoredFile | null>;
+  /** Files attached to one business entity, newest first. */
+  listFor(entityType: string, entityId: string, kind?: string): Promise<StoredFile[]>;
   delete(id: string): Promise<void>;
   /** Files nothing refers to any more (e.g. after a product image delete). */
   listOrphans(): Promise<StoredFile[]>;

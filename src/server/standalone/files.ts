@@ -114,6 +114,15 @@ export class LocalFileStorage implements FileStorage {
     );
     return row ? toStored(row) : null;
   }
+  async listFor(entityType: string, entityId: string, kind?: string): Promise<StoredFile[]> {
+    const rows = await this.db.read((h) =>
+      h.all<FileRow>(
+        `SELECT * FROM files WHERE deleted_at IS NULL AND entity_type = ? AND entity_id = ? AND (? IS NULL OR kind = ?) ORDER BY created_at DESC, rowid DESC`,
+        [entityType, entityId, kind ?? null, kind ?? null],
+      ),
+    );
+    return rows.map(toStored);
+  }
   async get(
     id: string,
   ): Promise<{ file: StoredFile; bytes: Uint8Array } | null> {

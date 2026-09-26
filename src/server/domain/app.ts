@@ -10,6 +10,7 @@ import { SalesService } from "./sales";
 import { PurchasingService } from "./purchasing";
 import { ReportService } from "./reports";
 import { CatalogueService } from "./catalogue";
+import { DocumentService } from "./documents";
 import { CatalogueImportService } from "../catalogue/importer";
 import { PackageImportService } from "../catalogue/package";
 
@@ -44,6 +45,7 @@ export function createApp(providers: Providers) {
     purchasing: new PurchasingService(uow),
     reports: new ReportService(uow),
     catalogue: new CatalogueService(uow),
+    documents: new DocumentService(uow),
     catalogueImport: new CatalogueImportService(uow),
     cataloguePackage: new PackageImportService(uow),
     audit: {

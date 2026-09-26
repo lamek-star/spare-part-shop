@@ -210,7 +210,7 @@ export function createHttpHandler(router: Router, boot: () => Promise<{ app: App
       headers.set("Content-Length", String(b.bytes.byteLength));
       headers.set("Content-Disposition", `${b.inline ? "inline" : "attachment"}${b.fileName ? `; filename="${b.fileName.replace(/[^\w.\- ]/g, "_")}"` : ""}`);
       // Stored files are never allowed to run script, whatever their type.
-      headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+      if (b.mime !== "application/pdf") headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
       headers.set("Cache-Control", "private, max-age=300");
       return new Response(b.bytes as unknown as BodyInit, { status: result.status ?? 200, headers });
     }
