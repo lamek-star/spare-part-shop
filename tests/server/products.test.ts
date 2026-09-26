@@ -472,3 +472,40 @@ test("a tampered stored file fails its integrity check", async () => {
     await t.cleanup();
   }
 });
+
+test("adding a photo that asks to be primary demotes the current primary instead of failing", async () => {
+  const t = await makeApp();
+  try {
+    const { product } = await seedBasics(t);
+    const o = t.actors.OWNER;
+    const png = (n: number) => {
+      const b = new Uint8Array(40);
+      b.set([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48,
+        0x44, 0x52,
+      ]);
+      b[30] = n;
+      return b;
+    };
+    const first = await t.app.products.addImage(o, product.id, {
+      bytes: png(1),
+      fileName: "a.png",
+      primary: true,
+    });
+    const second = await t.app.products.addImage(o, product.id, {
+      bytes: png(2),
+      fileName: "b.png",
+      primary: true,
+    });
+    assert.equal(first.isPrimary, true);
+    assert.equal(second.isPrimary, true);
+    const images = (await t.app.products.detail(o, product.id)).images;
+    assert.deepEqual(
+      images.filter((i) => i.isPrimary).map((i) => i.id),
+      [second.id],
+      "exactly one primary, the newest request",
+    );
+  } finally {
+    await t.cleanup();
+  }
+});

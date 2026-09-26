@@ -1,5 +1,26 @@
 import type { NextConfig } from "next";
+
+/** Baseline browser protections for every page. API responses add their own
+ * (no-store, nosniff, per-file CSP) in src/server/http/core.ts. */
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "same-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=()",
+  },
+  {
+    key: "Content-Security-Policy",
+    value:
+      "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+  },
+];
+
 const config: NextConfig = {
-  distDir: process.env.CATALOGUE_TEST_MODE === "1" ? ".next-e2e" : ".next",
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
 };
 export default config;

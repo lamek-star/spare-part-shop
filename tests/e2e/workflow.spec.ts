@@ -37,6 +37,16 @@ test.afterAll(() => {
   expect(external, "the app must not call any external host").toEqual([]);
 });
 
+test("pages carry baseline browser protections", async ({ request }) => {
+  const res = await request.get("/");
+  expect(res.headers()["x-frame-options"]).toBe("DENY");
+  expect(res.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(res.headers()["content-security-policy"]).toContain(
+    "frame-ancestors 'none'",
+  );
+  expect(res.headers()["x-powered-by"]).toBeUndefined();
+});
+
 test("first run: create the Owner account and the shop", async ({ page }) => {
   await page.goto("/");
   await expect(

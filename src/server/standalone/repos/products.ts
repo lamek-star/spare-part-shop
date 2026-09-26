@@ -333,6 +333,11 @@ export class SqliteProductRepository implements ProductRepository {
           "SELECT COUNT(*) AS n FROM product_images WHERE product_id = ? AND is_primary = 1",
           [i.productId],
         ) > 0;
+      if (i.isPrimary && hasPrimary) {
+        h.run("UPDATE product_images SET is_primary = 0 WHERE product_id = ?", [
+          i.productId,
+        ]);
+      }
       h.run(
         "INSERT INTO product_images(id,product_id,file_id,position,is_primary,caption,created_at) VALUES (?,?,?,?,?,?,?)",
         [
@@ -345,12 +350,6 @@ export class SqliteProductRepository implements ProductRepository {
           createdAt,
         ],
       );
-      if (i.isPrimary && hasPrimary) {
-        h.run(
-          "UPDATE product_images SET is_primary = 0 WHERE product_id = ? AND id <> ?",
-          [i.productId, i.id],
-        );
-      }
     });
   }
   async setPrimaryImage(productId: string, imageId: string) {
