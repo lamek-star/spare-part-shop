@@ -1369,19 +1369,23 @@ button:disabled {
 }
 .epc-layout {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
   gap: 20px;
   align-items: start;
 }
+.epc-diagram-column {
+  min-width: 0;
+}
 .epc-diagram-column .exploded-scroll {
   max-height: 560px;
+  overflow: auto;
 }
 .epc-parts-column {
   min-width: 0;
 }
 .epc-parts-column .table-wrap {
   max-height: 420px;
-  overflow-y: auto;
+  overflow: auto;
 }
 .epc-selected-callout {
   border: 1px solid var(--teal);
@@ -1391,10 +1395,17 @@ button:disabled {
   margin-bottom: 14px;
 }
 .epc-selected-callout dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 10px;
   margin: 10px 0;
+}
+.epc-selected-callout dl > div {
+  display: grid;
+  grid-template-columns: minmax(84px, 110px) minmax(0, 1fr);
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid #d3ebe4;
+}
+.epc-selected-callout dl > div:last-child {
+  border-bottom: 0;
 }
 .epc-selected-callout dt {
   color: var(--muted);
@@ -1403,6 +1414,7 @@ button:disabled {
 .epc-selected-callout dd {
   margin: 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .epc-number-list {
   list-style: none;
@@ -1569,4 +1581,279 @@ td > button.diagram-hotspot-row.primary {
     padding-right: 0;
     padding-bottom: 12px;
   }
+}
+
+/* ---- OEM figure viewer: complete parts list of one drawing, styled as a
+   dark parts-catalogue page regardless of the surrounding theme. ---- */
+.epc {
+  --epc-bg: #0d141c;
+  --epc-panel: #131c27;
+  --epc-panel-2: #182432;
+  --epc-line: #243242;
+  --epc-text: #dbe5f0;
+  --epc-muted: #8797ab;
+  --epc-link: #5f86bd;
+  display: grid;
+  grid-template-columns: minmax(280px, 5fr) minmax(0, 7fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--epc-bg);
+  color: var(--epc-text);
+}
+.epc-figure {
+  position: sticky;
+  top: 12px;
+}
+.epc-image-card {
+  overflow: hidden;
+  border: 1px solid var(--epc-line);
+  border-radius: 10px;
+  background: var(--epc-panel);
+}
+.epc-image-stage {
+  position: relative;
+  background: #fff;
+  line-height: 0;
+}
+.epc-image-stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.epc-hotspot {
+  position: absolute;
+  padding: 0;
+  border: 1.5px solid rgba(70, 130, 230, 0.75);
+  border-radius: 2px;
+  background: rgba(70, 130, 230, 0.12);
+  cursor: pointer;
+}
+.epc-hotspot.on {
+  border-color: #e0a020;
+  background: rgba(224, 160, 32, 0.28);
+}
+.epc-image-missing {
+  padding: 28px 18px;
+  background: var(--epc-panel-2);
+  color: var(--epc-muted);
+  font-size: 13px;
+}
+.epc-image-missing a,
+.epc-image-foot a {
+  color: var(--epc-link);
+}
+.epc-image-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--epc-line);
+  color: var(--epc-muted);
+  font-size: 12px;
+}
+.epc-image-foot code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.epc-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--epc-line);
+  color: var(--epc-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.epc-parts {
+  min-width: 0;
+}
+.epc-filter {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--epc-line);
+  border-radius: 8px;
+  background: var(--epc-panel);
+  color: var(--epc-text);
+  font-size: 14px;
+}
+.epc-filter::placeholder {
+  color: var(--epc-muted);
+}
+.epc-count {
+  margin: 10px 2px;
+  color: var(--epc-muted);
+  font-size: 13px;
+}
+.epc-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--epc-line);
+  border-radius: 10px;
+  background: var(--epc-panel);
+}
+.epc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.epc-table th {
+  padding: 11px 12px;
+  background: var(--epc-panel);
+  border-bottom: 2px solid var(--epc-line);
+  color: var(--epc-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.epc-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--epc-line);
+  vertical-align: top;
+}
+.epc-group td {
+  padding: 11px 12px;
+  border-top: 1px solid var(--epc-line);
+  background: var(--epc-panel-2);
+  color: var(--epc-text);
+}
+.epc-group.on td {
+  background: #1d2c3d;
+}
+.epc-callout {
+  color: var(--epc-link);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+.epc-num {
+  white-space: nowrap;
+}
+.epc-num span {
+  color: var(--epc-link);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+.epc-row.hit td {
+  background: rgba(224, 160, 32, 0.1);
+}
+.epc-row.hit .epc-num span {
+  color: #f0c060;
+  font-weight: 700;
+}
+.epc-dates {
+  margin-top: 3px;
+  color: var(--epc-muted);
+  font-size: 12px;
+}
+.epc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.epc-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 1px solid #2c3d51;
+  border-radius: 999px;
+  background: #1a2634;
+  color: #b9c8d9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-style: normal;
+}
+.epc-chips .epc-chip {
+  margin-left: 0;
+}
+.epc-chip.note {
+  border-color: #1f4d4d;
+  background: #123030;
+  color: #5fd0c5;
+  font-size: 10.5px;
+}
+.epc-chip.ended {
+  border-color: transparent;
+  background: #3a2c15;
+  color: #e0a64a;
+  font-family: inherit;
+}
+.epc-chip.more {
+  color: var(--epc-muted);
+}
+.epc-price {
+  color: var(--epc-muted);
+  white-space: nowrap;
+}
+.epc-price .in {
+  color: #5fcf8f;
+}
+.epc-price .out {
+  color: #e0a64a;
+}
+.epc-add {
+  text-align: right;
+}
+.epc-table td.epc-add > button {
+  padding: 6px 14px;
+  border: 1px solid #46607a;
+  border-radius: 6px;
+  background: #1b2a3b;
+  color: var(--epc-text);
+  cursor: pointer;
+}
+.epc-table td.epc-add > button:hover:not(:disabled) {
+  border-color: var(--epc-link);
+  background: #24384f;
+}
+.epc-hotspot:hover {
+  background: rgba(224, 160, 32, 0.28);
+}
+.epc-table td.epc-add > button:disabled {
+  color: #5fcf8f;
+  cursor: default;
+}
+.epc-empty,
+.epc-foot {
+  color: var(--epc-muted);
+  font-size: 12.5px;
+}
+.epc-foot {
+  margin: 10px 2px 0;
+}
+@media (max-width: 960px) {
+  .epc {
+    grid-template-columns: 1fr;
+  }
+  .epc-figure {
+    position: static;
+  }
+}
+
+/* OEM part search: a real-width input instead of a shrunken field. */
+.oem-search {
+  align-items: flex-end;
+}
+.oem-search .field {
+  flex: 1 1 320px;
+  max-width: 560px;
+}
+
+.oem-drawings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+/* The app-wide light row hover must not wash out the dark parts list. */
+.epc-table tbody tr:hover td {
+  background: #1a2838;
+  color: var(--epc-text);
+}
+.epc-table tbody tr.epc-group:hover td {
+  background: #1d2c3d;
+}
+.epc-table tbody tr.epc-row.hit:hover td {
+  background: rgba(224, 160, 32, 0.16);
 }

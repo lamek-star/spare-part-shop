@@ -7,4 +7,9 @@ playwright-report/
 .env*
 .catalogue-data/
 .catalogue-test-data/
+.catalogue-import-data/
+.catalogue-import-test-data/
 .next-e2e/
+.auth-data/
+.auth-test-data/
+.dev-certs/

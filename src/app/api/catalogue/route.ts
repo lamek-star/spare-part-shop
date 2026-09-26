@@ -8,6 +8,29 @@ import {
 import { providerPolicies, policyFor } from "../../../catalogue/providerPolicy";
 import { toyotaEpcProvider } from "../../../integrations/catalogues/toyota-epc";
 import { toyotaEpcEnabled } from "../../../integrations/catalogues/toyota-epc/config";
+import {
+  searchOemPart,
+  getDiagramFigure,
+} from "../../../integrations/catalogues/intraforge-storage/client";
+import {
+  catalogueStorageEnabled,
+  externalDiagramImagesEnabled,
+} from "../../../integrations/catalogues/intraforge-storage/config";
+import { resolveToyotaOemPart } from "../../../integrations/catalogues/intraforge-storage/toyotaResolver";
+import {
+  startImportJob,
+  retryFailedItems,
+  parseImportLines,
+  persistResolvedFigure,
+  type ImportLine,
+} from "../../../catalogue/importRunner";
+import {
+  listImportJobs,
+  getImportJob,
+  requestCancelImportJob,
+  recordOfflineIndex,
+  offlineReadiness,
+} from "../../../catalogue/importStore";
 /**
  * Every `toyota-*` action below runs through `toyotaEpcProvider`, which
  * refuses before any network call unless TOYOTA_EPC_ENABLED=true (see
@@ -169,6 +192,81 @@ export async function GET(request: Request) {
           ...policyFor("toyota-epc"),
         };
         break;
+      case "oem-search": {
+        // The private, IntraForge-backed OEM catalogue — see
+        // docs/CATALOGUE_STORAGE.md. Distinct from the toyota-* actions
+        // above (a live, unpersisted pass-through to an unlicensed third
+        // party): this searches this app's own permitted, persisted
+        // records only.
+        if (!catalogueStorageEnabled()) {
+          data = {
+            disabled: true,
+            reason: "Catalogue storage is not configured.",
+          };
+          break;
+        }
+        const query = q.get("q") ?? "";
+        let part = await searchOemPart(query);
+        if (!part) {
+          // Cache miss: resolve live from Toyota EPC (if permitted/
+          // enabled) and persist exactly this one part — "only the
+          // data will be stored in the intraforge storage when user
+          // search" — never a bulk fetch. Metadata only; the image stays
+          // EXTERNAL_REFERENCE_ONLY unless a separately-licensed import
+          // says otherwise (see docs/CATALOGUE_STORAGE.md).
+          const resolved = await resolveToyotaOemPart(query).catch(() => null);
+          if (resolved)
+            part = await persistResolvedFigure(resolved).catch(() => null);
+        }
+        if (part) recordOfflineIndex(part);
+        // The stored snapshot of the whole figure this part is drawn on
+        // (every part number on it), read from IntraForge's own database —
+        // so the complete list works with the provider off.
+        // A part can be drawn on several figures (one per vehicle); return
+        // the snapshot of each so the visitor can switch between them.
+        const figures: Record<string, unknown> = {};
+        for (const dp of (part?.diagram_parts ?? []).slice(0, 6)) {
+          const detail = await getDiagramFigure(dp.diagram.id).catch(
+            () => null,
+          );
+          figures[dp.diagram.id] = detail?.figure_data?.groups
+            ? detail.figure_data
+            : null;
+        }
+        data = part
+          ? {
+              found: true,
+              part,
+              figures,
+              showExternalImages: externalDiagramImagesEnabled(),
+            }
+          : { found: false, providerEnabled: toyotaEpcEnabled() };
+        break;
+      }
+      case "import-jobs":
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue import requires Owner or Administrator.",
+          );
+        data = listImportJobs(Number(q.get("limit") ?? 50));
+        break;
+      case "import-job": {
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue import requires Owner or Administrator.",
+          );
+        const job = getImportJob(q.get("id") ?? "");
+        if (!job) throw new Error("Import job not found.");
+        data = job;
+        break;
+      }
+      case "import-overview":
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue import requires Owner or Administrator.",
+          );
+        data = offlineReadiness();
+        break;
       default:
         throw new Error("Unknown catalogue query.");
     }
@@ -252,6 +350,52 @@ export async function POST(request: Request) {
           String(body.notes ?? ""),
           role,
         );
+        break;
+      case "import-start": {
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue import requires Owner or Administrator.",
+          );
+        let lines: ImportLine[];
+        if (Array.isArray(body.lines)) {
+          lines = (body.lines as unknown[])
+            .map((l) =>
+              typeof l === "string" ? { part_number: l } : (l as ImportLine),
+            )
+            .filter(
+              (l) => typeof l?.part_number === "string" && l.part_number.trim(),
+            );
+        } else if (typeof body.text === "string") {
+          lines = parseImportLines(body.text);
+        } else {
+          throw new Error(
+            "Provide either lines (array) or text (pasted list).",
+          );
+        }
+        data = await startImportJob({
+          lines,
+          createdBy: role,
+          useProvider: body.useProvider !== false,
+          batchSize:
+            body.batchSize !== undefined ? Number(body.batchSize) : undefined,
+          delayMs:
+            body.delayMs !== undefined ? Number(body.delayMs) : undefined,
+        });
+        break;
+      }
+      case "import-cancel":
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue import requires Owner or Administrator.",
+          );
+        data = { ok: requestCancelImportJob(String(body.id)) };
+        break;
+      case "import-retry":
+        if (!isCatalogueAdmin(role))
+          throw new Error(
+            "Permission denied: catalogue import requires Owner or Administrator.",
+          );
+        data = await retryFailedItems(String(body.id), role);
         break;
       default:
         throw new Error("Unknown catalogue command.");

@@ -36,9 +36,12 @@ import Dashboard from "./Dashboard";
 import CatalogueSource from "./CatalogueSource";
 import { SupersessionForm, CompatibilityForm, Gallery } from "./CatalogueTools";
 import ReferenceCatalogue from "./ReferenceCatalogue";
+import OEMPartSearch from "./OEMPartSearch";
 import CatalogueAdmin from "./CatalogueAdmin";
+import CatalogueImportAdmin from "./CatalogueImportAdmin";
 import { CatalogueClient } from "../catalogue/client";
 import { ReferenceHit, isCatalogueAdmin } from "../catalogue/models";
+import { AuthControls } from "./AuthControls";
 const groups = [
   { name: "Dashboard", icon: LayoutDashboard, items: [] },
   {
@@ -46,6 +49,7 @@ const groups = [
     icon: Package,
     items: [
       "Reference Catalogue",
+      "Import / Warm Up",
       "Parts",
       "Part Numbers",
       "Cross References",
@@ -566,13 +570,18 @@ function App({ services }: { services: Services }) {
   let content: ReactNode;
   if (page === "Reference Catalogue")
     content = (
-      <ReferenceCatalogue
-        services={services}
-        role={persona}
-        initialId={referenceId}
-        openCompany={openPart}
-      />
+      <>
+        <OEMPartSearch services={services} />
+        <ReferenceCatalogue
+          services={services}
+          role={persona}
+          initialId={referenceId}
+          openCompany={openPart}
+        />
+      </>
     );
+  else if (page === "Import / Warm Up")
+    content = <CatalogueImportAdmin role={persona} />;
   else if (page === "Catalogue Administration")
     content = <CatalogueAdmin role={persona} />;
   else if (part) {
@@ -1604,6 +1613,7 @@ function App({ services }: { services: Services }) {
               </div>
             )}
           </div>
+          <AuthControls />
           <details className="account">
             <summary>
               <span className="avatar">DO</span>

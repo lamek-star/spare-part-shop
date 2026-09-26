@@ -10,6 +10,8 @@ import type {
   ImportBatch,
   StagedRecord,
 } from "./models";
+import type { ImportJob, OfflineReadiness } from "./importStore";
+import type { ImportLine } from "./importParsing";
 export type BatchView = {
   batch: Omit<ImportBatch, "records" | "csv">;
   records: Page<StagedRecord>;
@@ -88,6 +90,39 @@ export class CatalogueClient implements CatalogueProvider {
   }
   command<T = BatchView>(body: Record<string, unknown>) {
     return this.request<T>({}, body);
+  }
+  // ---- Admin catalogue warm-up / import (see docs/CATALOGUE_IMPORT.md) ----
+  importJobs(limit = 50) {
+    return this.request<ImportJob[]>({
+      action: "import-jobs",
+      limit: String(limit),
+    });
+  }
+  importJob(id: string) {
+    return this.request<ImportJob>({ action: "import-job", id });
+  }
+  importOverview() {
+    return this.request<OfflineReadiness>({ action: "import-overview" });
+  }
+  startImport(
+    lines: ImportLine[],
+    useProvider: boolean,
+    batchSize?: number,
+    delayMs?: number,
+  ) {
+    return this.command<ImportJob>({
+      action: "import-start",
+      lines,
+      useProvider,
+      batchSize,
+      delayMs,
+    });
+  }
+  cancelImport(id: string) {
+    return this.command<{ ok: boolean }>({ action: "import-cancel", id });
+  }
+  retryImport(id: string) {
+    return this.command<ImportJob>({ action: "import-retry", id });
   }
   // ---- Toyota EPC (disabled by default — see docs/SPARE_PARTS_CATALOG_ARCHITECTURE.md) ----
   private toyota<T>(action: string, params: Record<string, string> = {}) {
