@@ -68,7 +68,9 @@ export function buildRouter(): Router {
   const r = new Router();
 
   // ------------------------------------------------------------ auth
-  r.get("/health", { public: true }, () => ({ data: { status: "ok" } }));
+  r.get("/health", { public: true, noBoot: true }, () => ({
+    data: { status: "ok" },
+  }));
   r.get("/auth/status", { public: true }, async (c) => {
     const configured = await c.app.identity.hasAnyUser();
     const self = (

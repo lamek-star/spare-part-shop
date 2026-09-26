@@ -72,6 +72,9 @@ export interface RouteOptions {
   maxBytes?: number;
   /** Allowed while the account must still change its password. */
   allowMustChange?: boolean;
+  /** Answered without starting the application (process health: it must
+   * work before the application is installed or while its store is down). */
+  noBoot?: boolean;
 }
 type Handler = (ctx: Ctx) => Promise<Result | void> | Result | void;
 interface Route {
@@ -381,6 +384,10 @@ export function createHttpHandler(
       if (unsafe && !sameOrigin(req))
         throw forbidden("Cross-site requests are not allowed.");
 
+      if (route.options.noBoot) {
+        const result = await route.handler({} as Ctx);
+        return respond(result, undefined, requestId);
+      }
       const { app, container } = await boot();
       const ip =
         (req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
