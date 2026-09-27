@@ -80,6 +80,7 @@ try {
           ? "Nothing can be imported until the conflicts are resolved."
           : "Preview only. Run again with --execute to import.",
       );
+    else if (!report.executed) console.log("Nothing was imported.");
     else
       console.log(
         `Imported. Files: ${report.filesUploaded}. Counts match: ${report.countsMatch ? "yes" : "NO"}. Stock ledger problems: ${report.ledgerProblems}.`,
