@@ -34,12 +34,12 @@ export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export async function createContainer(
-  options: { dataDir?: string; memory?: boolean } = {},
+  options: { dataDir?: string; memory?: boolean; forceSqlite?: boolean } = {},
 ): Promise<AppContainer> {
   const dataDir = options.dataDir ?? resolveDataDir();
   let db: SqlDatabase;
   let close: () => Promise<void>;
-  if (testStoreIsPostgres()) {
+  if (testStoreIsPostgres() && !options.forceSqlite) {
     const store = await openTestPostgres(dataDir);
     db = store.db;
     close = store.close;

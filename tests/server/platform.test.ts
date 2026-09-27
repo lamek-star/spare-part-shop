@@ -506,3 +506,163 @@ test("platform: shop settings come from IntraForge; numbers stay atomic in the s
     await t.cleanup();
   }
 });
+
+// ------------------------------------------------------------ migration of a standalone database
+
+test("platform: a standalone shop migrates into IntraForge completely, once, with a preview first", async () => {
+  const { createContainer } =
+    await import("../../src/server/standalone/container");
+  const { seedBasics } = await import("./helpers");
+  const { createBackup } = await import("../../src/server/ops/backup");
+  const { migrateStandalone, StandaloneSource } =
+    await import("../../src/server/platform/migrateStandalone");
+  const srcDir = mkdtempSync(join(tmpdir(), "sp-standalone-"));
+  const backupDir = join(mkdtempSync(join(tmpdir(), "sp-bk-")), "backup");
+  const src = await createContainer({ dataDir: srcDir, forceSqlite: true });
+  const t = await platformApp();
+  try {
+    // a standalone shop with real history
+    const srcApp = createApp(src);
+    const owner = await src.identity.createUser(null, {
+      email: "owner@example.test",
+      displayName: "Olivia Owner",
+      role: "OWNER",
+      password: "correct-horse-battery",
+    });
+    const sales = await src.identity.createUser(owner, {
+      email: "left-the-shop@example.test",
+      displayName: "Sam Sales",
+      role: "SALES",
+      password: "correct-horse-battery",
+    });
+    const tt = {
+      container: src,
+      app: srcApp,
+      actors: { OWNER: owner, SALES: sales, ADMIN: owner },
+    } as never;
+    const base = await seedBasics(tt);
+    await srcApp.products.addImage(owner, base.product.id, {
+      bytes: new Uint8Array(PHOTO),
+      fileName: "photo.png",
+    });
+    await srcApp.sales.addEnquiryItem(sales, {
+      oemNumber: "OIL-001",
+      partName: "Oil filter",
+      quantity: 2,
+    });
+    const draft = (await srcApp.sales.currentEnquiry(sales))!;
+    await srcApp.sales.submitEnquiry(sales, draft.id, {
+      customerId: base.customer.id,
+      contactName: "Buyer",
+    });
+    const quote = await srcApp.sales.createQuotationFromEnquiry(
+      sales,
+      draft.id,
+    );
+    await srcApp.sales.issueQuotation(sales, quote.id);
+    await srcApp.sales.acceptQuotation(sales, quote.id);
+    const order = await srcApp.sales.convertToOrder(sales, quote.id);
+    await srcApp.sales.fulfillOrder(sales, order.id, {});
+    const invoice = await srcApp.sales.invoiceOrder(sales, order.id);
+    await srcApp.sales.recordPayment(sales, invoice.id, {
+      amountMinor: invoice.totalMinor,
+      method: "CASH",
+    });
+    await createBackup(src.db, srcDir, backupDir);
+
+    // IntraForge knows the owner (by email); the salesperson has no account there
+    t.fake.sessions.set("s".repeat(30), { user: "owner", capabilities: ALL });
+    const source = await StandaloneSource.open(backupDir);
+    try {
+      const preview = await migrateStandalone({
+        source,
+        destination: t.db,
+        client: clientFor(t),
+        execute: false,
+      });
+      assert.equal(preview.executed, false);
+      assert.deepEqual(preview.conflicts, []);
+      assert.equal(preview.source.counts.invoices, 1);
+      assert.equal(
+        preview.source.files,
+        1,
+        "the photo (PDFs are generated on demand)",
+      );
+      assert.equal(
+        await t.parts.repos.masterData.getCustomer(base.customer.id),
+        null,
+        "a preview writes nothing",
+      );
+
+      const done = await migrateStandalone({
+        source,
+        destination: t.db,
+        client: clientFor(t),
+        execute: true,
+      });
+      assert.equal(done.executed, true);
+      assert.equal(done.countsMatch, true);
+      assert.equal(done.ledgerProblems, 0);
+      assert.equal(done.filesUploaded, preview.source.files);
+      assert.equal(t.fake.files.size, preview.source.files);
+      assert.deepEqual(
+        done.userMapping.map((u) => [u.email, u.intraforgeUserId]).sort(),
+        [
+          ["left-the-shop@example.test", null],
+          ["owner@example.test", "owner"],
+        ],
+      );
+      // ids, numbers and relationships survive; people are re-keyed
+      const migrated = await t.parts.repos.sales.getInvoice(invoice.id);
+      assert.equal(migrated?.number, invoice.number);
+      assert.equal(migrated?.status, "PAID");
+      assert.equal(
+        (await t.parts.repos.products.get(base.product.id))?.sku,
+        "OIL-001",
+      );
+      const photo = (await t.parts.repos.products.images(base.product.id))[0];
+      const bytes = await t.parts.repos.files.get(photo.fileId);
+      assert.equal(Buffer.compare(Buffer.from(bytes!.bytes), PHOTO), 0);
+      assert.equal(
+        migrated?.createdBy,
+        null,
+        "the salesperson has no IntraForge account",
+      );
+      // numbering continues
+      assert.match(
+        await t.db.write(() =>
+          t.parts.repos.config.nextNumber("invoice", "INV"),
+        ),
+        /-000002$/,
+      );
+
+      // never twice, never over data
+      const again = await migrateStandalone({
+        source,
+        destination: t.db,
+        client: clientFor(t),
+        execute: true,
+      });
+      assert.equal(again.executed, false);
+      assert.match(again.conflicts.join(" "), /already holds business data/);
+    } finally {
+      await source.close();
+    }
+  } finally {
+    await src.close();
+    await t.cleanup();
+    rmSync(srcDir, { recursive: true, force: true });
+  }
+});
+
+const PHOTO = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+function clientFor(t: { fake: Fake }) {
+  return new IntraForgeClient({
+    internalUrl: t.fake.url,
+    serviceToken: TOKEN,
+    timeoutMs: 2000,
+  });
+}
