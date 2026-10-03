@@ -324,6 +324,48 @@ test("a locally stored image is only served while its recorded rights allow disp
   }
 });
 
+test("images skipped at a first import are stored when a later import confirms the rights; stored ones are kept", async () => {
+  const t = await makeApp();
+  try {
+    type Sum = Record<string, { created: number; updated: number; unchanged: number }>;
+    const a = t.actors.ADMIN;
+    const drawingOf = async () =>
+      t.app.catalogue.drawing(
+        a,
+        (await t.app.catalogue.partByOem(a, "15600-25010"))!.drawings[0].drawingId,
+      );
+    const stored = () =>
+      t.container.db.read((h) =>
+        h.count("SELECT COUNT(*) AS n FROM files WHERE kind = 'CATALOGUE_DRAWING'"),
+      );
+
+    await importFrom(t, buildFiles(), { confirm: false });
+    assert.equal((await drawingOf()).imageAvailable, false);
+    assert.equal(await stored(), 0);
+
+    // same package again, rights confirmed this time: the image is stored and shown
+    const confirmed = await importFrom(t, buildFiles(), { confirm: true });
+    const s1 = (confirmed.manifest as { summary: Sum }).summary;
+    assert.equal(s1.drawings.updated, 1, JSON.stringify(s1));
+    const d = await drawingOf();
+    assert.equal(d.imageAvailable, true);
+    assert.equal(d.rights, "LICENSED_FOR_INTERNAL_USE");
+    assert.equal(d.callouts.length, 3);
+    assert.equal(await stored(), 1);
+
+    // a third time: the stored image is kept, nothing stored twice
+    const again = await importFrom(t, buildFiles(), { confirm: true });
+    assert.ok(JSON.stringify(again.manifest).includes("already has a stored image"));
+    assert.equal(await stored(), 1);
+
+    // and an import without confirmation never removes it
+    await importFrom(t, buildFiles(), { confirm: false });
+    assert.equal((await drawingOf()).imageAvailable, true);
+  } finally {
+    await t.cleanup();
+  }
+});
+
 test("the import result counts checked rows as valid and a new drawing as new, also without its image", async () => {
   const t = await makeApp();
   try {

@@ -1036,12 +1036,20 @@ export class PackageImportService {
           const rights =
             ((v.rights || "").toUpperCase() as ImageRights) ||
             "LICENSED_FOR_INTERNAL_USE";
-          if (before?.assetId) {
-            const existing = await r.catalogue.getAsset(before.assetId);
-            if (existing?.fileId)
-              warnings.push(
-                `Drawing ${v.code} already has a stored image; the image in this package was not applied.`,
-              );
+          // A drawing imported earlier WITHOUT its image (rights not confirmed then) has a
+          // metadata-only asset; confirming the rights on a later import stores the image now.
+          // A drawing that already has a stored image keeps it.
+          const existing = before?.assetId
+            ? await r.catalogue.getAsset(before.assetId)
+            : null;
+          if (existing?.fileId) {
+            warnings.push(
+              `Drawing ${v.code} already has a stored image; the image in this package was not applied.`,
+            );
+          } else if (existing && !storeImages) {
+            warnings.push(
+              `Drawing ${v.code}: the image was not stored because image rights were not confirmed; only its metadata is kept.`,
+            );
           } else if (storeImages) {
             const file = await r.files.put({
               bytes,
@@ -1068,7 +1076,7 @@ export class PackageImportService {
               importJobId: jobId,
             });
             await w.attachAssetToDrawing(drawingId, asset);
-            outcome = "created";
+            outcome = drawingCreated ? "created" : "updated";
           } else {
             const asset = await w.saveAsset({
               fileId: null,
