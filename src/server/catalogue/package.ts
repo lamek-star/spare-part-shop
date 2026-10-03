@@ -642,7 +642,13 @@ export class PackageImportService {
         },
         message: "Importing package…",
       });
-      await r.catalogue.updateJob(j.id, { startedAt: nowIso(), attempts: 1 });
+      const checked = Object.values(report.tables);
+      await r.catalogue.updateJob(j.id, {
+        startedAt: nowIso(),
+        attempts: 1,
+        valid: checked.reduce((n, t) => n + (t?.valid ?? 0), 0),
+        invalid: checked.reduce((n, t) => n + (t?.invalid ?? 0), 0),
+      });
       return j;
     });
     const summary: Record<string, Summary> = {};
@@ -995,7 +1001,7 @@ export class PackageImportService {
       }
       case "drawings": {
         const src = await sourceOf(v.source);
-        const drawingId = await w.ensureDrawing({
+        const { id: drawingId, created: drawingCreated } = await w.ensureDrawing({
           sourceId: src.id,
           code: v.code,
           title: v.title || v.code,
@@ -1020,7 +1026,7 @@ export class PackageImportService {
           await w.linkCatalogueDrawing(catalogueId, drawingId, sectionId);
         }
         const before = await r.catalogue.getDrawing(drawingId);
-        let outcome: keyof Summary = "unchanged";
+        let outcome: keyof Summary = drawingCreated ? "created" : "unchanged";
         if (v.image_file) {
           const name = safeImagePath(v.image_file);
           const bytes = source.read(name);
@@ -1101,7 +1107,7 @@ export class PackageImportService {
             `Part ${v.oem_number} is not in parts.csv or the catalogue; list it there first.`,
           );
         const src = await sourceOf(v.source);
-        const drawingId = await w.ensureDrawing({
+        const { id: drawingId } = await w.ensureDrawing({
           sourceId: src.id,
           code: v.drawing,
         });
@@ -1190,7 +1196,7 @@ export class PackageImportService {
                 name: opts.provider,
                 type: "PACKAGE",
               });
-              const drawingId = await w.ensureDrawing({
+              const { id: drawingId } = await w.ensureDrawing({
                 sourceId: src.id,
                 code,
                 title: code,

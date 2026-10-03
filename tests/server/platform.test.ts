@@ -358,6 +358,9 @@ test("platform: the IntraForge session opens the app; nothing else does", async 
       headers: { origin: "http://shop.test", "x-csrf-token": "csrf-" + token },
     });
     assert.ok(!t.fake.sessions.has(token));
+    // ...and asks IntraForge to end the sign-in it came from as well
+    const revoke = t.fake.calls.find((c) => c.path === "/sessions/revoke/");
+    assert.deepEqual(revoke?.body, { token, sign_out: true });
   } finally {
     await t.cleanup();
   }

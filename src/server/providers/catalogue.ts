@@ -110,7 +110,7 @@ export interface CatalogueWriter {
     title?: string;
     revision?: string;
     notes?: string;
-  }): Promise<string>;
+  }): Promise<{ id: string; created: boolean }>;
   linkCatalogueDrawing(
     catalogueId: string,
     drawingId: string,

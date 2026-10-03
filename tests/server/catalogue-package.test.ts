@@ -324,6 +324,27 @@ test("a locally stored image is only served while its recorded rights allow disp
   }
 });
 
+test("the import result counts checked rows as valid and a new drawing as new, also without its image", async () => {
+  const t = await makeApp();
+  try {
+    type Sum = Record<string, { created: number; unchanged: number }>;
+    const first = await importFrom(t, buildFiles(), { confirm: false });
+    assert.ok(first.discovered > 0);
+    assert.equal(first.valid, first.discovered);
+    assert.equal(first.invalid, 0);
+    const s1 = (first.manifest as { summary: Sum }).summary;
+    assert.equal(s1.drawings.created, 1, JSON.stringify(s1));
+    assert.equal(s1.drawings.unchanged, 0);
+
+    const again = await importFrom(t, buildFiles(), { confirm: false });
+    const s2 = (again.manifest as { summary: Sum }).summary;
+    assert.equal(s2.drawings.created, 0);
+    assert.equal(s2.drawings.unchanged, 1);
+  } finally {
+    await t.cleanup();
+  }
+});
+
 test("importing the same package again is idempotent: nothing duplicated, images not stored twice", async () => {
   const t = await makeApp();
   try {

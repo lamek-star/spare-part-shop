@@ -76,6 +76,7 @@ interface Part {
     status: string;
     priceUsdMinor: number | null;
     priceJpy: number | null;
+    notes: string;
     observedAt: string;
   }[];
   sources: {
@@ -357,6 +358,15 @@ export default function ReferencePartPage({
                 ]
                   .filter(Boolean)
                   .join(" · "),
+            },
+            {
+              header: "Notes",
+              cell: (f) =>
+                f.notes ? (
+                  <span style={{ whiteSpace: "pre-line" }}>{f.notes}</span>
+                ) : (
+                  "—"
+                ),
             },
             { header: "Recorded", cell: (f) => formatDate(f.observedAt) },
           ]}

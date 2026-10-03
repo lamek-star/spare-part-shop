@@ -412,7 +412,7 @@ export async function applyRecord(
       });
       changed ||= fitment.created;
       for (const figure of rec.figures) {
-        const drawingId = await w.ensureDrawing({
+        const { id: drawingId } = await w.ensureDrawing({
           sourceId: source.id,
           code: figure,
           title: figure,
@@ -428,7 +428,7 @@ export async function applyRecord(
     }
   } else if (rec.figures.length) {
     for (const figure of rec.figures) {
-      const drawingId = await w.ensureDrawing({
+      const { id: drawingId } = await w.ensureDrawing({
         sourceId: source.id,
         code: figure,
         title: figure,

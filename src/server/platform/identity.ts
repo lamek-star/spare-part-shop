@@ -74,9 +74,14 @@ export class PlatformIdentityProvider implements IdentityProvider {
     return session;
   }
 
+  /** "Sign out" here ends the IntraForge sign-in this session came from too, so
+   * on a shared counter PC the next person must sign in as themselves. */
   async signOut(token: string): Promise<void> {
     this.cache.delete(token);
-    await this.client.json("POST", "/sessions/revoke/", { token });
+    await this.client.json("POST", "/sessions/revoke/", {
+      token,
+      sign_out: true,
+    });
   }
 
   async hasAnyUser(): Promise<boolean> {

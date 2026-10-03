@@ -1304,7 +1304,7 @@ class SqliteCatalogueWriter implements CatalogueWriter {
             "UPDATE drawings SET title = CASE WHEN title = '' THEN ? ELSE title END WHERE id = ?",
             [d.title, r.id],
           );
-        return r.id;
+        return { id: r.id, created: false };
       }
       const id = newId();
       await h.run(
@@ -1318,7 +1318,7 @@ class SqliteCatalogueWriter implements CatalogueWriter {
           d.notes ?? "",
         ],
       );
-      return id;
+      return { id, created: true };
     });
   }
   async linkCatalogueDrawing(

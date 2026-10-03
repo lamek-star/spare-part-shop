@@ -120,7 +120,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
       async signOut() {
         await post("/auth/logout").catch(() => undefined);
-        if (platformOpenUrl) return toIntraForge("/");
+        // On IntraForge the sign-in has ended too: reloading finds no session and
+        // goes to the shop's sign-in page (IntraForge's, branded for this app).
+        if (platformOpenUrl) return toIntraForge(platformOpenUrl);
         setMe(null);
         setCsrfToken("");
         setStatus("anonymous");
