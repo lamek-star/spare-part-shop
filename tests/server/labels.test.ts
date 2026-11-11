@@ -8,6 +8,7 @@ import {
   code128Widths,
 } from "../../src/server/labels/code128";
 import { qrMatrix, qrSvg, MAX_QR_BYTES } from "../../src/server/labels/qr";
+import { labelSvg } from "../../src/server/labels/label";
 import { makeHttpApp } from "./http-helpers";
 
 test("Code 128: the pattern table is well formed and encoding follows the standard", () => {
@@ -132,4 +133,69 @@ test("labels are served for products the caller may read, and the scanned code r
   } finally {
     await t.cleanup();
   }
+});
+
+test("the whole label: the shop's name, the product, the captioned number, the price, at label-printer or A4-sheet size", async () => {
+  const t = await makeHttpApp();
+  try {
+    const owner = await t.as("OWNER");
+    await owner.put("/settings", { shopName: "Lamek <Spare> & Parts" });
+    const inv = await t.as("INVENTORY");
+    const p = (
+      await inv.post("/products", {
+        sku: "BRK-2207",
+        name: "Front brake pads for Toyota Corolla 2014 to 2019 models",
+        brand: "Brembo",
+        category: "Brakes",
+        priceMinor: 12550,
+      })
+    ).data;
+    // A viewer may print the label without being allowed to read the rest of the shop's settings.
+    const viewer = await t.as("VIEWER");
+    const printer = await viewer.get(
+      `/products/${p.id}/label.svg?type=code128&size=printer&price=1`,
+    );
+    assert.equal(printer.status, 200);
+    const svg = new TextDecoder().decode(printer.raw);
+    assert.match(svg, /viewBox="0 0 50 30"/);
+    assert.match(svg, /LAMEK &#60;SPARE&#62; &#38; PARTS/); // escaped, upper case
+    assert.match(svg, /Part No\. BRK-2207/);
+    assert.match(svg, /Brembo · Brakes/);
+    assert.match(svg, /AED 125\.50/);
+    assert.match(
+      svg,
+      /<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="[\d.]+"\/>/,
+    ); // barcode bars
+    assert.ok(!svg.includes("<script"));
+    const sheet = new TextDecoder().decode(
+      (await viewer.get(`/products/${p.id}/label.svg?type=qr&size=sheet`)).raw,
+    );
+    assert.match(sheet, /viewBox="0 0 70 37"/);
+    assert.match(sheet, /<path d="M/); // the QR code
+    assert.ok(!sheet.includes("AED"), "no price unless asked");
+    assert.equal(
+      (await viewer.get(`/products/${p.id}/label.svg?size=huge`)).status,
+      400,
+    );
+  } finally {
+    await t.cleanup();
+  }
+});
+
+test("a pharmacy label says Item No. and marks a prescription medicine Rx", () => {
+  const svg = labelSvg(
+    {
+      shop: "Lamek Pharmacy",
+      name: "Amoxicillin 500 mg capsules",
+      details: ["Amoxicillin 500 mg capsule", "Pack of 21"],
+      number: "MED-0042",
+      numberCaption: "Item No.",
+      flag: "Rx",
+    },
+    "printer",
+    "code128",
+  );
+  assert.match(svg, />Rx</);
+  assert.match(svg, /Item No\. MED-0042/);
+  assert.match(svg, /LAMEK PHARMACY/);
 });

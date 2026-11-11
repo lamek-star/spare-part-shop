@@ -1,9 +1,11 @@
 import { AppError, notFound, validation } from "../kernel/errors";
 import { permissionsOf, requirePermission } from "../domain/permissions";
 import { toCsv } from "../catalogue/csv";
-import { edition } from "../edition";
+import { edition, isPharmacy } from "../edition";
 import { code128Svg } from "../labels/code128";
 import { qrSvg } from "../labels/qr";
+import { labelSvg } from "../labels/label";
+import { formatMoney } from "../kernel/money";
 import { PackageError, ZipSource } from "../catalogue/packageSource";
 import type {
   ColumnMapping,
@@ -499,14 +501,58 @@ export function buildRouter(): Router {
       const kind = c.query.str("type") ?? "code128";
       if (kind !== "code128" && kind !== "qr")
         throw validation("type must be code128 or qr.");
-      const { product } = await c.app.products.detail(c.actor, c.params.id);
+      const size = c.query.str("size");
+      if (size !== undefined && size !== "printer" && size !== "sheet")
+        throw validation("size must be printer or sheet.");
       let svg: string;
       try {
-        svg =
-          kind === "qr"
-            ? qrSvg(product.sku, { caption: product.sku })
-            : code128Svg(product.sku);
+        if (size) {
+          // The whole label: shop name, product, details, code, captioned number (and the price if asked).
+          const { detail, shopName, currency } = await c.app.products.labelData(
+            c.actor,
+            c.params.id,
+          );
+          const p = detail.product;
+          const pharmacy = isPharmacy();
+          svg = labelSvg(
+            {
+              shop: shopName,
+              name: p.name,
+              details: pharmacy
+                ? [
+                    [p.genericName, p.strength, p.dosageForm]
+                      .filter(Boolean)
+                      .join(" "),
+                    p.brand,
+                  ]
+                : [
+                    [p.brand || p.manufacturer, p.category]
+                      .filter(Boolean)
+                      .join(" · "),
+                    p.description.split("\n")[0] ?? "",
+                  ],
+              number: p.sku,
+              numberCaption: pharmacy ? "Item No." : "Part No.",
+              price:
+                c.query.str("price") === "1"
+                  ? formatMoney(p.priceMinor, p.currency || currency)
+                  : undefined,
+              flag: pharmacy && p.prescriptionOnly ? "Rx" : undefined,
+            },
+            size,
+            kind,
+          );
+        } else {
+          const { product } = await c.app.products.detail(c.actor, c.params.id);
+          svg =
+            kind === "qr"
+              ? qrSvg(product.sku, { caption: product.sku })
+              : code128Svg(product.sku);
+        }
       } catch (e) {
+        // A missing product or a refused permission keeps its own answer; only a number the codes cannot
+        // encode becomes a validation error.
+        if (e instanceof AppError) throw e;
         throw validation(
           e instanceof Error
             ? e.message

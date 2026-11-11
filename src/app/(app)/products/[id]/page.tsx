@@ -12,7 +12,6 @@ import {
   KeyValues,
   Loading,
   Metrics,
-  Modal,
   Money,
   PageHead,
   Panel,
@@ -44,7 +43,7 @@ import {
   productFields,
   productPayload,
 } from "../../../../ui/productForm";
-import { apiUrl } from "@/lib/basePath";
+import { LabelDialog } from "../../../../ui/labelDialog";
 
 interface Product {
   id: string;
@@ -228,7 +227,7 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
   const act = useAction(reload);
   const file = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState(0);
-  const [label, setLabel] = useState<"code128" | "qr" | null>(null);
+  const [label, setLabel] = useState(false);
   const images = d.images;
   const main = images[Math.min(selected, images.length - 1)];
   const canWrite = s.can("products.write");
@@ -427,38 +426,16 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
             ]}
           />
           <div className="actions" style={{ marginTop: 16 }}>
-            <button onClick={() => setLabel("code128")}>Barcode label</button>
-            <button onClick={() => setLabel("qr")}>QR label</button>
+            <button onClick={() => setLabel(true)}>Print label</button>
           </div>
         </Panel>
       </div>
       {label && (
-        <Modal
-          title={label === "qr" ? "QR label" : "Barcode label"}
-          onClose={() => setLabel(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- generated SVG from the API */}
-          <img
-            src={apiUrl(`/products/${p.id}/label.svg?type=${label}`)}
-            alt={`${label} for ${p.sku}`}
-            style={{ maxWidth: "100%", background: "#fff" }}
-          />
-          <p className="muted">
-            Scanning this label in “Scan / Lookup” opens this product.
-          </p>
-          <div className="form-actions">
-            <button
-              onClick={() =>
-                window.open(
-                  apiUrl(`/products/${p.id}/label.svg?type=${label}`),
-                  "_blank",
-                )
-              }
-            >
-              Open to print
-            </button>
-          </div>
-        </Modal>
+        <LabelDialog
+          productId={p.id}
+          sku={p.sku}
+          onClose={() => setLabel(false)}
+        />
       )}
     </>
   );

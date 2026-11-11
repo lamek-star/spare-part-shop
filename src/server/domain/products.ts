@@ -217,6 +217,19 @@ export class ProductService {
     requirePermission(actor, "products.read");
     return this.uow.read(async (r) => this.loadDetail(r, actor, id));
   }
+  /** What a product's label shows: the product, and the shop's name and currency from Settings (anyone who may
+   * see the product may print its label, without needing to read the rest of the settings). */
+  async labelData(
+    actor: Actor,
+    id: string,
+  ): Promise<{ detail: ProductDetail; shopName: string; currency: string }> {
+    requirePermission(actor, "products.read");
+    return this.uow.read(async (r) => {
+      const detail = await this.loadDetail(r, actor, id);
+      const cfg = await r.config.get();
+      return { detail, shopName: cfg.shopName, currency: cfg.currency };
+    });
+  }
   private async loadDetail(
     r: Repositories,
     actor: Actor,
