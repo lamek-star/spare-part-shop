@@ -3,10 +3,12 @@ import type {
   Page,
   Reservation,
   StockBalance,
+  StockBatch,
   StockMovement,
 } from "../../domain/types";
 import type {
   BalanceQuery,
+  BatchQuery,
   InventoryRepository,
   MovementQuery,
 } from "../../providers/data";
@@ -27,6 +29,17 @@ const movement = (r: Row): StockMovement => ({
   note: s(r.note),
   createdAt: s(r.created_at),
   createdBy: (r.created_by as string | null) ?? null,
+  batchId: (r.batch_id as string | null) ?? null,
+});
+const batch = (r: Row): StockBatch => ({
+  id: s(r.id),
+  productId: s(r.product_id),
+  locationId: s(r.location_id),
+  batchNo: s(r.batch_no),
+  expiryDate: s(r.expiry_date),
+  onHand: Number(r.on_hand),
+  createdAt: s(r.created_at),
+  updatedAt: s(r.updated_at),
 });
 const reservation = (r: Row): Reservation => ({
   id: s(r.id),
@@ -108,8 +121,8 @@ export class SqliteInventoryRepository implements InventoryRepository {
   async insertMovement(m: StockMovement & { transferId?: string | null }) {
     await this.db.write(async (h) =>
       h.run(
-        `INSERT INTO stock_movements(id,product_id,location_id,type,quantity,reference_type,reference_id,transfer_id,note,created_at,created_by)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO stock_movements(id,product_id,location_id,type,quantity,reference_type,reference_id,transfer_id,note,created_at,created_by,batch_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           m.id,
           m.productId,
@@ -122,6 +135,7 @@ export class SqliteInventoryRepository implements InventoryRepository {
           m.note,
           m.createdAt,
           m.createdBy,
+          m.batchId ?? null,
         ],
       ),
     );
@@ -247,7 +261,7 @@ export class SqliteInventoryRepository implements InventoryRepository {
       const problems: {
         productId: string;
         locationId: string;
-        field: "on_hand" | "reserved";
+        field: "on_hand" | "reserved" | "batches";
         stored: number;
         expected: number;
       }[] = [];
@@ -264,6 +278,47 @@ export class SqliteInventoryRepository implements InventoryRepository {
                 COALESCE((SELECT SUM(quantity) FROM reservations r WHERE r.product_id = b.product_id AND r.location_id = b.location_id AND r.status = 'ACTIVE'), 0) AS r
            FROM stock_balances b`,
       );
+      // Batch-tracked stock: the batches at a location add up to its balance, and each batch's quantity
+      // is the sum of the movements that name it.
+      const batchRows = await h.all<{
+        product_id: string;
+        location_id: string;
+        on_hand: number;
+        b: number;
+      }>(
+        `SELECT b.product_id, b.location_id, b.on_hand,
+                COALESCE((SELECT SUM(on_hand) FROM stock_batches x WHERE x.product_id = b.product_id AND x.location_id = b.location_id), 0) AS b
+           FROM stock_balances b JOIN products p ON p.id = b.product_id
+          WHERE p.track_batches = 1`,
+      );
+      for (const r of batchRows)
+        if (Number(r.on_hand) !== Number(r.b))
+          problems.push({
+            productId: r.product_id,
+            locationId: r.location_id,
+            field: "batches",
+            stored: Number(r.b),
+            expected: Number(r.on_hand),
+          });
+      const movedRows = await h.all<{
+        product_id: string;
+        location_id: string;
+        on_hand: number;
+        m: number;
+      }>(
+        `SELECT x.product_id, x.location_id, x.on_hand,
+                COALESCE((SELECT SUM(quantity) FROM stock_movements m WHERE m.batch_id = x.id), 0) AS m
+           FROM stock_batches x`,
+      );
+      for (const r of movedRows)
+        if (Number(r.on_hand) !== Number(r.m))
+          problems.push({
+            productId: r.product_id,
+            locationId: r.location_id,
+            field: "batches",
+            stored: Number(r.on_hand),
+            expected: Number(r.m),
+          });
       for (const r of rows) {
         if (r.on_hand !== r.m)
           problems.push({
@@ -284,5 +339,77 @@ export class SqliteInventoryRepository implements InventoryRepository {
       }
       return problems;
     });
+  }
+
+  async findBatch(
+    productId: string,
+    locationId: string,
+    batchNo: string,
+    expiryDate: string,
+  ) {
+    const r = await this.db.read(async (h) =>
+      h.get<Row>(
+        "SELECT * FROM stock_batches WHERE product_id = ? AND location_id = ? AND batch_no = ? AND expiry_date = ?",
+        [productId, locationId, batchNo, expiryDate],
+      ),
+    );
+    return r ? batch(r) : null;
+  }
+  async getBatch(id: string) {
+    const r = await this.db.read(async (h) =>
+      h.get<Row>("SELECT * FROM stock_batches WHERE id = ?", [id]),
+    );
+    return r ? batch(r) : null;
+  }
+  async insertBatch(b: StockBatch) {
+    await this.db.write(async (h) =>
+      h.run(
+        `INSERT INTO stock_batches(id,product_id,location_id,batch_no,expiry_date,on_hand,created_at,updated_at)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [
+          b.id,
+          b.productId,
+          b.locationId,
+          b.batchNo,
+          b.expiryDate,
+          b.onHand,
+          b.createdAt,
+          b.updatedAt,
+        ],
+      ),
+    );
+  }
+  async applyBatchDelta(id: string, delta: number) {
+    try {
+      await this.db.write(async (h) =>
+        h.run(
+          "UPDATE stock_batches SET on_hand = on_hand + ?, updated_at = ? WHERE id = ?",
+          [delta, nowIso(), id],
+        ),
+      );
+    } catch (error) {
+      if (isCheckViolation(error))
+        throw conflict("Not enough stock in that batch.", "INSUFFICIENT_STOCK");
+      throw error;
+    }
+  }
+  async batches(q: BatchQuery) {
+    const where: string[] = [];
+    const params: string[] = [];
+    if (q.productId) (where.push("product_id = ?"), params.push(q.productId));
+    if (q.locationId)
+      (where.push("location_id = ?"), params.push(q.locationId));
+    if (q.onlyPositive) where.push("on_hand > 0");
+    if (q.expiringOnOrBefore)
+      (where.push("expiry_date <= ?"), params.push(q.expiringOnOrBefore));
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          `SELECT * FROM stock_batches ${where.length ? "WHERE " + where.join(" AND ") : ""}
+            ORDER BY expiry_date, batch_no, location_id`,
+          params,
+        )
+      ).map(batch),
+    );
   }
 }

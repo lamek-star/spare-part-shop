@@ -108,6 +108,7 @@ test("the very first request on an empty database offers setup, and only setup",
     );
     assert.deepEqual((await c.get("/auth/status")).data, {
       needsSetup: true,
+      edition: "spare-parts",
       shopName: "",
     });
     assert.equal((await c.get("/products")).status, 401);

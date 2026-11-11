@@ -39,7 +39,11 @@ import {
   locationOptions,
   useWarehouses,
 } from "../../../../ui/stock";
-import { productFields, productPayload } from "../../../../ui/productForm";
+import {
+  belowCostWarning,
+  productFields,
+  productPayload,
+} from "../../../../ui/productForm";
 import { apiUrl } from "@/lib/basePath";
 
 interface Product {
@@ -62,6 +66,11 @@ interface Product {
   minimumLevel: number;
   defaultSupplierId: string | null;
   notes: string;
+  genericName: string;
+  strength: string;
+  dosageForm: string;
+  prescriptionOnly: boolean;
+  trackBatches: boolean;
   updatedAt: string;
 }
 interface Detail {
@@ -197,8 +206,10 @@ export default function ProductPage({
             canCost: s.can("products.cost.read"),
             suppliers: suppliers.data?.items ?? [],
             creating: false,
+            pharmacy: s.edition === "pharmacy",
           })}
           initial={{ ...p, defaultSupplierId: p.defaultSupplierId ?? "" }}
+          warnBeforeSave={belowCostWarning}
           onClose={() => setEditing(false)}
           onSubmit={async (v) => {
             await patch(`/products/${id}`, productPayload(v));
@@ -384,6 +395,25 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
           <KeyValues
             items={[
               ["SKU", p.sku],
+              ...(p.genericName || p.strength || p.dosageForm
+                ? ([
+                    ["Generic name", p.genericName],
+                    ["Strength", p.strength],
+                    ["Dosage form", p.dosageForm],
+                  ] as [string, string][])
+                : []),
+              ...(p.prescriptionOnly
+                ? ([["Prescription", "Prescription only"]] as [
+                    string,
+                    string,
+                  ][])
+                : []),
+              ...(p.trackBatches
+                ? ([["Stock", "Kept in batches with expiry dates"]] as [
+                    string,
+                    string,
+                  ][])
+                : []),
               ["Brand", p.brand],
               ["Manufacturer", p.manufacturer],
               ["Category", p.category],
@@ -552,9 +582,24 @@ function StockTab({ d, reload }: { d: Detail; reload: () => void }) {
       : null,
     d.totals.onHand,
   );
+  const batches = useApi<
+    {
+      id: string;
+      batchNo: string;
+      expiryDate: string;
+      locationId: string;
+      onHand: number;
+    }[]
+  >(
+    d.product.trackBatches && s.can("inventory.read")
+      ? `/products/${d.product.id}/batches`
+      : null,
+    d.stock,
+  );
   const props = {
     productId: d.product.id,
     productName: d.product.name,
+    trackBatches: d.product.trackBatches,
     warehouses: wh.data,
     onClose: () => setModal(""),
     onDone: () => (reload(), moves.reload()),
@@ -588,6 +633,30 @@ function StockTab({ d, reload }: { d: Detail; reload: () => void }) {
           ]}
         />
       </Panel>
+      {d.product.trackBatches && batches.data && (
+        <Panel title="Batches (sold earliest expiry first)">
+          <DataTable
+            rowKey={(b) => b.id}
+            rows={batches.data}
+            empty="No batches in stock."
+            columns={[
+              { header: "Batch", cell: (b) => b.batchNo },
+              {
+                header: "Expires",
+                cell: (b) => (
+                  <span
+                    className={`badge ${b.expiryDate < new Date().toISOString().slice(0, 10) ? "red" : "green"}`}
+                  >
+                    {b.expiryDate}
+                  </span>
+                ),
+              },
+              { header: "Location", cell: (b) => locName(b.locationId) },
+              { header: "Units", align: "right", cell: (b) => b.onHand },
+            ]}
+          />
+        </Panel>
+      )}
       {moves.data && (
         <Panel title="Recent movements">
           <DataTable

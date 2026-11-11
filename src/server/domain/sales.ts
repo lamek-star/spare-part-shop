@@ -17,7 +17,7 @@ import { paymentMethods } from "./types";
 import { conflict, forbidden, notFound, validation } from "../kernel/errors";
 import { documentTotals, lineTotal } from "../kernel/money";
 import { newId, normalizeNumber, nowIso } from "../kernel/ids";
-import { InventoryOps } from "./inventory";
+import { batchInput, InventoryOps } from "./inventory";
 import { requirePermission } from "./permissions";
 import {
   integer,
@@ -31,12 +31,93 @@ import {
 import type { Paged } from "../providers/data";
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** The customer counter sales go to when none is chosen; created the first time it is needed. */
+const WALK_IN_ID = "walk-in-customer";
+async function walkInCustomer(r: Repositories) {
+  const existing = await r.masterData.getCustomer(WALK_IN_ID);
+  if (existing) return existing;
+  const cfg = await r.config.get();
+  const now = nowIso();
+  const customer = {
+    id: WALK_IN_ID,
+    code: "WALK-IN",
+    name: "Walk-in customer",
+    contactPerson: "",
+    phone: "",
+    email: "",
+    billingAddress: "",
+    shippingAddress: "",
+    country: "",
+    taxNumber: "",
+    currency: cfg.currency,
+    paymentTerms: "",
+    creditLimitMinor: 0,
+    notes: "Counter sales without a named customer.",
+    status: "ACTIVE" as const,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await r.masterData.insertCustomer(customer);
+  return customer;
+}
 const addDays = (date: string, days: number) => {
   const d = new Date(date + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 };
 export const LINE_REFERENCE = "SALES_ORDER_LINE";
+
+/** Records a payment on an invoice, inside the caller's unit of work: the one
+ * place that checks the invoice may take it and moves the balance. Used for a
+ * payment typed in at the counter and for an IntraForge Pay payment alike. */
+export async function applyPayment(
+  r: Repositories,
+  actor: Actor,
+  invoiceId: string,
+  fields: Pick<
+    Payment,
+    "amountMinor" | "method" | "reference" | "paidAt" | "notes"
+  >,
+  audit: { summary?: string; metadata?: Record<string, unknown> } = {},
+): Promise<{ invoice: Invoice; payment: Payment }> {
+  const invoice = await r.sales.getInvoice(invoiceId);
+  if (!invoice) throw notFound("Invoice");
+  if (invoice.status === "VOID")
+    throw conflict("A void invoice cannot take payments.");
+  if (invoice.status === "PAID" || invoice.balanceMinor <= 0)
+    throw conflict("This invoice is already paid in full.");
+  if (fields.amountMinor > invoice.balanceMinor)
+    throw validation(
+      `The payment exceeds the balance due (${invoice.balanceMinor} minor units).`,
+    );
+  const payment: Payment = {
+    id: newId(),
+    invoiceId,
+    ...fields,
+    recordedBy: actor.id,
+    createdAt: nowIso(),
+  };
+  await r.sales.insertPayment(payment);
+  invoice.amountPaidMinor += fields.amountMinor;
+  invoice.balanceMinor = invoice.totalMinor - invoice.amountPaidMinor;
+  invoice.status = invoice.balanceMinor === 0 ? "PAID" : "PARTIALLY_PAID";
+  invoice.updatedAt = nowIso();
+  await r.sales.saveInvoice(invoice);
+  await r.audit.record(actor, {
+    action: "payment.record",
+    entityType: "invoice",
+    entityId: invoiceId,
+    summary: audit.summary ?? `Payment recorded on ${invoice.number}`,
+    metadata: {
+      amountMinor: fields.amountMinor,
+      method: fields.method,
+      paymentId: payment.id,
+      ...audit.metadata,
+    },
+  });
+  return { invoice, payment };
+}
 
 /** Validates client-supplied lines and computes every amount here — the
  * server never trusts a client-supplied line total. */
@@ -959,6 +1040,10 @@ export class SalesService {
             referenceType: "SALES_RETURN",
             referenceId: ret.id,
             note: `${order.number} ${number}`,
+            // A batch-tracked medicine goes back into a batch: the one named, else one sold on this order.
+            batch: batchInput(l.batchNo, l.expiryDate),
+            batchId: text(l.batchId, "Batch", { max: 64 }) || null,
+            soldUnder: { referenceType: "SALES_ORDER", referenceId: order.id },
           });
           ret.lines.push({
             orderLineId: line.id,
@@ -1081,6 +1166,94 @@ export class SalesService {
       return invoice;
     });
   }
+  /**
+   * Counter sale (the pharmacy till): scanned lines are delivered, invoiced and paid in one transaction,
+   * at the products' own prices. A prescription-only medicine needs the prescription reference, which is
+   * kept on the order for the prescription register. Without a customer the sale goes to "Walk-in customer".
+   */
+  async counterSale(
+    actor: Actor,
+    raw: unknown,
+  ): Promise<{
+    invoice: Invoice;
+    payment: Payment | null;
+    changeMinor: number;
+  }> {
+    requirePermission(actor, "orders.write");
+    requirePermission(actor, "invoices.write");
+    requirePermission(actor, "payments.record");
+    const input = record(raw);
+    const prescriptionRef = text(
+      input.prescriptionRef,
+      "Prescription reference",
+      {
+        max: 120,
+      },
+    );
+    const method = oneOf(
+      input.method,
+      paymentMethods,
+      "Payment method",
+      "CASH",
+    );
+    const reference = text(input.paymentReference, "Payment reference", {
+      max: 120,
+    });
+    const tendered =
+      input.amountTenderedMinor === undefined ||
+      input.amountTenderedMinor === null ||
+      input.amountTenderedMinor === ""
+        ? null
+        : moneyMinor(input.amountTenderedMinor, "Amount given");
+    if (!Array.isArray(input.lines) || input.lines.length === 0)
+      throw validation("Scan or add at least one item.");
+    return this.uow.write(async (r) => {
+      const lines = [];
+      for (const [index, item] of (input.lines as unknown[]).entries()) {
+        const l = record(item, `Line ${index + 1}`);
+        const productId = text(l.productId, `Product on line ${index + 1}`, {
+          required: true,
+          max: 64,
+        });
+        const product = await r.products.get(productId);
+        if (!product) throw notFound(`Product on line ${index + 1}`);
+        if (product.prescriptionOnly && !prescriptionRef)
+          throw validation(
+            `${product.name} is prescription-only: enter the prescription reference.`,
+          );
+        lines.push({
+          productId,
+          quantity: l.quantity,
+          unitPriceMinor: product.priceMinor,
+        });
+      }
+      const customerId =
+        text(input.customerId, "Customer", { max: 64 }) ||
+        (await walkInCustomer(r)).id;
+      const order = await this.createOrder(actor, {
+        customerId,
+        lines,
+        notes: prescriptionRef ? `Prescription: ${prescriptionRef}` : "",
+      });
+      if (prescriptionRef)
+        await r.sales.setPrescriptionRef(order.id, prescriptionRef);
+      const invoice = await this.sellNow(actor, order.id);
+      if (tendered !== null && tendered < invoice.totalMinor)
+        throw validation("The amount given is less than the total.");
+      if (invoice.totalMinor === 0)
+        return { invoice, payment: null, changeMinor: 0 };
+      const paid = await this.recordPayment(actor, invoice.id, {
+        amountMinor: invoice.totalMinor,
+        method,
+        reference,
+      });
+      return {
+        invoice: paid.invoice,
+        payment: paid.payment,
+        changeMinor: tendered === null ? 0 : tendered - invoice.totalMinor,
+      };
+    });
+  }
   /** Walk-in convenience: deliver everything and bill it in one step. */
   async sellNow(actor: Actor, orderId: string): Promise<Invoice> {
     await this.fulfillOrder(actor, orderId, {});
@@ -1098,43 +1271,14 @@ export class SalesService {
       max: 9_000_000_000_000,
     });
     const method = oneOf(input.method, paymentMethods, "Payment method");
-    return this.uow.write(async (r) => {
-      const invoice = await r.sales.getInvoice(invoiceId);
-      if (!invoice) throw notFound("Invoice");
-      if (invoice.status === "VOID")
-        throw conflict("A void invoice cannot take payments.");
-      if (invoice.status === "PAID" || invoice.balanceMinor <= 0)
-        throw conflict("This invoice is already paid in full.");
-      if (amountMinor > invoice.balanceMinor)
-        throw validation(
-          `The payment exceeds the balance due (${invoice.balanceMinor} minor units).`,
-        );
-      const payment: Payment = {
-        id: newId(),
-        invoiceId,
-        amountMinor,
-        method,
-        reference: text(input.reference, "Reference", { max: 120 }),
-        paidAt: isoDate(input.paidAt, "Payment date") ?? today(),
-        notes: text(input.notes, "Notes", { max: 500 }),
-        recordedBy: actor.id,
-        createdAt: nowIso(),
-      };
-      await r.sales.insertPayment(payment);
-      invoice.amountPaidMinor += amountMinor;
-      invoice.balanceMinor = invoice.totalMinor - invoice.amountPaidMinor;
-      invoice.status = invoice.balanceMinor === 0 ? "PAID" : "PARTIALLY_PAID";
-      invoice.updatedAt = nowIso();
-      await r.sales.saveInvoice(invoice);
-      await r.audit.record(actor, {
-        action: "payment.record",
-        entityType: "invoice",
-        entityId: invoiceId,
-        summary: `Payment recorded on ${invoice.number}`,
-        metadata: { amountMinor, method, paymentId: payment.id },
-      });
-      return { invoice, payment };
-    });
+    const fields = {
+      amountMinor,
+      method,
+      reference: text(input.reference, "Reference", { max: 120 }),
+      paidAt: isoDate(input.paidAt, "Payment date") ?? today(),
+      notes: text(input.notes, "Notes", { max: 500 }),
+    };
+    return this.uow.write((r) => applyPayment(r, actor, invoiceId, fields));
   }
   async voidInvoice(
     actor: Actor,

@@ -56,8 +56,12 @@ export default function PurchaseOrderPage({
     po.data ? `/suppliers/${po.data.supplierId}` : null,
   );
   const products = useApi<{
-    items: { id: string; sku: string; name: string }[];
+    items: { id: string; sku: string; name: string; trackBatches?: boolean }[];
   }>(po.data ? `/products?pageSize=100` : null);
+  // Medicines: the batch number and expiry date printed on the delivered packs, per order line.
+  const [batches, setBatches] = useState<
+    Record<string, { batchNo: string; expiryDate: string }>
+  >({});
   const act = useAction(po.reload);
   const [receiving, setReceiving] = useState<Record<string, string> | null>(
     null,
@@ -74,12 +78,16 @@ export default function PurchaseOrderPage({
     const lines = Object.entries(receiving ?? {}).map(([lineId, v]) => ({
       lineId,
       quantity: Number(v || 0),
+      ...(batches[lineId] ?? {}),
     }));
     const ok = await act.run(
       () => post(`/purchase-orders/${id}/receive`, { lines }),
       "Goods received into stock",
     );
-    if (ok) setReceiving(null);
+    if (ok) {
+      setReceiving(null);
+      setBatches({});
+    }
   }
   return (
     <>
@@ -226,6 +234,38 @@ export default function PurchaseOrderPage({
                     setReceiving({ ...receiving, [l.id]: e.target.value })
                   }
                 />
+                {name(l.productId)?.trackBatches && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    <input
+                      aria-label="Batch number"
+                      placeholder="Batch number"
+                      value={batches[l.id]?.batchNo ?? ""}
+                      onChange={(e) =>
+                        setBatches({
+                          ...batches,
+                          [l.id]: {
+                            expiryDate: batches[l.id]?.expiryDate ?? "",
+                            batchNo: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="date"
+                      aria-label="Expiry date"
+                      value={batches[l.id]?.expiryDate ?? ""}
+                      onChange={(e) =>
+                        setBatches({
+                          ...batches,
+                          [l.id]: {
+                            batchNo: batches[l.id]?.batchNo ?? "",
+                            expiryDate: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                )}
               </FieldBox>
             ))}
           <ErrorBanner message={act.error} />

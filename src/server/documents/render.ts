@@ -1,7 +1,7 @@
 import type { Customer, DocumentLine, Payment, Totals } from "../domain/types";
 import type { ShopConfig } from "../providers/core";
 import { formatMoney, toDecimalString } from "../kernel/money";
-import { A4, PdfDocument, wrapText } from "./pdf";
+import { A4, PdfDocument, textWidth, wrapText } from "./pdf";
 
 export interface CommercialDocument extends Totals {
   kind: "QUOTATION" | "INVOICE";
@@ -68,7 +68,11 @@ export function renderCommercialDocument(
         hy += 12;
       }
     }
-    pdf.text(RIGHT, 52, doc.kind === "INVOICE" ? "TAX INVOICE" : "QUOTATION", {
+    // H6: a tax invoice must show the supplier's tax registration number; without one it is a plain invoice.
+    const invoiceTitle = shop.taxRegistration?.trim()
+      ? "TAX INVOICE"
+      : "INVOICE";
+    pdf.text(RIGHT, 52, doc.kind === "INVOICE" ? invoiceTitle : "QUOTATION", {
       size: 18,
       bold: true,
       align: "right",
@@ -210,17 +214,17 @@ export function renderCommercialDocument(
     });
     y += 13;
     for (const p of doc.payments) {
-      pdf.text(
-        LEFT,
-        y,
-        `${dateOnly(p.paidAt)}  ${p.method.replace(/_/g, " ")}${p.reference ? `  ref ${p.reference}` : ""}`,
-        { size: 9 },
-      );
+      // A long reference (e.g. an IntraForge Pay receipt) wraps instead of running into the amount.
+      const line = `${dateOnly(p.paidAt)}  ${p.method.replace(/_/g, " ")}${p.reference ? `  ref ${p.reference}` : ""}`;
+      const lines = textWidth(line, 9) <= 220 ? [line] : wrapText(line, 220, 9);
       pdf.text(LEFT + 300, y, formatMoney(p.amountMinor, doc.currency), {
         size: 9,
         align: "right",
       });
-      y += 12;
+      for (const line of lines) {
+        pdf.text(LEFT, y, line, { size: 9 });
+        y += 12;
+      }
     }
   }
   for (const [title, text] of [

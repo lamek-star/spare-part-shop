@@ -38,6 +38,11 @@ const product = (r: Row): ProductRow => ({
   defaultSupplierId: (r.default_supplier_id as string | null) ?? null,
   defaultLocationId: (r.default_location_id as string | null) ?? null,
   notes: s(r.notes),
+  genericName: s(r.generic_name),
+  strength: s(r.strength),
+  dosageForm: s(r.dosage_form),
+  prescriptionOnly: Number(r.prescription_only) === 1,
+  trackBatches: Number(r.track_batches) === 1,
   createdAt: s(r.created_at),
   updatedAt: s(r.updated_at),
 });
@@ -131,8 +136,8 @@ export class SqliteProductRepository implements ProductRepository {
   async insert(p: ProductRow, createdBy: string | null) {
     await this.db.write(async (h) =>
       h.run(
-        `INSERT INTO products(id,sku,name,brand,manufacturer,category,description,condition,unit,weight_grams,origin,status,cost_minor,price_minor,currency,tax_category,reorder_level,minimum_level,default_supplier_id,default_location_id,notes,created_by,created_at,updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO products(id,sku,name,brand,manufacturer,category,description,condition,unit,weight_grams,origin,status,cost_minor,price_minor,currency,tax_category,reorder_level,minimum_level,default_supplier_id,default_location_id,notes,generic_name,strength,dosage_form,prescription_only,track_batches,created_by,created_at,updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           p.id,
           p.sku,
@@ -155,6 +160,11 @@ export class SqliteProductRepository implements ProductRepository {
           p.defaultSupplierId,
           p.defaultLocationId,
           p.notes,
+          p.genericName,
+          p.strength,
+          p.dosageForm,
+          p.prescriptionOnly ? 1 : 0,
+          p.trackBatches ? 1 : 0,
           createdBy,
           p.createdAt,
           p.updatedAt,
@@ -165,7 +175,7 @@ export class SqliteProductRepository implements ProductRepository {
   async update(p: ProductRow) {
     await this.db.write(async (h) =>
       h.run(
-        `UPDATE products SET sku=?,name=?,brand=?,manufacturer=?,category=?,description=?,condition=?,unit=?,weight_grams=?,origin=?,status=?,cost_minor=?,price_minor=?,currency=?,tax_category=?,reorder_level=?,minimum_level=?,default_supplier_id=?,default_location_id=?,notes=?,updated_at=? WHERE id=?`,
+        `UPDATE products SET sku=?,name=?,brand=?,manufacturer=?,category=?,description=?,condition=?,unit=?,weight_grams=?,origin=?,status=?,cost_minor=?,price_minor=?,currency=?,tax_category=?,reorder_level=?,minimum_level=?,default_supplier_id=?,default_location_id=?,notes=?,generic_name=?,strength=?,dosage_form=?,prescription_only=?,track_batches=?,updated_at=? WHERE id=?`,
         [
           p.sku,
           p.name,
@@ -187,6 +197,11 @@ export class SqliteProductRepository implements ProductRepository {
           p.defaultSupplierId,
           p.defaultLocationId,
           p.notes,
+          p.genericName,
+          p.strength,
+          p.dosageForm,
+          p.prescriptionOnly ? 1 : 0,
+          p.trackBatches ? 1 : 0,
           p.updatedAt,
           p.id,
         ],

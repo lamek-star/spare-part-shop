@@ -19,7 +19,8 @@ import {
   validation,
 } from "../kernel/errors";
 import { newId, normalizeNumber, nowIso } from "../kernel/ids";
-import { InventoryOps } from "./inventory";
+import { batchInput, InventoryOps } from "./inventory";
+import { isPharmacy } from "../edition";
 import { can, requirePermission } from "./permissions";
 import { currency, integer, moneyMinor, oneOf, record, text } from "./validate";
 import { apiUrl } from "../../lib/basePath";
@@ -156,7 +157,33 @@ function productFields(input: Record<string, unknown>, base?: ProductRow) {
       { min: 0, max: 1_000_000, default: 0 },
     ),
     notes: text(pick("notes", base?.notes), "Notes", { max: 2000 }),
+    genericName: text(pick("genericName", base?.genericName), "Generic name", {
+      max: 200,
+    }),
+    strength: text(pick("strength", base?.strength), "Strength", { max: 60 }),
+    dosageForm: text(pick("dosageForm", base?.dosageForm), "Dosage form", {
+      max: 60,
+    }),
+    prescriptionOnly: flag(
+      pick("prescriptionOnly", base?.prescriptionOnly),
+      "Prescription only",
+      false,
+    ),
+    // A pharmacy holds every new product in batches unless told otherwise.
+    trackBatches: flag(
+      pick("trackBatches", base?.trackBatches),
+      "Track batches and expiry",
+      isPharmacy(),
+    ),
   };
+}
+
+function flag(value: unknown, field: string, fallback: boolean): boolean {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1) return true;
+  if (value === "false" || value === 0) return false;
+  throw validation(`${field} must be yes or no.`);
 }
 
 export class ProductService {
@@ -298,9 +325,13 @@ export class ProductService {
       if (opening && opening.quantity) {
         if (!opening.locationId)
           throw validation("Choose a location for the opening stock.");
+        const batch = opening as { batchNo?: unknown; expiryDate?: unknown };
         await new InventoryOps(r).receive(actor, {
           productId: product.id,
           locationId: opening.locationId,
+          batch: product.trackBatches
+            ? batchInput(batch.batchNo, batch.expiryDate)
+            : undefined,
           quantity: integer(opening.quantity, "Opening quantity", {
             min: 1,
             max: 1_000_000,
@@ -365,6 +396,16 @@ export class ProductService {
         (await r.products.getBySku(f.sku))
       )
         throw conflict(`SKU ${f.sku} already exists.`);
+      if (f.trackBatches !== current.trackBatches) {
+        const stock = await r.inventory.balances({
+          productId: id,
+          onlyPositive: true,
+        });
+        if (stock.length)
+          throw conflict(
+            "Batch tracking can only be switched while the product has no stock. Bring its stock to zero first.",
+          );
+      }
       const next: ProductRow = {
         ...current,
         ...f,
@@ -498,6 +539,11 @@ export class ProductService {
         defaultSupplierId: supplierId,
         defaultLocationId: locationId,
         notes: "",
+        genericName: "",
+        strength: "",
+        dosageForm: "",
+        prescriptionOnly: false,
+        trackBatches: false,
         createdAt: now,
         updatedAt: now,
       };

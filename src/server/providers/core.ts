@@ -144,3 +144,27 @@ export interface ConfigurationProvider {
   /** Next permanent code without a year, e.g. CUS-000001. Atomic. */
   nextCode(sequence: string, prefix: string): Promise<string>;
 }
+
+/** An IntraForge Pay payment request as Pay reports it (through IntraForge). */
+export interface PayCharge {
+  requestId: string;
+  status: "pending" | "paid" | "expired" | "cancelled";
+  amountMinor: number;
+  receiptNumber: string | null;
+  expiresAt: string;
+  shopName: string | null;
+  notice: string;
+  /** Only when the request was just made: what the customer's wallet scans. */
+  code?: string;
+  qrSvg?: string;
+}
+/** Asks IntraForge Pay for payments; only in platform mode (standalone has none). */
+export interface PayGateway {
+  create(input: {
+    actorId: string;
+    amountMinor: number;
+    reference: string;
+    externalId: string;
+  }): Promise<PayCharge>;
+  status(requestId: string): Promise<PayCharge>;
+}

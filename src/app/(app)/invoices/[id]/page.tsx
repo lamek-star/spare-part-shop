@@ -22,6 +22,7 @@ import {
   titleCase,
 } from "../../../../ui/api";
 import { DocLines, TotalsBox, type DocLine } from "../../../../ui/doc";
+import { PayWithPay } from "../../../../ui/payWithPay";
 import { apiUrl } from "@/lib/basePath";
 
 interface Invoice {
@@ -63,7 +64,10 @@ export default function InvoicePage({
   const customer = useApi<{ name: string }>(
     r.data ? `/customers/${r.data.invoice.customerId}` : null,
   );
+  // IntraForge Pay in the same shop (platform mode): offered when available.
+  const payInfo = useApi<{ available: boolean }>(`/invoices/${id}/pay`);
   const [paying, setPaying] = useState(false);
+  const [payingWithPay, setPayingWithPay] = useState(false);
   const [voiding, setVoiding] = useState(false);
   if (r.loading && !r.data) return <Loading />;
   if (!r.data) return <ErrorBanner message={r.error || "Invoice not found."} />;
@@ -89,6 +93,14 @@ export default function InvoicePage({
             >
               Download PDF
             </a>
+            {s.can("payments.record") && open && payInfo.data?.available && (
+              <button
+                className="primary"
+                onClick={() => setPayingWithPay(true)}
+              >
+                Take payment with IntraForge Pay
+              </button>
+            )}
             {s.can("payments.record") && open && (
               <button className="primary" onClick={() => setPaying(true)}>
                 Record payment
@@ -200,6 +212,17 @@ export default function InvoicePage({
           onClose={() => setPaying(false)}
           onSubmit={async (v) => {
             await post(`/invoices/${id}/payments`, v);
+            r.reload();
+          }}
+        />
+      )}
+      {payingWithPay && (
+        <PayWithPay
+          invoiceId={id}
+          currency={x.currency}
+          onPaid={r.reload}
+          onClose={() => {
+            setPayingWithPay(false);
             r.reload();
           }}
         />

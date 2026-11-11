@@ -1,3 +1,4 @@
+import { productName } from "../edition";
 /**
  * A deliberately small PDF 1.4 writer: A4 pages, the built-in Helvetica
  * fonts (no font files to ship or license), text, rules and shaded boxes.
@@ -193,7 +194,7 @@ export class PdfDocument {
       );
     }
     const info = add(
-      `<< /Title ${hex(encode(this.title))} /Producer (IntraForge Spare Parts) >>`,
+      `<< /Title ${hex(encode(this.title))} /Producer (IntraForge ${productName()}) >>`,
     );
     objects[catalog - 1] = `<< /Type /Catalog /Pages ${pagesRoot} 0 R >>`;
     objects[pagesRoot - 1] =

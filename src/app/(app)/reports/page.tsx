@@ -19,7 +19,32 @@ const REPORTS: {
   label: string;
   perm: string;
   ranged?: boolean;
+  pharmacyOnly?: boolean;
 }[] = [
+  {
+    key: "daily-sales",
+    label: "Daily sales book (accountant)",
+    perm: "reports.financial",
+    ranged: true,
+  },
+  {
+    key: "batch-valuation",
+    label: "Stock value by batch and expiry (cost)",
+    perm: "reports.financial",
+  },
+  {
+    key: "expired-write-offs",
+    label: "Expired stock written off (loss)",
+    perm: "reports.financial",
+    ranged: true,
+  },
+  {
+    key: "prescription-register",
+    label: "Prescription register",
+    perm: "reports.sales",
+    ranged: true,
+    pharmacyOnly: true,
+  },
   { key: "stock-on-hand", label: "Stock on hand", perm: "reports.inventory" },
   { key: "low-stock", label: "Low stock", perm: "reports.inventory" },
   {
@@ -73,7 +98,12 @@ const heading = (k: string) =>
 
 export default function Reports() {
   const s = useSession();
-  const available = REPORTS.filter((r) => s.can(r.perm));
+  const available = REPORTS.filter(
+    (r) => s.can(r.perm) && (!r.pharmacyOnly || s.edition === "pharmacy"),
+  );
+  // Report rows carry amounts only; they are in the shop's currency.
+  const settings = useApi<{ currency: string }>("/settings");
+  const currency = settings.data?.currency;
   const [key, setKey] = useState(available[0]?.key ?? "");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -151,7 +181,13 @@ export default function Reports() {
                 typeof rows[0][h] === "number" ? ("right" as const) : undefined,
               cell: (row: Record<string, unknown>) =>
                 isMoney(h) ? (
-                  <Money minor={row[h] as number} />
+                  <Money minor={row[h] as number} currency={currency} />
+                ) : typeof row[h] === "boolean" ? (
+                  row[h] ? (
+                    "Yes"
+                  ) : (
+                    "No"
+                  )
                 ) : (
                   String(row[h] ?? "")
                 ),

@@ -11,6 +11,7 @@ import {
   permissionsFromCapabilities,
   roleFromCapabilities,
 } from "./capabilities";
+import { productName } from "../edition";
 
 /**
  * IdentityProvider over IntraForge (the contract's "SSO variant").
@@ -113,7 +114,7 @@ export class PlatformIdentityProvider implements IdentityProvider {
   async signIn(): Promise<{ token: string; session: AuthenticatedSession }> {
     throw new AppError(
       "USE_INTRAFORGE",
-      "Sign in to IntraForge and open Spare Parts from Apps.",
+      `Sign in to IntraForge and open ${productName()} from Apps.`,
       403,
     );
   }

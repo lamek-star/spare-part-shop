@@ -1,5 +1,6 @@
 import type { Permission } from "../domain/permissions";
 import type { Role } from "../domain/types";
+import { isPharmacy } from "../edition";
 
 /**
  * IntraForge capability -> this application's permissions. The contract
@@ -50,21 +51,34 @@ export const CAPABILITY_PERMISSIONS: Record<string, Permission[]> = {
   "spareparts.settings.manage": ["settings.manage", "users.manage"],
 };
 
+/** The capabilities of this edition. The Pharmacy (APP_EDITION=pharmacy) is its own IntraForge
+ * application type: the same names under "pharmacy.", and no reference catalogue. */
+export function editionCapabilities(): Record<string, Permission[]> {
+  if (!isPharmacy()) return CAPABILITY_PERMISSIONS;
+  const out: Record<string, Permission[]> = {};
+  for (const [name, permissions] of Object.entries(CAPABILITY_PERMISSIONS)) {
+    if (name.startsWith("spareparts.catalogue.")) continue;
+    out["pharmacy." + name.slice("spareparts.".length)] = permissions;
+  }
+  return out;
+}
+
 export function permissionsFromCapabilities(
   capabilities: readonly string[],
 ): Permission[] {
+  const table = editionCapabilities();
   const out = new Set<Permission>();
-  for (const c of capabilities)
-    for (const p of CAPABILITY_PERMISSIONS[c] ?? []) out.add(p);
+  for (const c of capabilities) for (const p of table[c] ?? []) out.add(p);
   return [...out].sort();
 }
 
 /** A role label for display and the owner/admin conveniences only;
  * authorization always uses the permission list. */
 export function roleFromCapabilities(capabilities: readonly string[]): Role {
-  const all = Object.keys(CAPABILITY_PERMISSIONS);
+  const all = Object.keys(editionCapabilities());
+  const prefix = isPharmacy() ? "pharmacy." : "spareparts.";
   if (all.every((c) => capabilities.includes(c))) return "ADMIN";
-  if (capabilities.includes("spareparts.sales.manage")) return "SALES";
-  if (capabilities.includes("spareparts.inventory.manage")) return "INVENTORY";
+  if (capabilities.includes(prefix + "sales.manage")) return "SALES";
+  if (capabilities.includes(prefix + "inventory.manage")) return "INVENTORY";
   return "VIEWER";
 }

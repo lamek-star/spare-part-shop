@@ -209,6 +209,12 @@ export function parseManifest(
 }
 
 /** Reads and validates the whole package without writing anything. */
+/** "nengun" -> "Nengun": the display name of a provider's shared catalogue source. */
+export function providerDisplayName(provider: string): string {
+  const p = provider.trim();
+  return p ? p.charAt(0).toUpperCase() + p.slice(1) : "Package";
+}
+
 export function parsePackage(source: PackageSource): Parsed {
   const issues: PackageIssue[] = [];
   const files = source.list();
@@ -797,9 +803,11 @@ export class PackageImportService {
     const v = row.v;
     const warnings: string[] = [];
     const providerKey = sourceKeyOf(m.provider);
+    // H4: one source per provider, shared by every package of that provider -- so it is named after the
+    // provider ("Nengun"), never after the first package's own description ("... Prado starter batch").
     const sourceOf = async (key?: string) =>
       w.ensureSource(key ? sourceKeyOf(key) : providerKey, {
-        name: key || m.source || m.provider,
+        name: key || providerDisplayName(m.provider),
         type: "PACKAGE",
         manufacturer: m.manufacturer ?? "",
         market: m.market ?? "",
@@ -1001,13 +1009,14 @@ export class PackageImportService {
       }
       case "drawings": {
         const src = await sourceOf(v.source);
-        const { id: drawingId, created: drawingCreated } = await w.ensureDrawing({
-          sourceId: src.id,
-          code: v.code,
-          title: v.title || v.code,
-          revision: v.revision,
-          notes: v.notes,
-        });
+        const { id: drawingId, created: drawingCreated } =
+          await w.ensureDrawing({
+            sourceId: src.id,
+            code: v.code,
+            title: v.title || v.code,
+            revision: v.revision,
+            notes: v.notes,
+          });
         if (v.catalogue || m.catalogue) {
           const code = v.catalogue || m.catalogue!;
           const catalogueId = await w.ensureCatalogue({

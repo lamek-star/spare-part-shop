@@ -1,6 +1,7 @@
 import { AppError, notFound, validation } from "../kernel/errors";
 import { permissionsOf, requirePermission } from "../domain/permissions";
 import { toCsv } from "../catalogue/csv";
+import { edition } from "../edition";
 import { code128Svg } from "../labels/code128";
 import { qrSvg } from "../labels/qr";
 import { PackageError, ZipSource } from "../catalogue/packageSource";
@@ -79,6 +80,7 @@ export function buildRouter(): Router {
     return {
       data: {
         needsSetup: !configured,
+        edition: edition(),
         shopName: configured
           ? (await c.container.repos.config.get()).shopName
           : "",
@@ -134,6 +136,7 @@ export function buildRouter(): Router {
   r.get("/auth/me", { allowMustChange: true }, async (c) => ({
     data: {
       ...sessionView(c.session!),
+      edition: edition(),
       shopName: (await c.container.repos.config.get()).shopName,
       features: { sampleData: sampleDataEnabled() },
     },
@@ -698,6 +701,27 @@ export function buildRouter(): Router {
       data: await c.app.inventory.transfer(c.actor, await c.json()),
     }),
   );
+  // Batches and expiry (batch-tracked products, the pharmacy edition)
+  r.get(
+    "/products/:id/batches",
+    { permission: "inventory.read" },
+    async (c) => ({
+      data: await c.app.inventory.batches(c.actor, c.params.id),
+    }),
+  );
+  r.get("/inventory/expiring", { permission: "inventory.read" }, async (c) => ({
+    data: await c.app.inventory.expiring(c.actor, {
+      days: c.query.int("days"),
+    }),
+  }));
+  r.post(
+    "/inventory/write-off-expired",
+    { permission: "inventory.write" },
+    async (c) => ({
+      status: 201,
+      data: await c.app.inventory.writeOffExpired(c.actor, await c.json()),
+    }),
+  );
   r.get("/warehouses", { permission: "inventory.read" }, async (c) => ({
     data: await c.app.masterData.listWarehouses(c.actor),
   }));
@@ -945,6 +969,11 @@ export function buildRouter(): Router {
       ),
     }),
   );
+  // The till: scanned items delivered, invoiced and paid in one step.
+  r.post("/counter-sales", { permission: "payments.record" }, async (c) => ({
+    status: 201,
+    data: await c.app.sales.counterSale(c.actor, await c.json()),
+  }));
   r.post(
     "/orders/:id/sell-now",
     { permission: "invoices.write" },
@@ -988,6 +1017,25 @@ export function buildRouter(): Router {
         c.params.id,
         await c.json(),
       ),
+    }),
+  );
+  // IntraForge Pay (platform mode): show a Pay QR for the balance, then ask
+  // (server-side, through IntraForge) whether the customer has paid it.
+  r.get("/invoices/:id/pay", { permission: "invoices.read" }, async (c) => ({
+    data: {
+      available: c.app.pay.available,
+      requests: await c.app.pay.list(c.actor, c.params.id),
+    },
+  }));
+  r.post("/invoices/:id/pay", { permission: "payments.record" }, async (c) => ({
+    status: 201,
+    data: await c.app.pay.start(c.actor, c.params.id),
+  }));
+  r.post(
+    "/invoices/:id/pay/:payId/check",
+    { permission: "payments.record" },
+    async (c) => ({
+      data: await c.app.pay.check(c.actor, c.params.id, c.params.payId),
     }),
   );
   r.post("/invoices/:id/void", { permission: "invoices.write" }, async (c) => ({
@@ -1067,6 +1115,10 @@ export function buildRouter(): Router {
       "outstanding-invoices": () => rep.outstandingInvoices(a),
       "quotation-conversion": () => rep.quotationConversion(a, range),
       "supplier-overview": () => rep.supplierOverview(a),
+      "daily-sales": () => rep.dailySales(a, range),
+      "batch-valuation": () => rep.batchValuation(a),
+      "expired-write-offs": () => rep.expiredWriteOffs(a, range),
+      "prescription-register": () => rep.prescriptionRegister(a, range),
     };
     const run = table[c.params.name];
     if (!run) throw notFound("Report");

@@ -82,6 +82,32 @@ export class ReportService {
     const { from, to } = range(q.from, q.to);
     return this.uow.read((r) => r.reports.quotationConversion(from, to));
   }
+  /** Accountant's day book: invoiced net/tax/total, cost of what was sold, gross profit, payments by method. */
+  async dailySales(actor: Actor, q: { from?: unknown; to?: unknown }) {
+    requirePermission(actor, "reports.financial");
+    const { from, to } = range(q.from, q.to);
+    return this.uow.read((r) => r.reports.dailySales(from, to));
+  }
+  /** Stock value per batch (at cost), with expired batches marked. */
+  async batchValuation(actor: Actor) {
+    requirePermission(actor, "reports.financial");
+    return this.uow.read((r) => r.reports.batchValuation(today()));
+  }
+  /** Expired stock written off in the period, valued at cost (a loss for the accounts). */
+  async expiredWriteOffs(actor: Actor, q: { from?: unknown; to?: unknown }) {
+    requirePermission(actor, "reports.financial");
+    const { from, to } = range(q.from, q.to);
+    return this.uow.read((r) => r.reports.expiredWriteOffs(from, to));
+  }
+  /** Prescription-only medicines sold, with the prescription each was sold against. */
+  async prescriptionRegister(
+    actor: Actor,
+    q: { from?: unknown; to?: unknown },
+  ) {
+    requirePermission(actor, "reports.sales");
+    const { from, to } = range(q.from, q.to);
+    return this.uow.read((r) => r.reports.prescriptionRegister(from, to));
+  }
   async supplierOverview(actor: Actor) {
     requirePermission(actor, "suppliers.read");
     return this.uow.read((r) => r.reports.supplierOverview());

@@ -11,6 +11,10 @@ import {
 import { api, get, post, setCsrfToken, UNAUTHENTICATED_EVENT } from "./api";
 
 export type Role = "OWNER" | "ADMIN" | "SALES" | "INVENTORY" | "VIEWER";
+/** Which product this installation is (the server's APP_EDITION). */
+export type Edition = "spare-parts" | "pharmacy";
+export const productNameOf = (e: Edition) =>
+  e === "pharmacy" ? "Pharmacy" : "Spare Parts";
 export interface SessionUser {
   id: string;
   email: string;
@@ -23,12 +27,14 @@ interface Me {
   mustChangePassword: boolean;
   permissions: string[];
   shopName: string;
+  edition?: Edition;
   features?: { sampleData?: boolean };
 }
 interface SessionState {
   status: "loading" | "anonymous" | "ready";
   needsSetup: boolean;
   shopName: string;
+  edition: Edition;
   me: Me | null;
   can(permission: string): boolean;
   reload(): Promise<void>;
@@ -57,6 +63,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [shopName, setShopName] = useState("");
+  const [edition, setEdition] = useState<Edition>("spare-parts");
 
   const load = useCallback(async () => {
     try {
@@ -64,6 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setCsrfToken(m.csrfToken);
       setMe(m);
       setShopName(m.shopName);
+      setEdition(m.edition ?? "spare-parts");
       setStatus("ready");
     } catch {
       setMe(null);
@@ -72,6 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const s = await get<{
           needsSetup: boolean;
           shopName: string;
+          edition?: Edition;
           platform?: { openUrl: string } | null;
         }>("/auth/status");
         if (s.platform?.openUrl) {
@@ -81,6 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
         setNeedsSetup(s.needsSetup);
         setShopName(s.shopName);
+        setEdition(s.edition ?? "spare-parts");
       } catch {
         /* server unreachable: the login screen reports it on submit */
       }
@@ -106,6 +116,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       status,
       needsSetup,
       shopName,
+      edition,
       me,
       can: (p) => Boolean(me?.permissions.includes(p)),
       reload: load,
@@ -129,7 +140,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await load();
       },
     }),
-    [status, needsSetup, shopName, me, load],
+    [status, needsSetup, shopName, edition, me, load],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

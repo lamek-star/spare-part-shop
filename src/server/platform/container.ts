@@ -17,6 +17,8 @@ import { PlatformConfigurationProvider } from "./configuration";
 import { PlatformFileStorage } from "./files";
 import { PlatformIdentityProvider } from "./identity";
 import { IntraForgeClient, platformEnv } from "./intraforge";
+import { PlatformPayGateway } from "./pay";
+import { productName } from "../edition";
 
 /**
  * Composition root on IntraForge (the contract's step 6): the same domain
@@ -74,7 +76,13 @@ export function composePlatform(db: SqlDatabase, client: IntraForgeClient) {
     write: (fn) => db.write(() => fn(repos)),
   };
 
-  return { repos, uow, relay, identity: new PlatformIdentityProvider(client) };
+  return {
+    repos,
+    uow,
+    relay,
+    identity: new PlatformIdentityProvider(client),
+    pay: new PlatformPayGateway(client),
+  };
 }
 
 export async function createPlatformContainer(
@@ -85,7 +93,7 @@ export async function createPlatformContainer(
   if (!self.installed || !self.database)
     throw new AppError(
       "NOT_INSTALLED",
-      "Spare Parts is not installed yet. In IntraForge, open Apps and install it.",
+      `${productName()} is not installed yet. In IntraForge, open Apps and install it.`,
       503,
     );
   const db = new PostgresDatabase({
@@ -126,6 +134,7 @@ export async function createPlatformContainer(
     repos,
     uow,
     identity: new PlatformIdentityProvider(client),
+    pay: new PlatformPayGateway(client),
     dataDir: join(process.cwd(), ".data-platform"),
     self,
     relay,

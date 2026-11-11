@@ -112,7 +112,52 @@ export function ProductPicker({
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
   const seq = useRef(0);
+  const pick = (h: ProductHit) => {
+    onPick(h);
+    setQ("");
+    setHits([]);
+    setActive(0);
+  };
+  // Enter picks the highlighted product -- also right after a barcode scanner typed a SKU, before the
+  // list has appeared: then an exact SKU match (or the only hit) is taken.
+  const onKey = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!hits.length) return;
+      setOpen(true);
+      setActive(
+        (a) =>
+          (a + (e.key === "ArrowDown" ? 1 : hits.length - 1)) % hits.length,
+      );
+      return;
+    }
+    if (e.key === "Escape") return setOpen(false);
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const term = q.trim();
+    if (!term) return;
+    if (open && hits.length)
+      return pick(hits[Math.min(active, hits.length - 1)]);
+    const mine = ++seq.current;
+    try {
+      const r = await get<{ items: ProductHit[] }>(
+        `/products${qs({ q: term, pageSize: 8, status: "ACTIVE" })}`,
+      );
+      if (mine !== seq.current) return;
+      const exact = r.items.find(
+        (h) => h.sku.toLowerCase() === term.toLowerCase(),
+      );
+      if (exact || r.items.length === 1) pick(exact ?? r.items[0]);
+      else {
+        setHits(r.items);
+        setOpen(true);
+      }
+    } catch {
+      // the list stays as it is; the person can pick with the mouse
+    }
+  };
   useEffect(() => {
     const term = q.trim();
     if (!term) {
@@ -136,7 +181,9 @@ export function ProductPicker({
         aria-label="Find a product"
         placeholder={placeholder}
         value={q}
-        onChange={(e) => (setQ(e.target.value), setOpen(true))}
+        onChange={(e) => (setQ(e.target.value), setOpen(true), setActive(0))}
+        onKeyDown={onKey}
+        aria-expanded={open && hits.length > 0}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         style={{ width: "100%" }}
@@ -152,16 +199,15 @@ export function ProductPicker({
             top: "100%",
           }}
         >
-          {hits.map((h) => (
+          {hits.map((h, i) => (
             <button
               type="button"
               key={h.id}
+              aria-selected={i === active}
+              style={i === active ? { background: "#eef3f6" } : undefined}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                onPick(h);
-                setQ("");
-                setHits([]);
-              }}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => pick(h)}
             >
               {h.name}
               <small>

@@ -4,7 +4,7 @@ import type { Actor, Page, PurchaseLine, PurchaseOrder } from "./types";
 import { conflict, notFound, validation } from "../kernel/errors";
 import { documentTotals, lineTotal } from "../kernel/money";
 import { newId, nowIso } from "../kernel/ids";
-import { InventoryOps } from "./inventory";
+import { batchInput, InventoryOps } from "./inventory";
 import { requirePermission } from "./permissions";
 import { integer, isoDate, moneyMinor, record, text } from "./validate";
 import type { Repositories } from "../providers/uow";
@@ -278,6 +278,11 @@ export class PurchasingService {
           referenceType: "GOODS_RECEIPT",
           referenceId: receiptId,
           note: `${o.number} ${number}`,
+          // Medicines: the batch number and expiry date printed on the delivered packs.
+          batch: batchInput(
+            (req as Record<string, unknown>).batchNo,
+            (req as Record<string, unknown>).expiryDate,
+          ),
         });
         line.quantityReceived += qty;
         receiptLines.push({

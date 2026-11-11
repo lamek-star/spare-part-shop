@@ -6,12 +6,14 @@ import type {
   Invoice,
   Page,
   Payment,
+  PayRequest,
   Quotation,
   SalesOrder,
   SalesOrderLine,
 } from "../../domain/types";
 import type { Paged } from "../../providers/data";
 import type { SalesRepository, SalesReturn } from "../../providers/sales";
+import { nowIso } from "../../kernel/ids";
 import { likeTerm, mapSeq, pageArgs } from "./util";
 
 type Row = Record<string, unknown>;
@@ -82,6 +84,14 @@ async function insertLines(
 
 export class SqliteSalesRepository implements SalesRepository {
   constructor(private readonly db: SqlDatabase) {}
+  async setPrescriptionRef(orderId: string, ref: string) {
+    await this.db.write(async (h) =>
+      h.run("UPDATE sales_orders SET prescription_ref = ? WHERE id = ?", [
+        ref,
+        orderId,
+      ]),
+    );
+  }
 
   // ---------------- enquiries ----------------
   private async enquiryFrom(h: SqlHandle, r: Row): Promise<Enquiry> {
@@ -673,6 +683,64 @@ export class SqliteSalesRepository implements SalesRepository {
     );
   }
 
+  // ---------------- IntraForge Pay payments ----------------
+  async insertPayRequest(p: PayRequest) {
+    await this.db.write(async (h) =>
+      h.run(
+        "INSERT INTO pay_requests(id,invoice_id,request_id,amount_minor,status,receipt_number,payment_id,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+          p.id,
+          p.invoiceId,
+          p.requestId,
+          p.amountMinor,
+          p.status,
+          p.receiptNumber,
+          p.paymentId,
+          p.createdBy,
+          p.createdAt,
+          p.updatedAt,
+        ],
+      ),
+    );
+  }
+  getPayRequest(id: string) {
+    return this.db.read(async (h) => {
+      const r = await h.get<Row>("SELECT * FROM pay_requests WHERE id = ?", [
+        id,
+      ]);
+      return r ? payRequestFrom(r) : null;
+    });
+  }
+  payRequestsForInvoice(invoiceId: string) {
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          "SELECT * FROM pay_requests WHERE invoice_id = ? ORDER BY created_at",
+          [invoiceId],
+        )
+      ).map(payRequestFrom),
+    );
+  }
+  settlePayRequest(id: string, paymentId: string, receiptNumber: string) {
+    // Conditional: on PostgreSQL a second, concurrent check waits for the
+    // first to commit and then matches nothing, so it is refused.
+    return this.db.write(async (h) => {
+      const { changes } = await h.run(
+        "UPDATE pay_requests SET status = 'PAID', payment_id = ?, receipt_number = ?, updated_at = ? WHERE id = ? AND payment_id IS NULL AND status = 'PENDING'",
+        [paymentId, receiptNumber, nowIso(), id],
+      );
+      return changes === 1;
+    });
+  }
+  async closePayRequest(id: string, status: "EXPIRED" | "CANCELLED") {
+    await this.db.write(async (h) =>
+      h.run(
+        "UPDATE pay_requests SET status = ?, updated_at = ? WHERE id = ? AND status = 'PENDING'",
+        [status, nowIso(), id],
+      ),
+    );
+  }
+
   // ---------------- returns ----------------
   async insertReturn(r: SalesReturn) {
     await this.db.write(async (h) => {
@@ -742,4 +810,19 @@ export class SqliteSalesRepository implements SalesRepository {
       pageSize,
     }));
   }
+}
+
+function payRequestFrom(r: Row): PayRequest {
+  return {
+    id: s(r.id),
+    invoiceId: s(r.invoice_id),
+    requestId: s(r.request_id),
+    amountMinor: n(r.amount_minor),
+    status: s(r.status) as PayRequest["status"],
+    receiptNumber: s(r.receipt_number),
+    paymentId: nn(r.payment_id),
+    createdBy: nn(r.created_by),
+    createdAt: s(r.created_at),
+    updatedAt: s(r.updated_at),
+  };
 }

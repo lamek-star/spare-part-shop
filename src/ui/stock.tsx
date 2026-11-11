@@ -41,6 +41,8 @@ export const locationOptions = (w: WarehousesData | null) =>
 type StockModalProps = {
   productId: string;
   productName: string;
+  /** The product keeps batches with expiry dates. */
+  trackBatches?: boolean;
   warehouses: WarehousesData | null;
   onClose: () => void;
   onDone: () => void;
@@ -48,9 +50,28 @@ type StockModalProps = {
 const run = (path: string, body: unknown, done: () => void) =>
   post(path, body).then(done);
 
+/** Batch number and expiry date, as printed on the pack. */
+const batchFields = (required: boolean, help?: string): FieldSpec[] => [
+  {
+    name: "batchNo",
+    label: "Batch number",
+    required,
+    optional: !required,
+    help,
+  },
+  {
+    name: "expiryDate",
+    label: "Expiry date",
+    type: "date",
+    required,
+    optional: !required,
+  },
+];
+
 export function ReceiveStockModal({
   productId,
   productName,
+  trackBatches,
   warehouses,
   onClose,
   onDone,
@@ -68,6 +89,7 @@ export function ReceiveStockModal({
       type: "number",
       required: true,
     },
+    ...(trackBatches ? batchFields(true) : []),
     { name: "note", label: "Note (delivery note, source)", optional: true },
   ];
   return (
@@ -83,6 +105,7 @@ export function ReceiveStockModal({
 export function AdjustStockModal({
   productId,
   productName,
+  trackBatches,
   warehouses,
   onClose,
   onDone,
@@ -101,6 +124,12 @@ export function AdjustStockModal({
       required: true,
       help: "Use a negative number to remove stock, e.g. -2 for damaged goods.",
     },
+    ...(trackBatches
+      ? batchFields(
+          false,
+          "Needed when adding stock. When removing, leave empty to take from the batch that expires first.",
+        )
+      : []),
     { name: "reason", label: "Reason", type: "textarea", required: true },
   ];
   return (

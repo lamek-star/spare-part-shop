@@ -1,4 +1,5 @@
 import type {
+  PayRequest,
   Enquiry,
   Invoice,
   Page,
@@ -75,6 +76,15 @@ export interface SalesRepository {
   insertReturn(r: SalesReturn): Promise<void>;
   returnsForOrder(orderId: string): Promise<SalesReturn[]>;
   listReturns(q: Paged): Promise<Page<SalesReturn>>;
+  /** The prescription a sale was made against (Pharmacy edition). */
+  setPrescriptionRef(orderId: string, ref: string): Promise<void>;
+  // ---- IntraForge Pay payments ----
+  insertPayRequest(p: PayRequest): Promise<void>;
+  getPayRequest(id: string): Promise<PayRequest | null>;
+  payRequestsForInvoice(invoiceId: string): Promise<PayRequest[]>;
+  /** Marks a pending request paid once; false when it was already settled or closed. */
+  settlePayRequest(id: string, paymentId: string, receiptNumber: string): Promise<boolean>;
+  closePayRequest(id: string, status: "EXPIRED" | "CANCELLED"): Promise<void>;
 }
 
 export interface PurchasingRepository {
@@ -147,6 +157,54 @@ export interface StockLevelRow {
   reserved: number;
   available: number;
 }
+/** One day's sales: invoices, money and how it was paid (amounts in minor units). */
+export interface DailySalesRow {
+  day: string;
+  invoices: number;
+  netMinor: number;
+  taxMinor: number;
+  totalMinor: number;
+  costMinor: number;
+  grossProfitMinor: number;
+  cashMinor: number;
+  cardMinor: number;
+  bankTransferMinor: number;
+  otherMinor: number;
+}
+export interface BatchValuationRow {
+  sku: string;
+  name: string;
+  genericName: string;
+  batchNo: string;
+  expiryDate: string;
+  location: string;
+  onHand: number;
+  unitCostMinor: number;
+  valueMinor: number;
+  expired: boolean;
+}
+export interface WriteOffRow {
+  date: string;
+  sku: string;
+  name: string;
+  batchNo: string;
+  expiryDate: string;
+  quantity: number;
+  unitCostMinor: number;
+  valueMinor: number;
+  note: string;
+}
+export interface PrescriptionRow {
+  date: string;
+  invoice: string;
+  prescriptionRef: string;
+  customer: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  totalMinor: number;
+}
+
 export interface ReportRepository {
   dashboard(): Promise<DashboardMetrics>;
   stockLevels(q: {
@@ -258,4 +316,9 @@ export interface ReportRepository {
       openPurchaseOrders: number;
     }[]
   >;
+  dailySales(from: string, to: string): Promise<DailySalesRow[]>;
+  /** Stock left in each batch at cost, expired batches flagged (Pharmacy edition). */
+  batchValuation(today: string): Promise<BatchValuationRow[]>;
+  expiredWriteOffs(from: string, to: string): Promise<WriteOffRow[]>;
+  prescriptionRegister(from: string, to: string): Promise<PrescriptionRow[]>;
 }

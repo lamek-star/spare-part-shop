@@ -77,7 +77,14 @@ export default function ShopSettings() {
             <FieldBox label="Shop name">
               <input value={f.shopName} onChange={set("shopName")} required />
             </FieldBox>
-            <FieldBox label="Tax registration number">
+            <FieldBox
+              label="Tax registration number"
+              help={
+                !f.taxRegistration.trim() && Number(f.defaultTaxPercent) > 0
+                  ? "Tax is charged but no number is set: invoices are printed as INVOICE, not TAX INVOICE, until you enter it."
+                  : "Printed on quotations and invoices. With it, invoices are titled TAX INVOICE."
+              }
+            >
               <input
                 value={f.taxRegistration}
                 onChange={set("taxRegistration")}

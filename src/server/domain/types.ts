@@ -133,6 +133,14 @@ export interface Product {
   defaultSupplierId: string | null;
   defaultLocationId: string | null;
   notes: string;
+  /** Medicine details (the pharmacy edition shows them; empty elsewhere). */
+  genericName: string;
+  strength: string;
+  dosageForm: string;
+  /** Sold only against a prescription reference. */
+  prescriptionOnly: boolean;
+  /** Stock is held in batches with an expiry date and sold earliest expiry first. */
+  trackBatches: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -200,6 +208,11 @@ export interface ProductInput {
   defaultSupplierId?: string | null;
   defaultLocationId?: string | null;
   notes?: string;
+  genericName?: string;
+  strength?: string;
+  dosageForm?: string;
+  prescriptionOnly?: boolean;
+  trackBatches?: boolean;
 }
 
 // ---------- inventory ----------
@@ -235,6 +248,20 @@ export interface StockMovement {
   note: string;
   createdAt: string;
   createdBy: string | null;
+  /** The batch moved, for a product that tracks batches. */
+  batchId?: string | null;
+}
+/** Part of a batch-tracked product's stock at one location: one supplier batch with one expiry date. */
+export interface StockBatch {
+  id: string;
+  productId: string;
+  locationId: string;
+  batchNo: string;
+  /** YYYY-MM-DD. Stock is sellable up to and including this day. */
+  expiryDate: string;
+  onHand: number;
+  createdAt: string;
+  updatedAt: string;
 }
 export interface Reservation {
   id: string;
@@ -413,6 +440,27 @@ export interface Payment {
   notes: string;
   recordedBy: string | null;
   createdAt: string;
+}
+/** One IntraForge Pay payment QR shown for an invoice (platform mode). It
+ * becomes an invoice payment only once Pay confirms the customer paid. */
+export const payRequestStatuses = [
+  "PENDING",
+  "PAID",
+  "EXPIRED",
+  "CANCELLED",
+] as const;
+export type PayRequestStatus = (typeof payRequestStatuses)[number];
+export interface PayRequest {
+  id: string;
+  invoiceId: string;
+  requestId: string;
+  amountMinor: number;
+  status: PayRequestStatus;
+  receiptNumber: string;
+  paymentId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---------- purchasing ----------

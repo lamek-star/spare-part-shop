@@ -1,7 +1,11 @@
 import type { Dialect, SqlDatabase } from "../../db/connection";
 import type {
+  BatchValuationRow,
+  DailySalesRow,
   DashboardMetrics,
+  PrescriptionRow,
   ProductSalesHistory,
+  WriteOffRow,
   ReportRepository,
   StockLevelRow,
 } from "../../providers/sales";
@@ -165,6 +169,136 @@ export class SqliteReportRepository implements ReportRepository {
         name: s(r.name),
         available: n(r.available),
         reorderLevel: n(r.reorder_level),
+      })),
+    );
+  }
+  dailySales(from: string, to: string) {
+    return this.db.read(async (h) => {
+      const days = await h.all<Row>(
+        `SELECT issue_date AS day, COUNT(*) AS invoices, SUM(subtotal_minor) AS net, SUM(tax_minor) AS tax, SUM(total_minor) AS total
+           FROM invoices WHERE status <> 'VOID' AND issue_date >= ? AND issue_date <= ? GROUP BY issue_date ORDER BY issue_date`,
+        [from, to],
+      );
+      const costs = await h.all<Row>(
+        `SELECT i.issue_date AS day, SUM(ii.quantity * COALESCE(p.cost_minor, 0)) AS cost
+           FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id LEFT JOIN products p ON p.id = ii.product_id
+          WHERE i.status <> 'VOID' AND i.issue_date >= ? AND i.issue_date <= ? GROUP BY i.issue_date`,
+        [from, to],
+      );
+      const paid = await h.all<Row>(
+        `SELECT paid_at AS day, method, SUM(amount_minor) AS amount
+           FROM payments WHERE paid_at >= ? AND paid_at <= ? GROUP BY paid_at, method`,
+        [from, to],
+      );
+      const cost = new Map(costs.map((r) => [s(r.day), n(r.cost)]));
+      const byDay = new Map<string, DailySalesRow>();
+      const row = (day: string) => {
+        let r = byDay.get(day);
+        if (!r) {
+          r = {
+            day,
+            invoices: 0,
+            netMinor: 0,
+            taxMinor: 0,
+            totalMinor: 0,
+            costMinor: 0,
+            grossProfitMinor: 0,
+            cashMinor: 0,
+            cardMinor: 0,
+            bankTransferMinor: 0,
+            otherMinor: 0,
+          };
+          byDay.set(day, r);
+        }
+        return r;
+      };
+      for (const d of days) {
+        const r = row(s(d.day));
+        r.invoices = n(d.invoices);
+        r.netMinor = n(d.net);
+        r.taxMinor = n(d.tax);
+        r.totalMinor = n(d.total);
+        r.costMinor = cost.get(r.day) ?? 0;
+        r.grossProfitMinor = r.netMinor - r.costMinor;
+      }
+      const field = {
+        CASH: "cashMinor",
+        CARD: "cardMinor",
+        BANK_TRANSFER: "bankTransferMinor",
+        OTHER: "otherMinor",
+      } as const;
+      for (const p of paid) {
+        const key = field[s(p.method) as keyof typeof field] ?? "otherMinor";
+        row(s(p.day))[key] += n(p.amount);
+      }
+      return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+    });
+  }
+  batchValuation(today: string) {
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          `SELECT p.sku, p.name, p.generic_name, x.batch_no, x.expiry_date, l.code AS location, x.on_hand, p.cost_minor
+             FROM stock_batches x JOIN products p ON p.id = x.product_id JOIN locations l ON l.id = x.location_id
+            WHERE x.on_hand > 0 ORDER BY x.expiry_date, p.name COLLATE NOCASE`,
+        )
+      ).map((r): BatchValuationRow => ({
+        sku: s(r.sku),
+        name: s(r.name),
+        genericName: s(r.generic_name),
+        batchNo: s(r.batch_no),
+        expiryDate: s(r.expiry_date),
+        location: s(r.location),
+        onHand: n(r.on_hand),
+        unitCostMinor: n(r.cost_minor),
+        valueMinor: n(r.on_hand) * n(r.cost_minor),
+        expired: s(r.expiry_date) < today,
+      })),
+    );
+  }
+  expiredWriteOffs(from: string, to: string) {
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          `SELECT m.created_at, p.sku, p.name, x.batch_no, x.expiry_date, m.quantity, p.cost_minor, m.note
+             FROM stock_movements m JOIN products p ON p.id = m.product_id LEFT JOIN stock_batches x ON x.id = m.batch_id
+            WHERE m.reference_type = 'EXPIRED_WRITE_OFF' AND substr(m.created_at, 1, 10) >= ? AND substr(m.created_at, 1, 10) <= ?
+            ORDER BY m.created_at`,
+          [from, to],
+        )
+      ).map((r): WriteOffRow => ({
+        date: s(r.created_at).slice(0, 10),
+        sku: s(r.sku),
+        name: s(r.name),
+        batchNo: s(r.batch_no),
+        expiryDate: s(r.expiry_date),
+        quantity: -n(r.quantity),
+        unitCostMinor: n(r.cost_minor),
+        valueMinor: -n(r.quantity) * n(r.cost_minor),
+        note: s(r.note),
+      })),
+    );
+  }
+  prescriptionRegister(from: string, to: string) {
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          `SELECT i.issue_date, i.number, o.prescription_ref, c.name AS customer, ii.sku, ii.description, ii.quantity, ii.line_total_minor
+             FROM sales_orders o JOIN invoices i ON i.sales_order_id = o.id JOIN invoice_items ii ON ii.invoice_id = i.id
+             JOIN customers c ON c.id = i.customer_id
+            WHERE o.prescription_ref <> '' AND i.status <> 'VOID' AND i.issue_date >= ? AND i.issue_date <= ?
+            ORDER BY i.issue_date, i.number, ii.position`,
+          [from, to],
+        )
+      ).map((r): PrescriptionRow => ({
+        date: s(r.issue_date),
+        invoice: s(r.number),
+        prescriptionRef: s(r.prescription_ref),
+        customer: s(r.customer),
+        sku: s(r.sku),
+        name: s(r.description),
+        quantity: n(r.quantity),
+        totalMinor: n(r.line_total_minor),
       })),
     );
   }

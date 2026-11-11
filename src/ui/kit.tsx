@@ -392,6 +392,7 @@ export function FormModal({
   submitLabel = "Save",
   onSubmit,
   onClose,
+  warnBeforeSave,
 }: {
   title: string;
   fields: FieldSpec[];
@@ -399,6 +400,8 @@ export function FormModal({
   submitLabel?: string;
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
   onClose: () => void;
+  /** A reason to stop and ask before saving (shown once; saving again with the same values goes ahead). */
+  warnBeforeSave?: (values: Record<string, unknown>) => string | null;
 }) {
   const defaultFor = (f: FieldSpec): string | boolean => {
     const v = initial[f.name];
@@ -419,6 +422,7 @@ export function FormModal({
     ]),
   );
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -452,6 +456,12 @@ export function FormModal({
         out[f.name] = t;
       }
     }
+    const reason = warnBeforeSave?.(out) ?? "";
+    if (reason && reason !== warning) {
+      setWarning(reason);
+      setError("");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -467,6 +477,11 @@ export function FormModal({
     <Modal title={title} onClose={onClose}>
       <form onSubmit={submit}>
         <ErrorBanner message={error} />
+        {warning && (
+          <div className="notice" role="alert">
+            {warning} Press <b>Save anyway</b> to keep it, or correct it.
+          </div>
+        )}
         <div className="form-grid">
           {fields.map((f) => {
             const set = (v: string | boolean) =>
@@ -551,7 +566,7 @@ export function FormModal({
             Cancel
           </button>
           <button className="primary" disabled={busy}>
-            {busy ? "Saving…" : submitLabel}
+            {busy ? "Saving…" : warning ? "Save anyway" : submitLabel}
           </button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 import type {
+  StockBatch,
   Branch,
   Customer,
   Location,
@@ -115,6 +116,16 @@ export interface BalanceQuery {
   warehouseId?: string;
   onlyPositive?: boolean;
 }
+/** Which batches to list (a batch-tracked product's stock, by expiry date). */
+export interface BatchQuery {
+  productId?: string;
+  locationId?: string;
+  /** Only batches with stock left. */
+  onlyPositive?: boolean;
+  /** YYYY-MM-DD: only batches expiring on or before this day. */
+  expiringOnOrBefore?: string;
+}
+
 export interface InventoryRepository {
   balance(productId: string, locationId: string): Promise<StockBalance | null>;
   balances(query: BalanceQuery): Promise<StockBalance[]>;
@@ -159,9 +170,21 @@ export interface InventoryRepository {
     {
       productId: string;
       locationId: string;
-      field: "on_hand" | "reserved";
+      field: "on_hand" | "reserved" | "batches";
       stored: number;
       expected: number;
     }[]
   >;
+  /** The batch with this number and expiry date at a location, if it exists. */
+  findBatch(
+    productId: string,
+    locationId: string,
+    batchNo: string,
+    expiryDate: string,
+  ): Promise<StockBatch | null>;
+  getBatch(id: string): Promise<StockBatch | null>;
+  insertBatch(b: StockBatch): Promise<void>;
+  /** Signed change of a batch's on-hand; the database refuses a negative result. */
+  applyBatchDelta(id: string, delta: number): Promise<void>;
+  batches(q: BatchQuery): Promise<StockBatch[]>;
 }

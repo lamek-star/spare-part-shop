@@ -7,7 +7,11 @@ import { ListPage } from "../../../ui/ListPage";
 import { Badge, FormModal, Money, useApi } from "../../../ui/kit";
 import { post } from "../../../ui/api";
 import { locationOptions, useWarehouses } from "../../../ui/stock";
-import { productFields, productPayload } from "../../../ui/productForm";
+import {
+  belowCostWarning,
+  productFields,
+  productPayload,
+} from "../../../ui/productForm";
 
 interface Product {
   id: string;
@@ -157,8 +161,17 @@ export default function Products() {
             suppliers: suppliers.data?.items ?? [],
             creating: true,
             locations: locationOptions(wh.data),
+            pharmacy: s.edition === "pharmacy",
           })}
-          initial={{ condition: "NEW", status: "ACTIVE", currency: "AED" }}
+          initial={{
+            condition: "NEW",
+            status: "ACTIVE",
+            currency: "AED",
+            ...(s.edition === "pharmacy"
+              ? { trackBatches: true, unit: "Pack" }
+              : {}),
+          }}
+          warnBeforeSave={belowCostWarning}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             const p = await post<{ id: string }>(

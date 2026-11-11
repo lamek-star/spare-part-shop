@@ -3,6 +3,7 @@ import type {
   ConfigurationProvider,
   FileStorage,
   IdentityProvider,
+  PayGateway,
 } from "./core";
 import type {
   InventoryRepository,
@@ -39,4 +40,6 @@ export interface UnitOfWork {
 export interface Providers {
   uow: UnitOfWork;
   identity: IdentityProvider;
+  /** IntraForge Pay, in platform mode only. */
+  pay?: PayGateway;
 }

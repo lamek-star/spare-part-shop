@@ -24,8 +24,15 @@ import {
   Search,
   PanelLeftClose,
   Upload,
+  CalendarClock,
+  Pill,
 } from "lucide-react";
-import { SessionProvider, useSession } from "./session";
+import {
+  SessionProvider,
+  productNameOf,
+  useSession,
+  type Edition,
+} from "./session";
 import { ToastProvider, ErrorBanner, FormModal, errorText } from "./kit";
 import { post } from "./api";
 
@@ -34,6 +41,10 @@ interface NavItem {
   label: string;
   icon: ReactNode;
   perm: string;
+  /** Shown only in this edition. */
+  only?: Edition;
+  /** The label in the pharmacy edition, when it differs. */
+  pharmacyLabel?: string;
 }
 const NAV: { group: string; items: NavItem[] }[] = [
   {
@@ -55,12 +66,14 @@ const NAV: { group: string; items: NavItem[] }[] = [
         label: "Reference Catalogue",
         icon: <Library size={17} />,
         perm: "catalogue.read",
+        only: "spare-parts",
       },
       {
         href: "/catalogue/import",
         label: "Import",
         icon: <Upload size={17} />,
         perm: "catalogue.import",
+        only: "spare-parts",
       },
     ],
   },
@@ -70,6 +83,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       {
         href: "/products",
         label: "My Products",
+        pharmacyLabel: "Medicines & Products",
         icon: <Package size={17} />,
         perm: "products.read",
       },
@@ -86,6 +100,13 @@ const NAV: { group: string; items: NavItem[] }[] = [
         perm: "products.read",
       },
       {
+        href: "/expiry",
+        label: "Expiry & Batches",
+        icon: <CalendarClock size={17} />,
+        perm: "inventory.read",
+        only: "pharmacy",
+      },
+      {
         href: "/purchasing",
         label: "Purchase Orders",
         icon: <Truck size={17} />,
@@ -97,10 +118,18 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Sales",
     items: [
       {
+        href: "/sell",
+        label: "Sell (till)",
+        icon: <Pill size={17} />,
+        perm: "payments.record",
+        only: "pharmacy",
+      },
+      {
         href: "/enquiries",
         label: "Enquiries",
         icon: <Inbox size={17} />,
         perm: "enquiries.read",
+        only: "spare-parts",
       },
       {
         href: "/quotations",
@@ -203,6 +232,10 @@ function AppFrame({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [q, setQ] = useState("");
   const [offline, setOffline] = useState(false);
+  // One image serves both editions, so the tab title follows the running edition, not the build.
+  useEffect(() => {
+    document.title = s.shopName || productNameOf(s.edition);
+  }, [s.shopName, s.edition]);
   useEffect(() => {
     const up = () => setOffline(false);
     const down = () => setOffline(true);
@@ -240,11 +273,18 @@ function AppFrame({ children }: { children: ReactNode }) {
     >
       <aside className="sidebar no-print" aria-label="Main navigation">
         <div className="brandmark">
-          <Box /> {!collapsed && <span>{s.shopName || "Spare Parts"}</span>}
+          <Box />{" "}
+          {!collapsed && <span>{s.shopName || productNameOf(s.edition)}</span>}
         </div>
         <nav>
           {NAV.map((g) => {
-            const items = g.items.filter((i) => s.can(i.perm));
+            const items = g.items
+              .filter((i) => s.can(i.perm) && (!i.only || i.only === s.edition))
+              .map((i) =>
+                s.edition === "pharmacy" && i.pharmacyLabel
+                  ? { ...i, label: i.pharmacyLabel }
+                  : i,
+              );
             if (!items.length) return null;
             return (
               <div className="nav-group" key={g.group}>
@@ -367,15 +407,16 @@ function AuthScreen() {
     <main className="login">
       <div className="login-brand">
         <Box size={42} />
-        <h1>{s.shopName || "Spare Parts"}</h1>
+        <h1>{s.shopName || productNameOf(s.edition)}</h1>
         <p>
-          Catalogue, stock, quotations and invoices in one place — running on
-          your own server.
+          {s.edition === "pharmacy"
+            ? "Medicines, batches and expiry, the till, and the accounts in one place — running on your own server."
+            : "Catalogue, stock, quotations and invoices in one place — running on your own server."}
         </p>
       </div>
       <form className="login-card" onSubmit={submit}>
         <div className="brandmark">
-          <Box /> {s.shopName || "Spare Parts"}
+          <Box /> {s.shopName || productNameOf(s.edition)}
         </div>
         <h2>{s.needsSetup ? "Set up your shop" : "Sign in"}</h2>
         {s.needsSetup && (
