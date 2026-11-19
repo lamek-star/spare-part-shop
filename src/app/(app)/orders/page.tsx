@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ListPage } from "../../../ui/ListPage";
 import { Badge, Money } from "../../../ui/kit";
 import { formatDate } from "../../../ui/api";
+import { useT } from "../../../ui/i18n";
 
 interface Order {
   id: string;
@@ -15,10 +16,11 @@ interface Order {
 }
 export default function Orders() {
   const router = useRouter();
+  const t = useT();
   return (
     <ListPage<Order>
-      title="Sales orders"
-      subtitle="Orders are created from accepted quotations. Stock is reserved when an order is created and deducted when goods are delivered."
+      title={t("orders.title")}
+      subtitle={t("orders.subtitle")}
       endpoint="/orders"
       statuses={[
         "CONFIRMED",
@@ -27,18 +29,18 @@ export default function Orders() {
         "INVOICED",
         "CANCELLED",
       ]}
-      searchPlaceholder="Search order number"
+      searchPlaceholder={t("orders.search")}
       rowKey={(o) => o.id}
       onRow={(o) => router.push(`/orders/${o.id}`)}
       columns={[
         {
-          header: "Number",
+          header: t("docs.number"),
           cell: (o) => <Link href={`/orders/${o.id}`}>{o.number}</Link>,
         },
-        { header: "Created", cell: (o) => formatDate(o.createdAt) },
-        { header: "Status", cell: (o) => <Badge value={o.status} /> },
+        { header: t("docs.created"), cell: (o) => formatDate(o.createdAt) },
+        { header: t("common.status"), cell: (o) => <Badge value={o.status} /> },
         {
-          header: "Total",
+          header: t("doc.total"),
           align: "right",
           cell: (o) => <Money minor={o.totalMinor} currency={o.currency} />,
         },

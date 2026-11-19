@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Money, useToast } from "./kit";
 import { post } from "./api";
+import { useT } from "./i18n";
 
 interface PayView {
   id: string;
@@ -37,6 +38,7 @@ export function PayWithPay({
   const [pay, setPay] = useState<PayView | null>(null);
   const [qr, setQr] = useState<string | undefined>();
   const [error, setError] = useState("");
+  const tr = useT();
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
   useEffect(
@@ -75,7 +77,7 @@ export function PayWithPay({
         if (!alive.current) return;
         setPay({ ...pay, ...now });
         if (now.status === "PAID") {
-          toast(`Paid with IntraForge Pay — receipt ${now.receiptNumber}`);
+          toast(tr("pay.paidToast", { receipt: now.receiptNumber ?? "" }));
           onPaid();
         }
       } catch (e) {
@@ -83,14 +85,13 @@ export function PayWithPay({
       }
     }, EVERY_MS);
     return () => clearTimeout(t);
-  }, [pay, invoiceId, onPaid, toast]);
+  }, [pay, invoiceId, onPaid, toast, tr]);
 
   return (
-    <Modal title="Take payment with IntraForge Pay" onClose={onClose}>
+    <Modal title={tr("pay.title")} onClose={onClose}>
       <div style={{ textAlign: "center" }}>
         <p className="muted" role="note">
-          <strong>SIMULATED VALUE — NO CASH VALUE.</strong> The customer pays
-          with IF Credits in their IntraForge Pay wallet.
+          <strong>{tr("pay.simulated")}</strong> {tr("pay.simulatedHelp")}
         </p>
         {pay && (
           <p style={{ fontSize: 22, fontWeight: 700, margin: "8px 0" }}>
@@ -102,33 +103,30 @@ export function PayWithPay({
             {/* eslint-disable-next-line @next/next/no-img-element -- a data: QR from Pay */}
             <img
               src={qr}
-              alt="IntraForge Pay payment QR code"
+              alt={tr("pay.qrAlt")}
               width={240}
               height={240}
               style={{ imageRendering: "pixelated" }}
             />
-            <p>
-              Ask the customer to scan this with their wallet and confirm.
-              Waiting for payment…
-            </p>
+            <p>{tr("pay.scan")}</p>
             {pay.expiresAt && (
               <p className="muted">
-                The code expires at{" "}
-                {new Date(pay.expiresAt).toLocaleTimeString()}.
+                {tr("pay.expiresAt", {
+                  time: new Date(pay.expiresAt).toLocaleTimeString(),
+                })}
               </p>
             )}
           </>
         )}
         {pay?.status === "PAID" && (
           <p role="status">
-            <strong>Paid.</strong> IntraForge Pay receipt {pay.receiptNumber}{" "}
-            has been recorded on this invoice.
+            <strong>{tr("pay.paid")}</strong>{" "}
+            {tr("pay.paidHelp", { receipt: pay.receiptNumber ?? "" })}
           </p>
         )}
         {(pay?.status === "EXPIRED" || pay?.status === "CANCELLED") && (
           <p role="status">
-            This code {pay.status === "EXPIRED" ? "expired" : "was cancelled"}{" "}
-            before it was paid. Nothing was recorded.
+            {pay.status === "EXPIRED" ? tr("pay.expired") : tr("pay.cancelled")}
           </p>
         )}
         {error && (
@@ -142,11 +140,11 @@ export function PayWithPay({
           pay?.status === "CANCELLED" ||
           (!pay && error)) && (
           <button className="primary" disabled={busy} onClick={start}>
-            Show a new code
+            {tr("pay.newCode")}
           </button>
         )}
         <button onClick={onClose}>
-          {pay?.status === "PAID" ? "Done" : "Close"}
+          {pay?.status === "PAID" ? tr("common.done") : tr("common.close")}
         </button>
       </div>
     </Modal>

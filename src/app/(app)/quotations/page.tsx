@@ -5,6 +5,7 @@ import { ListPage } from "../../../ui/ListPage";
 import { Badge, Money } from "../../../ui/kit";
 import { formatDate } from "../../../ui/api";
 import { useSession } from "../../../ui/session";
+import { useT } from "../../../ui/i18n";
 
 interface Quotation {
   id: string;
@@ -19,9 +20,10 @@ interface Quotation {
 export default function Quotations() {
   const router = useRouter();
   const s = useSession();
+  const t = useT();
   return (
     <ListPage<Quotation>
-      title="Quotations"
+      title={t("nav.quotations")}
       endpoint="/quotations"
       statuses={[
         "DRAFT",
@@ -31,11 +33,11 @@ export default function Quotations() {
         "EXPIRED",
         "CANCELLED",
       ]}
-      searchPlaceholder="Search quotation number"
+      searchPlaceholder={t("quotations.search")}
       actions={
         s.can("quotations.write") && (
           <Link className="button primary" href="/quotations/new">
-            New quotation
+            {t("quotations.new")}
           </Link>
         )
       }
@@ -43,14 +45,14 @@ export default function Quotations() {
       onRow={(q) => router.push(`/quotations/${q.id}`)}
       columns={[
         {
-          header: "Number",
+          header: t("docs.number"),
           cell: (q) => <Link href={`/quotations/${q.id}`}>{q.number}</Link>,
         },
-        { header: "Created", cell: (q) => formatDate(q.createdAt) },
-        { header: "Valid until", cell: (q) => formatDate(q.validUntil) },
-        { header: "Status", cell: (q) => <Badge value={q.status} /> },
+        { header: t("docs.created"), cell: (q) => formatDate(q.createdAt) },
+        { header: t("docs.validUntil"), cell: (q) => formatDate(q.validUntil) },
+        { header: t("common.status"), cell: (q) => <Badge value={q.status} /> },
         {
-          header: "Total",
+          header: t("doc.total"),
           align: "right",
           cell: (q) => <Money minor={q.totalMinor} currency={q.currency} />,
         },

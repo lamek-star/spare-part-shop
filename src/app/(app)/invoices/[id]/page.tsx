@@ -13,6 +13,7 @@ import {
   PageHead,
   Panel,
   useApi,
+  useMethodLabel,
 } from "../../../../ui/kit";
 import {
   formatDate,
@@ -24,6 +25,7 @@ import {
 import { DocLines, TotalsBox, type DocLine } from "../../../../ui/doc";
 import { PayWithPay } from "../../../../ui/payWithPay";
 import { apiUrl } from "@/lib/basePath";
+import { useT } from "../../../../ui/i18n";
 
 interface Invoice {
   id: string;
@@ -58,6 +60,8 @@ export default function InvoicePage({
 }) {
   const { id } = use(params);
   const s = useSession();
+  const t = useT();
+  const methodLabel = useMethodLabel();
   const r = useApi<{ invoice: Invoice; payments: Payment[] }>(
     `/invoices/${id}`,
   );
@@ -70,7 +74,8 @@ export default function InvoicePage({
   const [payingWithPay, setPayingWithPay] = useState(false);
   const [voiding, setVoiding] = useState(false);
   if (r.loading && !r.data) return <Loading />;
-  if (!r.data) return <ErrorBanner message={r.error || "Invoice not found."} />;
+  if (!r.data)
+    return <ErrorBanner message={r.error || t("invoices.notFound")} />;
   const { invoice: x, payments } = r.data;
   const open = x.status === "ISSUED" || x.status === "PARTIALLY_PAID";
   return (
@@ -79,48 +84,52 @@ export default function InvoicePage({
         title={x.number}
         subtitle={
           <>
-            <Badge value={x.status} /> · due {formatDate(x.dueDate)}
+            <Badge value={x.status} /> ·{" "}
+            {t("invoices.dueOn", { date: formatDate(x.dueDate) })}
           </>
         }
-        back={{ href: "/invoices", label: "Invoices" }}
+        back={{ href: "/invoices", label: t("invoices.title") }}
         actions={
           <>
+            <Link className="button" href={`/invoices/${id}/print`}>
+              {t("docs.print")}
+            </Link>
             <a
               className="button"
               href={apiUrl(`/invoices/${id}/pdf`)}
               target="_blank"
               rel="noreferrer"
             >
-              Download PDF
+              {t("docs.downloadPdf")}
             </a>
             {s.can("payments.record") && open && payInfo.data?.available && (
               <button
                 className="primary"
                 onClick={() => setPayingWithPay(true)}
               >
-                Take payment with IntraForge Pay
+                {t("pay.title")}
               </button>
             )}
             {s.can("payments.record") && open && (
               <button className="primary" onClick={() => setPaying(true)}>
-                Record payment
+                {t("invoices.recordPayment")}
               </button>
             )}
             {s.can("invoices.write") &&
               x.status !== "VOID" &&
               x.amountPaidMinor === 0 && (
                 <button className="danger" onClick={() => setVoiding(true)}>
-                  Void
+                  {t("invoices.void")}
                 </button>
               )}
           </>
         }
       />
-      <Panel title="Invoice">
+      <Panel title={t("invoices.invoice")}>
         <KeyValues
           items={[
             [
-              "Customer",
+              t("docs.customer"),
               customer.data ? (
                 <Link key="c" href={`/customers/${x.customerId}`}>
                   {customer.data.name}
@@ -130,21 +139,21 @@ export default function InvoicePage({
               ),
             ],
             [
-              "Order",
+              t("invoices.order"),
               x.salesOrderId ? (
                 <Link key="o" href={`/orders/${x.salesOrderId}`}>
-                  Open order
+                  {t("invoices.openOrder")}
                 </Link>
               ) : (
                 ""
               ),
             ],
-            ["Issued", formatDate(x.issueDate)],
-            ["Notes", x.notes],
+            [t("docs.issued"), formatDate(x.issueDate)],
+            [t("docs.notes"), x.notes],
           ]}
         />
       </Panel>
-      <Panel title="Items">
+      <Panel title={t("docs.items")}>
         <DocLines lines={x.lines} currency={x.currency} />
         <TotalsBox
           subtotalMinor={x.subtotalMinor}
@@ -153,22 +162,28 @@ export default function InvoicePage({
           taxBp={x.taxBp}
           currency={x.currency}
           rows={[
-            ["Paid", x.amountPaidMinor],
-            ["Balance due", x.balanceMinor, true],
+            [t("invoices.paid"), x.amountPaidMinor],
+            [t("invoices.balanceDue"), x.balanceMinor, true],
           ]}
         />
       </Panel>
-      <Panel title="Payments">
+      <Panel title={t("invoices.payments")}>
         <DataTable
           rowKey={(p) => p.id}
           rows={payments}
-          empty="No payments recorded yet."
+          empty={t("invoices.noPayments")}
           columns={[
-            { header: "Date", cell: (p) => formatDateTime(p.paidAt) },
-            { header: "Method", cell: (p) => titleCase(p.method) },
-            { header: "Reference", cell: (p) => p.reference },
             {
-              header: "Amount",
+              header: t("invoices.date"),
+              cell: (p) => formatDateTime(p.paidAt),
+            },
+            {
+              header: t("invoices.method"),
+              cell: (p) => methodLabel(p.method),
+            },
+            { header: t("invoices.reference"), cell: (p) => p.reference },
+            {
+              header: t("invoices.amount"),
               align: "right",
               cell: (p) => (
                 <Money minor={p.amountMinor} currency={x.currency} />
@@ -176,38 +191,42 @@ export default function InvoicePage({
             },
           ]}
         />
-        <p className="muted">
-          Payments are permanent records. To correct a mistake, contact an
-          administrator.
-        </p>
+        <p className="muted">{t("invoices.paymentsPermanent")}</p>
       </Panel>
       {paying && (
         <FormModal
-          title="Record payment"
-          submitLabel="Record payment"
+          title={t("invoices.recordPayment")}
+          submitLabel={t("invoices.recordPayment")}
           initial={{ amountMinor: x.balanceMinor, method: "CASH" }}
           fields={[
             {
               name: "amountMinor",
-              label: `Amount (balance ${minorToInput(x.balanceMinor)})`,
+              label: t("invoices.amountBalance", {
+                balance: minorToInput(x.balanceMinor),
+              }),
               type: "money",
               required: true,
             },
             {
               name: "method",
-              label: "Method",
+              label: t("invoices.method"),
               type: "select",
               options: ["CASH", "BANK_TRANSFER", "CARD", "OTHER"].map((m) => ({
                 value: m,
-                label: titleCase(m),
+                label: methodLabel(m),
               })),
             },
             {
               name: "reference",
-              label: "Reference (receipt / transfer no.)",
+              label: t("invoices.referenceHelp"),
               optional: true,
             },
-            { name: "notes", label: "Notes", type: "textarea", optional: true },
+            {
+              name: "notes",
+              label: t("docs.notes"),
+              type: "textarea",
+              optional: true,
+            },
           ]}
           onClose={() => setPaying(false)}
           onSubmit={async (v) => {
@@ -229,15 +248,15 @@ export default function InvoicePage({
       )}
       {voiding && (
         <FormModal
-          title="Void invoice"
-          submitLabel="Void invoice"
+          title={t("invoices.voidInvoice")}
+          submitLabel={t("invoices.voidInvoice")}
           fields={[
             {
               name: "reason",
-              label: "Reason",
+              label: t("orders.reason"),
               type: "textarea",
               required: true,
-              help: "The delivered goods become billable again on the order.",
+              help: t("invoices.voidHelp"),
             },
           ]}
           onClose={() => setVoiding(false)}

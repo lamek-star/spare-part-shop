@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ListPage } from "../../../ui/ListPage";
 import { Badge, Money } from "../../../ui/kit";
 import { formatDate } from "../../../ui/api";
+import { useT } from "../../../ui/i18n";
 
 interface Invoice {
   id: string;
@@ -18,13 +19,14 @@ interface Invoice {
 }
 export default function Invoices() {
   const router = useRouter();
+  const t = useT();
   const [unpaid, setUnpaid] = useState(false);
   return (
     <ListPage<Invoice>
-      title="Invoices & payments"
+      title={t("invoices.title")}
       endpoint="/invoices"
       statuses={["ISSUED", "PARTIALLY_PAID", "PAID", "VOID"]}
-      searchPlaceholder="Search invoice number"
+      searchPlaceholder={t("invoices.search")}
       extraFilters={{ unpaidOnly: unpaid || undefined }}
       actions={
         <label>
@@ -33,26 +35,26 @@ export default function Invoices() {
             checked={unpaid}
             onChange={(e) => setUnpaid(e.target.checked)}
           />{" "}
-          Unpaid only
+          {t("invoices.unpaidOnly")}
         </label>
       }
       rowKey={(i) => i.id}
       onRow={(i) => router.push(`/invoices/${i.id}`)}
       columns={[
         {
-          header: "Number",
+          header: t("docs.number"),
           cell: (i) => <Link href={`/invoices/${i.id}`}>{i.number}</Link>,
         },
-        { header: "Issued", cell: (i) => formatDate(i.issueDate) },
-        { header: "Due", cell: (i) => formatDate(i.dueDate) },
-        { header: "Status", cell: (i) => <Badge value={i.status} /> },
+        { header: t("docs.issued"), cell: (i) => formatDate(i.issueDate) },
+        { header: t("docs.due"), cell: (i) => formatDate(i.dueDate) },
+        { header: t("common.status"), cell: (i) => <Badge value={i.status} /> },
         {
-          header: "Total",
+          header: t("doc.total"),
           align: "right",
           cell: (i) => <Money minor={i.totalMinor} currency={i.currency} />,
         },
         {
-          header: "Balance",
+          header: t("docs.balance"),
           align: "right",
           cell: (i) => <Money minor={i.balanceMinor} currency={i.currency} />,
         },

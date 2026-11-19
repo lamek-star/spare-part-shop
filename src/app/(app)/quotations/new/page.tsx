@@ -11,6 +11,7 @@ import {
 } from "../../../../ui/kit";
 import { post } from "../../../../ui/api";
 import { LineEditor, linesPayload, type EditLine } from "../../../../ui/lines";
+import { useT } from "../../../../ui/i18n";
 
 export default function NewQuotation() {
   const router = useRouter();
@@ -22,12 +23,13 @@ export default function NewQuotation() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const act = useAction();
+  const t = useT();
   async function save() {
     setError("");
-    if (!customerId) return setError("Choose a customer.");
+    if (!customerId) return setError(t("quotations.chooseCustomer"));
     let payload;
     try {
-      payload = linesPayload(lines, "sales");
+      payload = linesPayload(lines, "sales", t);
     } catch (e) {
       return setError((e as Error).message);
     }
@@ -38,24 +40,24 @@ export default function NewQuotation() {
           lines: payload,
           notes,
         }),
-      "Quotation created",
+      t("quotations.created"),
     );
     if (q) router.push(`/quotations/${q.id}`);
   }
   return (
     <>
       <PageHead
-        title="New quotation"
-        back={{ href: "/quotations", label: "Quotations" }}
+        title={t("quotations.new")}
+        back={{ href: "/quotations", label: t("nav.quotations") }}
       />
       <ErrorBanner message={error || act.error} />
-      <Panel title="Customer">
-        <FieldBox label="Customer">
+      <Panel title={t("docs.customer")}>
+        <FieldBox label={t("docs.customer")}>
           <select
             value={customerId}
             onChange={(e) => setCustomerId(e.target.value)}
           >
-            <option value="">Choose a customer…</option>
+            <option value="">{t("quotations.chooseCustomerOption")}</option>
             {customers.data?.items.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -64,16 +66,16 @@ export default function NewQuotation() {
           </select>
         </FieldBox>
       </Panel>
-      <Panel title="Items">
+      <Panel title={t("docs.items")}>
         <LineEditor kind="sales" lines={lines} onChange={setLines} />
       </Panel>
-      <Panel title="Notes">
+      <Panel title={t("docs.notes")}>
         <textarea
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           style={{ width: "100%" }}
-          aria-label="Notes"
+          aria-label={t("docs.notes")}
         />
         <div className="form-actions">
           <button
@@ -81,7 +83,7 @@ export default function NewQuotation() {
             onClick={() => void save()}
             disabled={act.busy}
           >
-            Save draft
+            {t("quotations.saveDraft")}
           </button>
         </div>
       </Panel>

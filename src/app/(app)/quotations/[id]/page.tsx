@@ -25,6 +25,7 @@ import {
   type EditLine,
 } from "../../../../ui/lines";
 import { apiUrl } from "@/lib/basePath";
+import { useT } from "../../../../ui/i18n";
 
 interface Quotation {
   id: string;
@@ -51,6 +52,7 @@ export default function QuotationPage({
 }) {
   const { id } = use(params);
   const s = useSession();
+  const t = useT();
   const router = useRouter();
   const q = useApi<Quotation>(`/quotations/${id}`);
   const customer = useApi<{ name: string }>(
@@ -63,7 +65,7 @@ export default function QuotationPage({
   const [shortfall, setShortfall] = useState("reject");
   if (q.loading && !q.data) return <Loading />;
   if (!q.data)
-    return <ErrorBanner message={q.error || "Quotation not found."} />;
+    return <ErrorBanner message={q.error || t("quotations.notFound")} />;
   const x = q.data;
   const w = s.can("quotations.write");
   const step = (path: string, msg: string) =>
@@ -72,21 +74,21 @@ export default function QuotationPage({
     setEditError("");
     let lines;
     try {
-      lines = linesPayload(editing!, "sales");
+      lines = linesPayload(editing!, "sales", t);
     } catch (e) {
       return setEditError((e as Error).message);
     }
     const ok = await act.run(
       () =>
         patch(`/quotations/${id}`, { lines, expectedUpdatedAt: x.updatedAt }),
-      "Quotation saved",
+      t("quotations.saved"),
     );
     if (ok) setEditing(null);
   }
   async function toOrder() {
     const o = await act.run(
       () => post<{ id: string }>(`/quotations/${id}/order`, { shortfall }),
-      "Order created",
+      t("orders.created"),
     );
     if (o) router.push(`/orders/${o.id}`);
   }
@@ -96,60 +98,70 @@ export default function QuotationPage({
         title={x.number}
         subtitle={
           <>
-            <Badge value={x.status} /> · valid until {formatDate(x.validUntil)}
+            <Badge value={x.status} /> ·{" "}
+            {t("quotations.validUntil", { date: formatDate(x.validUntil) })}
           </>
         }
-        back={{ href: "/quotations", label: "Quotations" }}
+        back={{ href: "/quotations", label: t("nav.quotations") }}
         actions={
           <>
+            <Link className="button" href={`/quotations/${id}/print`}>
+              {t("docs.print")}
+            </Link>
             <a
               className="button"
               href={apiUrl(`/quotations/${id}/pdf`)}
               target="_blank"
               rel="noreferrer"
             >
-              Download PDF
+              {t("docs.downloadPdf")}
             </a>
             {w && x.status === "DRAFT" && (
               <button onClick={() => setEditing(linesFromDocument(x.lines))}>
-                Edit lines
+                {t("quotations.editLines")}
               </button>
             )}
             {w && x.status === "DRAFT" && (
               <button
                 className="primary"
-                onClick={() => void step("issue", "Quotation issued")}
+                onClick={() => void step("issue", t("quotations.issued"))}
               >
-                Issue to customer
+                {t("quotations.issue")}
               </button>
             )}
             {w && x.status === "ISSUED" && (
               <>
                 <button
                   className="primary"
-                  onClick={() => void step("accept", "Marked as accepted")}
+                  onClick={() =>
+                    void step("accept", t("quotations.markedAccepted"))
+                  }
                 >
-                  Customer accepted
+                  {t("quotations.customerAccepted")}
                 </button>
                 <button
-                  onClick={() => void step("reject", "Marked as rejected")}
+                  onClick={() =>
+                    void step("reject", t("quotations.markedRejected"))
+                  }
                 >
-                  Customer rejected
+                  {t("quotations.customerRejected")}
                 </button>
               </>
             )}
             {s.can("orders.write") && x.status === "ACCEPTED" && (
               <button className="primary" onClick={() => setOrdering(true)}>
-                Create order
+                {t("quotations.createOrder")}
               </button>
             )}
             {w && ["DRAFT", "ISSUED"].includes(x.status) && (
               <ConfirmButton
                 danger
-                label="Cancel"
-                confirmLabel="Yes, cancel"
+                label={t("common.cancel")}
+                confirmLabel={t("common.yesCancel")}
                 onConfirm={() =>
-                  step("cancel", "Quotation cancelled").then(() => undefined)
+                  step("cancel", t("quotations.cancelled")).then(
+                    () => undefined,
+                  )
                 }
               />
             )}
@@ -157,11 +169,11 @@ export default function QuotationPage({
         }
       />
       <ErrorBanner message={act.error} onClose={act.clear} />
-      <Panel title="Customer">
+      <Panel title={t("docs.customer")}>
         <KeyValues
           items={[
             [
-              "Customer",
+              t("docs.customer"),
               customer.data ? (
                 <Link key="c" href={`/customers/${x.customerId}`}>
                   {customer.data.name}
@@ -171,26 +183,23 @@ export default function QuotationPage({
               ),
             ],
             [
-              "From enquiry",
+              t("quotations.fromEnquiry"),
               x.enquiryId ? (
                 <Link key="e" href={`/enquiries/${x.enquiryId}`}>
-                  Open enquiry
+                  {t("quotations.openEnquiry")}
                 </Link>
               ) : (
                 ""
               ),
             ],
-            ["Issued", formatDate(x.issuedAt)],
+            [t("docs.issued"), formatDate(x.issuedAt)],
           ]}
         />
       </Panel>
-      <Panel title="Items">
+      <Panel title={t("docs.items")}>
         {x.lines.some((l) => l.unitPriceMinor === 0) &&
           x.status === "DRAFT" && (
-            <div className="notice">
-              Some lines have no price yet. Edit the lines to price them before
-              issuing.
-            </div>
+            <div className="notice">{t("quotations.unpriced")}</div>
           )}
         <DocLines lines={x.lines} currency={x.currency} />
         <TotalsBox
@@ -202,42 +211,51 @@ export default function QuotationPage({
         />
       </Panel>
       {(x.notes || x.terms) && (
-        <Panel title="Notes & terms">
+        <Panel title={t("docs.notesTerms")}>
           <KeyValues
             items={[
-              ["Notes", x.notes],
-              ["Terms", x.terms],
+              [t("docs.notes"), x.notes],
+              [t("docs.terms"), x.terms],
             ]}
           />
         </Panel>
       )}
       {editing && (
-        <Modal title={`Edit ${x.number}`} onClose={() => setEditing(null)} wide>
+        <Modal
+          title={t("quotations.editTitle", { number: x.number })}
+          onClose={() => setEditing(null)}
+          wide
+        >
           <ErrorBanner message={editError || act.error} />
           <LineEditor kind="sales" lines={editing} onChange={setEditing} />
           <div className="form-actions">
-            <button onClick={() => setEditing(null)}>Cancel</button>
+            <button onClick={() => setEditing(null)}>
+              {t("common.cancel")}
+            </button>
             <button
               className="primary"
               disabled={act.busy}
               onClick={() => void saveEdit()}
             >
-              Save
+              {t("common.save")}
             </button>
           </div>
         </Modal>
       )}
       {ordering && (
-        <Modal title="Create order" onClose={() => setOrdering(false)}>
-          <p>Stock is reserved for the customer when the order is created.</p>
-          <FieldBox label="If there is not enough stock">
+        <Modal
+          title={t("quotations.createOrder")}
+          onClose={() => setOrdering(false)}
+        >
+          <p>{t("quotations.reserveHelp")}</p>
+          <FieldBox label={t("quotations.shortfall")}>
             <select
               value={shortfall}
               onChange={(e) => setShortfall(e.target.value)}
             >
-              <option value="reject">Do not create the order</option>
+              <option value="reject">{t("quotations.shortfallReject")}</option>
               <option value="backorder">
-                Create it and back-order the shortfall
+                {t("quotations.shortfallBackorder")}
               </option>
             </select>
           </FieldBox>
@@ -248,7 +266,7 @@ export default function QuotationPage({
               disabled={act.busy}
               onClick={() => void toOrder()}
             >
-              Create order
+              {t("quotations.createOrder")}
             </button>
           </div>
         </Modal>

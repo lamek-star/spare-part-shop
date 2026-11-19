@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { qs } from "./api";
+import { useT } from "./i18n";
 import {
   DataTable,
   ErrorBanner,
@@ -11,6 +12,7 @@ import {
   Panel,
   useApi,
   type Column,
+  useStatusLabel,
 } from "./kit";
 
 export interface ListPageProps<T> {
@@ -38,7 +40,7 @@ export function ListPage<T>({
   rowKey,
   onRow,
   actions,
-  searchPlaceholder = "Search…",
+  searchPlaceholder,
   statuses,
   extraFilters,
   pageSize = 25,
@@ -46,6 +48,8 @@ export function ListPage<T>({
   refreshKey,
   noSearch,
 }: ListPageProps<T>) {
+  const t = useT();
+  const statusLabel = useStatusLabel();
   const [q, setQ] = useState("");
   const [term, setTerm] = useState("");
   const [status, setStatus] = useState("");
@@ -70,8 +74,8 @@ export function ListPage<T>({
           <div className="search-box">
             <Search size={16} />
             <input
-              aria-label="Search"
-              placeholder={searchPlaceholder}
+              aria-label={t("common.search")}
+              placeholder={searchPlaceholder ?? t("common.searchPlaceholder")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ border: 0, flex: 1, outline: "none" }}
@@ -80,17 +84,14 @@ export function ListPage<T>({
         )}
         {statuses && (
           <select
-            aria-label="Status"
+            aria-label={t("common.status")}
             value={status}
             onChange={(e) => (setStatus(e.target.value), setPage(1))}
           >
-            <option value="">All statuses</option>
+            <option value="">{t("common.allStatuses")}</option>
             {statuses.map((s) => (
               <option key={s} value={s}>
-                {s
-                  .replace(/_/g, " ")
-                  .toLowerCase()
-                  .replace(/^\w/, (c) => c.toUpperCase())}
+                {statusLabel(s)}
               </option>
             ))}
           </select>
@@ -107,9 +108,7 @@ export function ListPage<T>({
             onRow={onRow}
             empty={
               empty ??
-              (term || status
-                ? "No records match your search."
-                : "Nothing here yet.")
+              (term || status ? t("common.noMatch") : t("common.nothingYet"))
             }
           />
         )}

@@ -20,6 +20,8 @@ import {
 } from "./messages";
 
 export { LANGUAGES, type Language } from "./messages";
+/** A translate function: t(key, vars). */
+export type Translate = (key: MessageKey, vars?: Vars) => string;
 
 interface Choice {
   personal: Language | null;

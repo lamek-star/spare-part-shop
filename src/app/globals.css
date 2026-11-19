@@ -1133,3 +1133,110 @@ main a:not(.button):hover {
 .language-picker [role="alert"] {
   color: #b42318;
 }
+
+/* A quotation or invoice for paper, in the person's language (ui/printDoc.tsx). */
+.print-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.print-doc {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 36px 40px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #172c40;
+}
+.print-doc h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.print-doc h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+.print-doc p {
+  margin: 2px 0;
+}
+.print-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  color: var(--muted);
+}
+.print-head h1,
+.print-meta h2,
+.print-meta strong {
+  color: #172c40;
+}
+.print-meta {
+  text-align: end;
+}
+.print-party {
+  margin: 26px 0 18px;
+  display: grid;
+  gap: 2px;
+}
+.print-party small,
+.print-notes small {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.print-party strong {
+  font-size: 15px;
+}
+.print-lines {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: normal;
+}
+.print-lines th {
+  border-bottom: 2px solid #172c40;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.print-lines td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+.print-doc .num {
+  text-align: end;
+}
+.print-lines small {
+  display: block;
+  color: var(--muted);
+}
+.print-totals {
+  margin-inline-start: auto;
+  margin-top: 14px;
+  min-width: 280px;
+  border-collapse: collapse;
+}
+.print-totals td {
+  padding: 4px 8px;
+}
+.print-totals .print-total td {
+  font-weight: 700;
+  border-top: 1px solid #172c40;
+}
+.print-notes {
+  margin-top: 18px;
+}
+@media print {
+  .print-doc {
+    border: 0;
+    padding: 0;
+    max-width: none;
+  }
+  .print-lines tr,
+  .print-totals {
+    break-inside: avoid;
+  }
+}

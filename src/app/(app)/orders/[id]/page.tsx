@@ -18,6 +18,7 @@ import {
 } from "../../../../ui/kit";
 import { post } from "../../../../ui/api";
 import { DocLines, TotalsBox, type DocLine } from "../../../../ui/doc";
+import { useT } from "../../../../ui/i18n";
 
 interface OrderLine extends DocLine {
   quantityFulfilled: number;
@@ -45,6 +46,7 @@ export default function OrderPage({
 }) {
   const { id } = use(params);
   const s = useSession();
+  const t = useT();
   const router = useRouter();
   const o = useApi<Order>(`/orders/${id}`);
   const customer = useApi<{ name: string }>(
@@ -60,7 +62,7 @@ export default function OrderPage({
   );
   const [returning, setReturning] = useState(false);
   if (o.loading && !o.data) return <Loading />;
-  if (!o.data) return <ErrorBanner message={o.error || "Order not found."} />;
+  if (!o.data) return <ErrorBanner message={o.error || t("orders.notFound")} />;
   const x = o.data;
   const w = s.can("orders.write");
   const remaining = (l: OrderLine) => l.quantity - l.quantityFulfilled;
@@ -82,14 +84,14 @@ export default function OrderPage({
     if (!lines.length) return;
     const r = await act.run(
       () => post(`/orders/${id}/fulfil`, { lines }),
-      "Delivery recorded",
+      t("orders.deliveryRecorded"),
     );
     if (r) setFulfilling(null);
   }
   async function invoice() {
     const inv = await act.run(
       () => post<{ id: string }>(`/orders/${id}/invoice`, {}),
-      "Invoice created",
+      t("invoices.created"),
     );
     if (inv) router.push(`/invoices/${inv.id}`);
   }
@@ -98,7 +100,7 @@ export default function OrderPage({
       <PageHead
         title={x.number}
         subtitle={<Badge value={x.status} />}
-        back={{ href: "/orders", label: "Orders" }}
+        back={{ href: "/orders", label: t("nav.orders") }}
         actions={
           <>
             {w &&
@@ -117,7 +119,7 @@ export default function OrderPage({
                     )
                   }
                 >
-                  Record delivery
+                  {t("orders.recordDelivery")}
                 </button>
               )}
             {s.can("invoices.write") && anyToInvoice && (
@@ -126,22 +128,24 @@ export default function OrderPage({
                 disabled={act.busy}
                 onClick={() => void invoice()}
               >
-                Invoice delivered items
+                {t("orders.invoiceDelivered")}
               </button>
             )}
             {w && anyReturnable && (
-              <button onClick={() => setReturning(true)}>Record return</button>
+              <button onClick={() => setReturning(true)}>
+                {t("orders.recordReturn")}
+              </button>
             )}
             {w && anyToDeliver && x.lines.some((l) => l.productId) && (
               <button
                 onClick={() =>
                   void act.run(
                     () => post(`/orders/${id}/reserve`),
-                    "Reservation updated",
+                    t("orders.reservationUpdated"),
                   )
                 }
               >
-                Reserve available stock
+                {t("orders.reserve")}
               </button>
             )}
             {w &&
@@ -155,22 +159,22 @@ export default function OrderPage({
                         post(`/orders/${id}/cancel`, {
                           reason: "Cancelled by staff",
                         }),
-                      "Order cancelled",
+                      t("orders.cancelled"),
                     )
                   }
                 >
-                  Cancel order
+                  {t("orders.cancel")}
                 </button>
               )}
           </>
         }
       />
       <ErrorBanner message={act.error} onClose={act.clear} />
-      <Panel title="Order">
+      <Panel title={t("orders.order")}>
         <KeyValues
           items={[
             [
-              "Customer",
+              t("docs.customer"),
               customer.data ? (
                 <Link key="c" href={`/customers/${x.customerId}`}>
                   {customer.data.name}
@@ -180,36 +184,36 @@ export default function OrderPage({
               ),
             ],
             [
-              "Quotation",
+              t("orders.quotation"),
               x.quotationId ? (
                 <Link key="q" href={`/quotations/${x.quotationId}`}>
-                  Open quotation
+                  {t("orders.openQuotation")}
                 </Link>
               ) : (
                 ""
               ),
             ],
-            ["Notes", x.notes],
+            [t("docs.notes"), x.notes],
           ]}
         />
       </Panel>
-      <Panel title="Items">
+      <Panel title={t("docs.items")}>
         <DocLines
           lines={x.lines}
           currency={x.currency}
           extra={[
             {
-              header: "Delivered",
+              header: t("orders.delivered"),
               align: "right",
               cell: (l) => l.quantityFulfilled,
             },
             {
-              header: "Returned",
+              header: t("orders.returned"),
               align: "right",
               cell: (l) => l.quantityReturned,
             },
             {
-              header: "Invoiced",
+              header: t("orders.invoiced"),
               align: "right",
               cell: (l) => l.quantityInvoiced,
             },
@@ -224,17 +228,20 @@ export default function OrderPage({
         />
       </Panel>
       {fulfilling && (
-        <Modal title="Record delivery" onClose={() => setFulfilling(null)}>
-          <p className="muted">
-            Enter the quantity delivered now for each line. Stock is deducted
-            when you save.
-          </p>
+        <Modal
+          title={t("orders.recordDelivery")}
+          onClose={() => setFulfilling(null)}
+        >
+          <p className="muted">{t("orders.deliveryHelp")}</p>
           {x.lines
             .filter((l) => remaining(l) > 0)
             .map((l) => (
               <FieldBox
                 key={l.id}
-                label={`${l.description} (outstanding ${remaining(l)})`}
+                label={t("orders.outstanding", {
+                  item: l.description,
+                  count: remaining(l),
+                })}
               >
                 <input
                   inputMode="numeric"
@@ -252,19 +259,19 @@ export default function OrderPage({
               disabled={act.busy}
               onClick={() => void deliver()}
             >
-              Save delivery
+              {t("orders.saveDelivery")}
             </button>
           </div>
         </Modal>
       )}
       {returning && (
         <FormModal
-          title="Record return"
-          submitLabel="Record return"
+          title={t("orders.recordReturn")}
+          submitLabel={t("orders.recordReturn")}
           fields={[
             {
               name: "lineId",
-              label: "Item",
+              label: t("doc.item"),
               type: "select",
               options: x.lines
                 .filter(
@@ -273,24 +280,27 @@ export default function OrderPage({
                 )
                 .map((l) => ({
                   value: l.id,
-                  label: `${l.description} (up to ${l.quantityFulfilled - l.quantityReturned})`,
+                  label: t("orders.upTo", {
+                    item: l.description,
+                    count: l.quantityFulfilled - l.quantityReturned,
+                  }),
                 })),
             },
             {
               name: "quantity",
-              label: "Quantity returned",
+              label: t("orders.quantityReturned"),
               type: "number",
               required: true,
             },
             {
               name: "locationId",
-              label: "Return to location",
+              label: t("orders.returnTo"),
               type: "select",
               options: locOptions,
             },
             {
               name: "reason",
-              label: "Reason",
+              label: t("orders.reason"),
               type: "textarea",
               required: true,
             },

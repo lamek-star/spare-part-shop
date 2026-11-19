@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { get, minorToInput, parseMinor, qs } from "./api";
+import { useT, type Translate } from "./i18n";
+import { translate } from "./messages";
 
 export interface EditLine {
   key: string;
@@ -56,31 +58,30 @@ export const linesFromDocument = (
     }),
   );
 
-/** Validates the editor rows and turns them into the API payload. */
-export function linesPayload(lines: EditLine[], kind: "sales" | "purchase") {
-  if (!lines.length) throw new Error("Add at least one line.");
+/** Validates the editor rows and turns them into the API payload; messages in the person's language (t). */
+export function linesPayload(
+  lines: EditLine[],
+  kind: "sales" | "purchase",
+  t: Translate = (key, vars) => translate("en", key, vars),
+) {
+  if (!lines.length) throw new Error(t("lines.addOne"));
   return lines.map((l, i) => {
     const n = i + 1;
     if (!/^\d+$/.test(l.quantity.trim()) || Number(l.quantity) < 1)
-      throw new Error(
-        `Line ${n}: quantity must be a whole number of at least 1.`,
-      );
+      throw new Error(t("lines.badQty", { n }));
     const price = l.price.trim() === "" ? 0 : parseMinor(l.price);
-    if (price === null)
-      throw new Error(`Line ${n}: the price must be an amount such as 12.50.`);
+    if (price === null) throw new Error(t("lines.badPrice", { n }));
     let discountBp = 0;
     if (l.discount.trim()) {
       if (
         !/^\d+(\.\d{1,2})?$/.test(l.discount.trim()) ||
         Number(l.discount) > 100
       )
-        throw new Error(
-          `Line ${n}: the discount must be a percentage between 0 and 100.`,
-        );
+        throw new Error(t("lines.badDiscount", { n }));
       discountBp = Math.round(Number(l.discount) * 100);
     }
     if (kind === "purchase") {
-      if (!l.productId) throw new Error(`Line ${n}: choose a product.`);
+      if (!l.productId) throw new Error(t("lines.chooseProduct", { n }));
       return {
         productId: l.productId,
         quantity: Number(l.quantity),
@@ -89,7 +90,7 @@ export function linesPayload(lines: EditLine[], kind: "sales" | "purchase") {
       };
     }
     if (!l.productId && !l.description.trim())
-      throw new Error(`Line ${n}: choose a product or type a description.`);
+      throw new Error(t("lines.productOrDescription", { n }));
     return {
       productId: l.productId,
       sku: l.sku,
@@ -104,11 +105,12 @@ export function linesPayload(lines: EditLine[], kind: "sales" | "purchase") {
 
 export function ProductPicker({
   onPick,
-  placeholder = "Search my products by name, SKU or part number…",
+  placeholder,
 }: {
   onPick: (p: ProductHit) => void;
   placeholder?: string;
 }) {
+  const t = useT();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [open, setOpen] = useState(false);
@@ -178,8 +180,8 @@ export function ProductPicker({
   return (
     <div style={{ position: "relative" }}>
       <input
-        aria-label="Find a product"
-        placeholder={placeholder}
+        aria-label={t("lines.findProduct")}
+        placeholder={placeholder ?? t("lines.searchProducts")}
         value={q}
         onChange={(e) => (setQ(e.target.value), setOpen(true), setActive(0))}
         onKeyDown={onKey}
@@ -231,6 +233,7 @@ export function LineEditor({
   onChange: (l: EditLine[]) => void;
   kind: "sales" | "purchase";
 }) {
+  const t = useT();
   const set = (key: string, patch: Partial<EditLine>) =>
     onChange(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const cols =
@@ -264,10 +267,12 @@ export function LineEditor({
         }}
         className="muted"
       >
-        <small>Item</small>
-        <small>Qty</small>
-        <small>{kind === "sales" ? "Unit price" : "Unit cost"}</small>
-        <small>Disc. %</small>
+        <small>{t("doc.item")}</small>
+        <small>{t("doc.qty")}</small>
+        <small>
+          {kind === "sales" ? t("doc.unitPrice") : t("lines.unitCost")}
+        </small>
+        <small>{t("lines.discountPct")}</small>
         <span />
       </div>
       {lines.map((l) => (
@@ -291,8 +296,8 @@ export function LineEditor({
               </div>
             ) : (
               <input
-                aria-label="Description"
-                placeholder="Description (item not in My Products)"
+                aria-label={t("lines.description")}
+                placeholder={t("lines.descriptionPlaceholder")}
                 value={l.description}
                 onChange={(e) => set(l.key, { description: e.target.value })}
                 style={{ width: "100%" }}
@@ -300,26 +305,26 @@ export function LineEditor({
             )}
           </div>
           <input
-            aria-label="Quantity"
+            aria-label={t("lines.quantity")}
             inputMode="numeric"
             value={l.quantity}
             onChange={(e) => set(l.key, { quantity: e.target.value })}
           />
           <input
-            aria-label="Price"
+            aria-label={t("lines.price")}
             inputMode="decimal"
             value={l.price}
             onChange={(e) => set(l.key, { price: e.target.value })}
           />
           <input
-            aria-label="Discount percent"
+            aria-label={t("lines.discountPercent")}
             inputMode="decimal"
             value={l.discount}
             onChange={(e) => set(l.key, { discount: e.target.value })}
           />
           <button
             type="button"
-            aria-label="Remove line"
+            aria-label={t("lines.remove")}
             onClick={() => onChange(lines.filter((x) => x.key !== l.key))}
             style={{ padding: 6 }}
           >
@@ -329,7 +334,7 @@ export function LineEditor({
       ))}
       {kind === "sales" && (
         <button type="button" onClick={() => onChange([...lines, newLine()])}>
-          <Plus size={15} /> Add a free-text line
+          <Plus size={15} /> {t("lines.addFreeText")}
         </button>
       )}
     </div>

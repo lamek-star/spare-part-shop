@@ -15,6 +15,8 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError, get, minorToInput, parseMinor, titleCase } from "./api";
+import { useT } from "./i18n";
+import { en, type MessageKey } from "./messages/en";
 
 // ---------- data loading ----------
 export function useApi<T>(path: string | null, refreshKey: unknown = 0) {
@@ -155,7 +157,24 @@ const AMBER =
   /^(DRAFT|ISSUED|PARTIALLY_PAID|PARTIALLY_FULFILLED|PARTIALLY_RECEIVED|CONFIRMED|PENDING|REVIEW_REQUIRED|RUNNING|LOW|UNVERIFIED|COMPLETED_WITH_WARNINGS|SUPERSEDED|OPEN|INVOICED)$/;
 const RED =
   /^(CANCELLED|VOID|FAILED|REJECTED|EXPIRED|INACTIVE|DISABLED|OUT|ENDED|DISPUTED|INVALID|DISCONTINUED)$/;
+/** A status's name in the person's language (status.<VALUE>), or the value in Title Case if it has none. */
+export function useStatusLabel() {
+  const t = useT();
+  return (value: string) => {
+    const key = `status.${value}`;
+    return key in en ? t(key as MessageKey) : titleCase(value);
+  };
+}
+/** A payment method's name in the person's language (method.<VALUE>), or the value in Title Case. */
+export function useMethodLabel() {
+  const t = useT();
+  return (value: string) => {
+    const key = `method.${value}`;
+    return key in en ? t(key as MessageKey) : titleCase(value);
+  };
+}
 export function Badge({ value, label }: { value: string; label?: string }) {
+  const statusLabel = useStatusLabel();
   const cls = GREEN.test(value)
     ? "green"
     : AMBER.test(value)
@@ -163,30 +182,35 @@ export function Badge({ value, label }: { value: string; label?: string }) {
       : RED.test(value)
         ? "red"
         : "";
-  return <span className={`badge ${cls}`}>{label ?? titleCase(value)}</span>;
+  return <span className={`badge ${cls}`}>{label ?? statusLabel(value)}</span>;
 }
-export const ErrorBanner = ({
+export function ErrorBanner({
   message,
   onClose,
 }: {
   message: string;
   onClose?: () => void;
-}) =>
-  message ? (
+}) {
+  const t = useT();
+  return message ? (
     <div className="error" role="alert">
       <span>{message}</span>
       {onClose && (
-        <button aria-label="Dismiss" onClick={onClose}>
+        <button aria-label={t("common.dismiss")} onClick={onClose}>
           ×
         </button>
       )}
     </div>
   ) : null;
-export const Loading = ({ what = "Loading" }: { what?: string }) => (
-  <p className="muted" role="status">
-    {what}…
-  </p>
-);
+}
+export function Loading({ what }: { what?: string }) {
+  const t = useT();
+  return (
+    <p className="muted" role="status">
+      {what ?? t("common.loading")}…
+    </p>
+  );
+}
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
@@ -226,7 +250,7 @@ export function DataTable<T>({
   columns,
   rows,
   onRow,
-  empty = "Nothing here yet.",
+  empty,
   rowKey,
 }: {
   columns: Column<T>[];
@@ -235,6 +259,7 @@ export function DataTable<T>({
   empty?: string;
   rowKey: (row: T) => string;
 }) {
+  const t = useT();
   return (
     <div className="table-wrap">
       <table>
@@ -269,7 +294,7 @@ export function DataTable<T>({
           ))}
         </tbody>
       </table>
-      {!rows.length && <Empty>{empty}</Empty>}
+      {!rows.length && <Empty>{empty ?? t("common.nothingYet")}</Empty>}
     </div>
   );
 }
@@ -284,24 +309,30 @@ export function Pager({
   total: number;
   onPage: (p: number) => void;
 }) {
+  const t = useT();
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (total <= pageSize)
     return total ? (
       <p className="muted">
-        {total} record{total === 1 ? "" : "s"}
+        {t(total === 1 ? "common.oneRecord" : "common.records", {
+          count: total,
+        })}
       </p>
     ) : null;
   return (
     <div className="pagination">
       <span className="muted">
-        {(page - 1) * pageSize + 1}–{Math.min(total, page * pageSize)} of{" "}
-        {total}
+        {t("common.range", {
+          from: (page - 1) * pageSize + 1,
+          to: Math.min(total, page * pageSize),
+          total,
+        })}
       </span>
       <button disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        Previous
+        {t("common.previous")}
       </button>
       <button disabled={page >= pages} onClick={() => onPage(page + 1)}>
-        Next
+        {t("common.next")}
       </button>
     </div>
   );
@@ -324,6 +355,7 @@ export function Modal({
   useEffect(() => {
     ref.current?.showModal();
   }, []);
+  const t = useT();
   return (
     <dialog
       ref={ref}
@@ -333,7 +365,7 @@ export function Modal({
     >
       <div className="modal-head">
         <h2 id={titleId}>{title}</h2>
-        <button aria-label="Close dialog" onClick={onClose}>
+        <button aria-label={t("common.closeDialog")} onClick={onClose}>
           ×
         </button>
       </div>
@@ -389,7 +421,7 @@ export function FormModal({
   title,
   fields,
   initial = {},
-  submitLabel = "Save",
+  submitLabel,
   onSubmit,
   onClose,
   warnBeforeSave,
@@ -403,6 +435,7 @@ export function FormModal({
   /** A reason to stop and ask before saving (shown once; saving again with the same values goes ahead). */
   warnBeforeSave?: (values: Record<string, unknown>) => string | null;
 }) {
+  const t = useT();
   const defaultFor = (f: FieldSpec): string | boolean => {
     const v = initial[f.name];
     if (f.type === "checkbox") return Boolean(v);
@@ -479,7 +512,7 @@ export function FormModal({
         <ErrorBanner message={error} />
         {warning && (
           <div className="notice" role="alert">
-            {warning} Press <b>Save anyway</b> to keep it, or correct it.
+            {warning} {t("common.saveAnywayHelp")}
           </div>
         )}
         <div className="form-grid">
@@ -563,10 +596,14 @@ export function FormModal({
         </div>
         <div className="form-actions">
           <button type="button" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </button>
           <button className="primary" disabled={busy}>
-            {busy ? "Saving…" : warning ? "Save anyway" : submitLabel}
+            {busy
+              ? t("common.saving")
+              : warning
+                ? t("common.saveAnyway")
+                : (submitLabel ?? t("common.save"))}
           </button>
         </div>
       </form>
@@ -577,7 +614,7 @@ export function FormModal({
 /** A button that asks a second time before doing something irreversible. */
 export function ConfirmButton({
   label,
-  confirmLabel = "Confirm",
+  confirmLabel,
   onConfirm,
   danger,
 }: {
@@ -586,6 +623,7 @@ export function ConfirmButton({
   onConfirm: () => Promise<void> | void;
   danger?: boolean;
 }) {
+  const tr = useT();
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -608,7 +646,7 @@ export function ConfirmButton({
         }
       }}
     >
-      {armed ? confirmLabel : label}
+      {armed ? (confirmLabel ?? tr("common.confirm")) : label}
     </button>
   );
 }

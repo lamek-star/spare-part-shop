@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { DataTable, Money, type Column } from "./kit";
+import { useT } from "./i18n";
 
 export interface DocLine {
   id: string;
@@ -22,13 +23,14 @@ export function DocLines<T extends DocLine>({
   currency: string;
   extra?: Column<T>[];
 }) {
+  const t = useT();
   return (
     <DataTable
       rowKey={(l) => l.id}
       rows={lines}
       columns={[
         {
-          header: "Item",
+          header: t("doc.item"),
           cell: (l) => (
             <div>
               {l.productId ? (
@@ -42,20 +44,20 @@ export function DocLines<T extends DocLine>({
             </div>
           ),
         },
-        { header: "Qty", align: "right", cell: (l) => l.quantity },
+        { header: t("doc.qty"), align: "right", cell: (l) => l.quantity },
         ...extra,
         {
-          header: "Unit price",
+          header: t("doc.unitPrice"),
           align: "right",
           cell: (l) => <Money minor={l.unitPriceMinor} currency={currency} />,
         },
         {
-          header: "Disc.",
+          header: t("doc.discount"),
           align: "right",
           cell: (l) => (l.discountBp ? `${l.discountBp / 100}%` : ""),
         },
         {
-          header: "Total",
+          header: t("doc.total"),
           align: "right",
           cell: (l) => <Money minor={l.lineTotalMinor} currency={currency} />,
         },
@@ -78,6 +80,7 @@ export function TotalsBox({
   currency: string;
   rows?: [string, number, boolean?][];
 }) {
+  const t = useT();
   const line = (label: string, minor: number, bold?: boolean) => (
     <div
       key={label}
@@ -95,9 +98,9 @@ export function TotalsBox({
   );
   return (
     <div className="totals">
-      {line("Subtotal", subtotalMinor)}
-      {line(`Tax (${taxBp / 100}%)`, taxMinor)}
-      {line("Total", totalMinor, true)}
+      {line(t("doc.subtotal"), subtotalMinor)}
+      {line(t("doc.tax", { rate: taxBp / 100 }), taxMinor)}
+      {line(t("doc.total"), totalMinor, true)}
       {rows.map(([l, m, b]) => line(l, m, b))}
     </div>
   );
