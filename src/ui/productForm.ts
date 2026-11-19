@@ -1,6 +1,10 @@
 import type { FieldSpec } from "./kit";
+import type { Translate } from "./i18n";
+import { translate } from "./messages";
 
 export function productFields(opts: {
+  /** The person's language (useT()). */
+  t: Translate;
   canCost: boolean;
   suppliers: { id: string; name: string }[];
   creating: boolean;
@@ -8,24 +12,25 @@ export function productFields(opts: {
   /** The pharmacy edition: medicine details, prescription and batch tracking. */
   pharmacy?: boolean;
 }): FieldSpec[] {
+  const { t } = opts;
   const f: FieldSpec[] = opts.pharmacy
     ? [
         {
           name: "sku",
-          label: "Barcode (or your own code)",
+          label: t("prod.barcodeOrYourOwnCode"),
           required: true,
-          help: "Scan the pack's barcode into this field.",
+          help: t("prod.scanThePackSBarcode"),
         },
-        { name: "name", label: "Name on the pack", required: true },
+        { name: "name", label: t("prod.nameOnThePack"), required: true },
         {
           name: "genericName",
-          label: "Generic name",
-          placeholder: "Paracetamol",
+          label: t("prod.genericName"),
+          placeholder: t("prod.paracetamol"),
         },
-        { name: "strength", label: "Strength", placeholder: "500 mg" },
+        { name: "strength", label: t("prod.strength"), placeholder: "500 mg" },
         {
           name: "dosageForm",
-          label: "Dosage form",
+          label: t("prod.dosageForm"),
           type: "select",
           optional: true,
           options: [
@@ -45,51 +50,54 @@ export function productFields(opts: {
             "Other",
           ].map((v) => ({ value: v, label: v || "— choose —" })),
         },
-        { name: "brand", label: "Brand" },
-        { name: "manufacturer", label: "Manufacturer" },
-        { name: "category", label: "Category", placeholder: "Analgesics" },
+        { name: "brand", label: t("prod.brand") },
+        { name: "manufacturer", label: t("prod.manufacturer") },
+        {
+          name: "category",
+          label: t("prod.category"),
+          placeholder: t("prod.analgesics"),
+        },
         {
           name: "prescriptionOnly",
-          label: "Prescription only (the till asks for the prescription)",
+          label: t("prod.prescriptionOnlyTheTillAsks"),
           type: "checkbox",
         },
         {
           name: "trackBatches",
-          label:
-            "Keep in batches with expiry dates (sold earliest expiry first)",
+          label: t("prod.keepInBatchesWithExpiry"),
           type: "checkbox",
         },
-        { name: "priceMinor", label: "Selling price", type: "money" },
+        { name: "priceMinor", label: t("prod.sellingPrice"), type: "money" },
       ]
     : [
-        { name: "sku", label: "SKU (your own code)", required: true },
-        { name: "name", label: "Name", required: true },
-        { name: "brand", label: "Brand" },
-        { name: "manufacturer", label: "Manufacturer" },
-        { name: "category", label: "Category" },
+        { name: "sku", label: t("prod.skuYourOwnCode"), required: true },
+        { name: "name", label: t("users.name"), required: true },
+        { name: "brand", label: t("prod.brand") },
+        { name: "manufacturer", label: t("prod.manufacturer") },
+        { name: "category", label: t("prod.category") },
         {
           name: "condition",
-          label: "Condition",
+          label: t("prod.condition"),
           type: "select",
           options: ["NEW", "USED", "REMANUFACTURED", "OTHER"].map((v) => ({
             value: v,
             label: v.charAt(0) + v.slice(1).toLowerCase(),
           })),
         },
-        { name: "priceMinor", label: "Selling price", type: "money" },
+        { name: "priceMinor", label: t("prod.sellingPrice"), type: "money" },
       ];
   if (opts.canCost)
-    f.push({ name: "costMinor", label: "Cost price", type: "money" });
+    f.push({ name: "costMinor", label: t("prod.costPrice"), type: "money" });
   f.push(
     {
       name: "reorderLevel",
-      label: "Reorder level",
+      label: t("prod.reorderLevel"),
       type: "number",
-      help: "Warn when available stock falls to this number.",
+      help: t("prod.warnWhenAvailableStockFalls"),
     },
     {
       name: "unit",
-      label: "Unit",
+      label: t("prod.unit"),
       placeholder: opts.pharmacy ? "Pack" : "Each",
     },
     ...(opts.pharmacy
@@ -97,37 +105,37 @@ export function productFields(opts: {
       : [
           {
             name: "weightGrams",
-            label: "Weight (grams)",
+            label: t("prod.weightGrams"),
             type: "number" as const,
             optional: true,
-            help: "For shipping; leave empty if unknown.",
+            help: t("prod.forShippingLeaveEmptyIf"),
           },
         ]),
     {
       name: "origin",
-      label: "Origin (country)",
+      label: t("prod.originCountry"),
       placeholder: opts.pharmacy ? "India" : "Japan",
     },
-    { name: "description", label: "Description", type: "textarea" },
-    { name: "notes", label: "Notes (staff only)", type: "textarea" },
+    { name: "description", label: t("lines.description"), type: "textarea" },
+    { name: "notes", label: t("prod.notesStaffOnly"), type: "textarea" },
     {
       name: "status",
-      label: "Status",
+      label: t("common.status"),
       type: "select",
       options: [
-        { value: "ACTIVE", label: "Active" },
-        { value: "INACTIVE", label: "Inactive" },
+        { value: "ACTIVE", label: t("status.ACTIVE") },
+        { value: "INACTIVE", label: t("status.INACTIVE") },
       ],
     },
   );
   if (opts.suppliers.length)
     f.splice(f.length - 1, 0, {
       name: "defaultSupplierId",
-      label: "Default supplier",
+      label: t("prod.defaultSupplier"),
       type: "select",
       optional: true,
       options: [
-        { value: "", label: "— none —" },
+        { value: "", label: t("prod.none") },
         ...opts.suppliers.map((s) => ({ value: s.id, label: s.name })),
       ],
     });
@@ -135,17 +143,17 @@ export function productFields(opts: {
     f.push(
       {
         name: "openingLocationId",
-        label: "Opening stock location",
+        label: t("prod.openingStockLocation"),
         type: "select",
         optional: true,
         options: [
-          { value: "", label: "— no opening stock —" },
+          { value: "", label: t("prod.noOpeningStock") },
           ...opts.locations,
         ],
       },
       {
         name: "openingQuantity",
-        label: "Opening stock quantity",
+        label: t("prod.openingStockQuantity"),
         type: "number",
         optional: true,
       },
@@ -154,12 +162,12 @@ export function productFields(opts: {
       f.push(
         {
           name: "openingBatchNo",
-          label: "Opening stock batch number",
+          label: t("prod.openingStockBatchNumber"),
           optional: true,
         },
         {
           name: "openingExpiryDate",
-          label: "Opening stock expiry date",
+          label: t("prod.openingStockExpiryDate"),
           type: "date",
           optional: true,
         },
@@ -168,12 +176,15 @@ export function productFields(opts: {
   return f;
 }
 /** H3: selling below cost may be on purpose (clearance), so it is a question, not a refusal. */
-export function belowCostWarning(v: Record<string, unknown>): string | null {
+export function belowCostWarning(
+  v: Record<string, unknown>,
+  t: Translate = (key, vars) => translate("en", key, vars),
+): string | null {
   const price = v.priceMinor;
   const cost = v.costMinor;
   if (typeof price !== "number" || typeof cost !== "number") return null;
   if (cost <= 0 || price >= cost) return null;
-  return "The selling price is lower than the cost price, so every sale makes a loss.";
+  return t("prod.belowCost");
 }
 
 export function productPayload(v: Record<string, unknown>) {

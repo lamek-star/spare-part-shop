@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { FieldBox, Modal } from "./kit";
 import { apiUrl } from "@/lib/basePath";
+import { useT } from "./i18n";
 
 /**
  * Print or download a product's label: the shop's name (from Settings), the product, the barcode or a QR code and the
@@ -134,6 +135,7 @@ export function LabelDialog({
   sku: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [size, setSize] = useState<Size>("printer");
   const [code, setCode] = useState<Code>("code128");
   const [price, setPrice] = useState(true);
@@ -146,9 +148,7 @@ export function LabelDialog({
   function print() {
     const w = window.open("", "_blank", "width=760,height=900");
     if (!w) {
-      setError(
-        "The print window was blocked. Allow pop-ups for this page and try again.",
-      );
+      setError(t("label.popupBlocked"));
       return;
     }
     w.document.open();
@@ -170,16 +170,14 @@ export function LabelDialog({
       for (const [name, blob] of await labelPictures(url, size, count))
         download(`${sku}-${name}`, blob);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "The picture could not be made.",
-      );
+      setError(e instanceof Error ? e.message : t("label.pictureFailed"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Modal title="Print label" onClose={onClose}>
+    <Modal title={t("label.printLabel")} onClose={onClose}>
       <div
         className="label-preview"
         style={{
@@ -202,25 +200,25 @@ export function LabelDialog({
         />
       </div>
       <div className="form-grid" style={{ marginTop: 12 }}>
-        <FieldBox label="Paper">
+        <FieldBox label={t("label.paper")}>
           <select
             value={size}
             onChange={(e) => setSize(e.target.value as Size)}
           >
-            <option value="printer">Label printer, 50 × 30 mm</option>
-            <option value="sheet">A4 sheet, 3 × 8 labels (70 × 37 mm)</option>
+            <option value="printer">{t("label.labelPrinter5030Mm")}</option>
+            <option value="sheet">{t("label.sheet")}</option>
           </select>
         </FieldBox>
-        <FieldBox label="Code">
+        <FieldBox label={t("customers.code")}>
           <select
             value={code}
             onChange={(e) => setCode(e.target.value as Code)}
           >
-            <option value="code128">Barcode</option>
-            <option value="qr">QR code</option>
+            <option value="code128">{t("label.barcode")}</option>
+            <option value="qr">{t("label.qrCode")}</option>
           </select>
         </FieldBox>
-        <FieldBox label="Copies">
+        <FieldBox label={t("label.copies")}>
           <input
             type="number"
             min={1}
@@ -229,13 +227,13 @@ export function LabelDialog({
             onChange={(e) => setCopies(Number(e.target.value))}
           />
         </FieldBox>
-        <FieldBox label="Price on the label">
+        <FieldBox label={t("label.priceOnTheLabel")}>
           <select
             value={price ? "yes" : "no"}
             onChange={(e) => setPrice(e.target.value === "yes")}
           >
-            <option value="yes">Show the price</option>
-            <option value="no">No price</option>
+            <option value="yes">{t("label.showThePrice")}</option>
+            <option value="no">{t("label.noPrice")}</option>
           </select>
         </FieldBox>
       </div>
@@ -250,10 +248,10 @@ export function LabelDialog({
       )}
       <div className="form-actions">
         <button onClick={() => void save()} disabled={busy}>
-          {busy ? "Making the picture…" : "Download picture"}
+          {busy ? t("label.making") : t("label.download")}
         </button>
         <button className="primary" onClick={print}>
-          Print
+          {t("docs.print")}
         </button>
       </div>
     </Modal>

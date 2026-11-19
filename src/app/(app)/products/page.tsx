@@ -12,6 +12,7 @@ import {
   productFields,
   productPayload,
 } from "../../../ui/productForm";
+import { useT } from "../../../ui/i18n";
 
 interface Product {
   id: string;
@@ -29,6 +30,7 @@ interface Product {
   primaryImageUrl: string | null;
 }
 export default function Products() {
+  const t = useT();
   const s = useSession();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -42,11 +44,11 @@ export default function Products() {
   return (
     <>
       <ListPage<Product>
-        title="My Products"
-        subtitle="Items your shop sells, with your own SKU, price and stock. Reference Catalogue parts stay separate until you import them here."
+        title={t("nav.products")}
+        subtitle={t("prod.itemsYourShopSellsWith")}
         endpoint="/products"
         statuses={["ACTIVE", "INACTIVE"]}
-        searchPlaceholder="Search name, SKU, brand or part number"
+        searchPlaceholder={t("prod.searchNameSkuBrandOr")}
         extraFilters={{
           lowStockOnly: low || undefined,
           category: category || undefined,
@@ -54,11 +56,11 @@ export default function Products() {
         actions={
           <>
             <select
-              aria-label="Category"
+              aria-label={t("prod.category")}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="">All categories</option>
+              <option value="">{t("prod.allCategories")}</option>
               {cats.data?.filter(Boolean).map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -69,11 +71,11 @@ export default function Products() {
                 checked={low}
                 onChange={(e) => setLow(e.target.checked)}
               />{" "}
-              Low stock only
+              {t("prod.lowStockOnly")}
             </label>
             {s.can("products.write") && (
               <button className="primary" onClick={() => setCreating(true)}>
-                New product
+                {t("prod.newProduct")}
               </button>
             )}
           </>
@@ -82,7 +84,7 @@ export default function Products() {
         onRow={(p) => router.push(`/products/${p.id}`)}
         columns={[
           {
-            header: "Product",
+            header: t("prod.product"),
             cell: (p) => (
               <div
                 className="part-cell"
@@ -122,9 +124,9 @@ export default function Products() {
               </div>
             ),
           },
-          { header: "Category", cell: (p) => p.category },
+          { header: t("prod.category"), cell: (p) => p.category },
           {
-            header: "Available",
+            header: t("prod.available"),
             align: "right",
             cell: (p) =>
               p.reorderLevel > 0 && p.available <= p.reorderLevel ? (
@@ -133,16 +135,16 @@ export default function Products() {
                 p.available
               ),
           },
-          { header: "On hand", align: "right", cell: (p) => p.onHand },
+          { header: t("prod.onHand"), align: "right", cell: (p) => p.onHand },
           {
-            header: "Price",
+            header: t("lines.price"),
             align: "right",
             cell: (p) => <Money minor={p.priceMinor} currency={p.currency} />,
           },
           ...(s.can("products.cost.read")
             ? [
                 {
-                  header: "Cost",
+                  header: t("prod.cost"),
                   align: "right" as const,
                   cell: (p: Product) => (
                     <Money minor={p.costMinor} currency={p.currency} />
@@ -150,13 +152,17 @@ export default function Products() {
                 },
               ]
             : []),
-          { header: "Status", cell: (p) => <Badge value={p.status} /> },
+          {
+            header: t("common.status"),
+            cell: (p) => <Badge value={p.status} />,
+          },
         ]}
       />
       {creating && (
         <FormModal
-          title="New product"
+          title={t("prod.newProduct")}
           fields={productFields({
+            t,
             canCost: s.can("products.cost.read"),
             suppliers: suppliers.data?.items ?? [],
             creating: true,
@@ -171,7 +177,7 @@ export default function Products() {
               ? { trackBatches: true, unit: "Pack" }
               : {}),
           }}
-          warnBeforeSave={belowCostWarning}
+          warnBeforeSave={(v) => belowCostWarning(v, t)}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             const p = await post<{ id: string }>(

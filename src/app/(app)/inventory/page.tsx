@@ -18,6 +18,7 @@ import {
 } from "../../../ui/kit";
 import { formatDateTime, patch, post, qs, titleCase } from "../../../ui/api";
 import { locationOptions, useWarehouses } from "../../../ui/stock";
+import { useT } from "../../../ui/i18n";
 
 interface Level {
   productId: string;
@@ -32,13 +33,14 @@ interface Level {
   available: number;
 }
 export default function Inventory() {
+  const t = useT();
   const [tab, setTab] = useState("Stock");
   const s = useSession();
   return (
     <>
       <PageHead
-        title="Stock & locations"
-        subtitle="Every quantity here is the sum of recorded stock movements."
+        title={t("stock.stockLocations")}
+        subtitle={t("stock.everyQuantityHereIsThe")}
       />
       <Tabs
         tabs={[
@@ -78,15 +80,16 @@ function ListPageNoHead({
   setWarehouseId: (v: string) => void;
   warehouses: { id: string; name: string }[];
 }) {
+  const t = useT();
   return (
     <>
       <div className="toolbar">
         <select
-          aria-label="Warehouse"
+          aria-label={t("stock.warehouse")}
           value={warehouseId}
           onChange={(e) => setWarehouseId(e.target.value)}
         >
-          <option value="">All warehouses</option>
+          <option value="">{t("stock.allWarehouses")}</option>
           {warehouses.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
@@ -99,6 +102,7 @@ function ListPageNoHead({
   );
 }
 function Levels({ warehouseId }: { warehouseId: string }) {
+  const t = useT();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const r = useApi<{ items: Level[]; total: number }>(
@@ -106,11 +110,11 @@ function Levels({ warehouseId }: { warehouseId: string }) {
   );
   return (
     <Panel
-      title="Stock on hand"
+      title={t("stock.stockOnHand")}
       actions={
         <input
-          aria-label="Search stock"
-          placeholder="Search product, SKU or location"
+          aria-label={t("stock.searchStock")}
+          placeholder={t("stock.searchProductSkuOrLocation")}
           value={q}
           onChange={(e) => (setQ(e.target.value), setPage(1))}
           style={{ minWidth: 260 }}
@@ -123,20 +127,32 @@ function Levels({ warehouseId }: { warehouseId: string }) {
           <DataTable
             rowKey={(l) => l.productId + l.locationId}
             rows={r.data.items}
-            empty="No stock recorded yet. Receive stock from a product page or a purchase order."
+            empty={t("stock.noStockRecordedYetReceive")}
             columns={[
               {
-                header: "Product",
+                header: t("stock.product"),
                 cell: (l) => (
                   <Link href={`/products/${l.productId}`}>{l.name}</Link>
                 ),
               },
               { header: "SKU", cell: (l) => l.sku },
-              { header: "Warehouse", cell: (l) => l.warehouse },
-              { header: "Location", cell: (l) => l.location },
-              { header: "On hand", align: "right", cell: (l) => l.onHand },
-              { header: "Reserved", align: "right", cell: (l) => l.reserved },
-              { header: "Available", align: "right", cell: (l) => l.available },
+              { header: t("stock.warehouse"), cell: (l) => l.warehouse },
+              { header: t("stock.location"), cell: (l) => l.location },
+              {
+                header: t("stock.onHand"),
+                align: "right",
+                cell: (l) => l.onHand,
+              },
+              {
+                header: t("stock.reserved"),
+                align: "right",
+                cell: (l) => l.reserved,
+              },
+              {
+                header: t("stock.available"),
+                align: "right",
+                cell: (l) => l.available,
+              },
             ]}
           />
           <Pager
@@ -152,6 +168,7 @@ function Levels({ warehouseId }: { warehouseId: string }) {
 }
 
 function Warehouses() {
+  const t = useT();
   const s = useSession();
   const w = useWarehouses();
   const [modal, setModal] = useState<{
@@ -163,23 +180,21 @@ function Warehouses() {
   return (
     <>
       <Panel
-        title="Warehouses"
+        title={t("stock.warehouses")}
         actions={
           can && (
             <button
               className="primary"
               onClick={() => setModal({ kind: "warehouse" })}
             >
-              New warehouse
+              {t("stock.newWarehouse")}
             </button>
           )
         }
       >
         <ErrorBanner message={act.error || w.error} onClose={act.clear} />
         {w.data?.warehouses.length === 0 && (
-          <div className="notice">
-            Create your first warehouse to start recording stock.
-          </div>
+          <div className="notice">{t("stock.createYourFirstWarehouseTo")}</div>
         )}
         {w.data?.warehouses.map((x) => {
           const locs = w.data!.locations.filter((l) => l.warehouseId === x.id);
@@ -195,12 +210,12 @@ function Warehouses() {
                     <button
                       onClick={() => setModal({ kind: "location", id: x.id })}
                     >
-                      Add rack / shelf / bin
+                      {t("stock.addRackShelfBin")}
                     </button>
                     <button
                       onClick={() => setModal({ kind: "edit", id: x.id })}
                     >
-                      Edit
+                      {t("users.edit")}
                     </button>
                   </div>
                 )}
@@ -210,13 +225,16 @@ function Warehouses() {
                 rows={locs}
                 columns={[
                   {
-                    header: "Location code",
+                    header: t("stock.locationCode"),
                     cell: (l) => <strong>{l.code}</strong>,
                   },
-                  { header: "Rack", cell: (l) => l.rack },
-                  { header: "Shelf", cell: (l) => l.shelf },
-                  { header: "Bin", cell: (l) => l.bin },
-                  { header: "Description", cell: (l) => l.description },
+                  { header: t("stock.rack"), cell: (l) => l.rack },
+                  { header: t("stock.shelf"), cell: (l) => l.shelf },
+                  { header: t("stock.bin"), cell: (l) => l.bin },
+                  {
+                    header: t("lines.description"),
+                    cell: (l) => l.description,
+                  },
                 ]}
               />
             </div>
@@ -225,12 +243,12 @@ function Warehouses() {
       </Panel>
       {modal?.kind === "warehouse" && (
         <FormModal
-          title="New warehouse"
+          title={t("stock.newWarehouse")}
           fields={[
-            { name: "name", label: "Name", required: true },
+            { name: "name", label: t("users.name"), required: true },
             {
               name: "address",
-              label: "Address",
+              label: t("settings.address"),
               type: "textarea",
               optional: true,
             },
@@ -241,23 +259,23 @@ function Warehouses() {
       )}
       {modal?.kind === "edit" && (
         <FormModal
-          title="Edit warehouse"
+          title={t("stock.editWarehouse")}
           initial={w.data?.warehouses.find((x) => x.id === modal.id)}
           fields={[
-            { name: "name", label: "Name", required: true },
+            { name: "name", label: t("users.name"), required: true },
             {
               name: "address",
-              label: "Address",
+              label: t("settings.address"),
               type: "textarea",
               optional: true,
             },
             {
               name: "status",
-              label: "Status",
+              label: t("common.status"),
               type: "select",
               options: [
-                { value: "ACTIVE", label: "Active" },
-                { value: "INACTIVE", label: "Inactive" },
+                { value: "ACTIVE", label: t("status.ACTIVE") },
+                { value: "INACTIVE", label: t("status.INACTIVE") },
               ],
             },
           ]}
@@ -270,12 +288,16 @@ function Warehouses() {
       )}
       {modal?.kind === "location" && (
         <FormModal
-          title="Add rack / shelf / bin"
+          title={t("stock.addRackShelfBin")}
           fields={[
-            { name: "rack", label: "Rack", optional: true },
-            { name: "shelf", label: "Shelf", optional: true },
-            { name: "bin", label: "Bin", optional: true },
-            { name: "description", label: "Description", optional: true },
+            { name: "rack", label: t("stock.rack"), optional: true },
+            { name: "shelf", label: t("stock.shelf"), optional: true },
+            { name: "bin", label: t("stock.bin"), optional: true },
+            {
+              name: "description",
+              label: t("lines.description"),
+              optional: true,
+            },
           ]}
           onClose={() => setModal(null)}
           onSubmit={async (v) => (
@@ -298,51 +320,58 @@ interface Move {
   createdAt: string;
 }
 function Movements() {
+  const t = useT();
   const w = useWarehouses();
   const opts = locationOptions(w.data);
   return (
     <ListPage<Move>
-      title="Stock movements"
+      title={t("stock.stockMovements")}
       endpoint="/inventory/movements"
       noSearch
       pageSize={30}
       rowKey={(m) => m.id}
       columns={[
-        { header: "When", cell: (m) => formatDateTime(m.createdAt) },
+        { header: t("audit.when"), cell: (m) => formatDateTime(m.createdAt) },
         {
-          header: "Product",
+          header: t("stock.product"),
           cell: (m) => (
-            <Link href={`/products/${m.productId}`}>Open product</Link>
+            <Link href={`/products/${m.productId}`}>
+              {t("stock.openProduct")}
+            </Link>
           ),
         },
-        { header: "Type", cell: (m) => titleCase(m.type) },
+        { header: t("audit.type"), cell: (m) => titleCase(m.type) },
         {
-          header: "Location",
+          header: t("stock.location"),
           cell: (m) => opts.find((o) => o.value === m.locationId)?.label ?? "",
         },
         {
-          header: "Change",
+          header: t("stock.change"),
           align: "right",
           cell: (m) => (m.quantity > 0 ? `+${m.quantity}` : m.quantity),
         },
-        { header: "Note", cell: (m) => m.note },
+        { header: t("stock.note"), cell: (m) => m.note },
       ]}
     />
   );
 }
 function Integrity() {
+  const t = useT();
   const r = useApi<
     { productId: string; locationId: string; message?: string }[]
   >("/inventory/integrity");
   return (
     <Panel
-      title="Stock integrity check"
-      actions={<ConfirmButton label="Run again" onConfirm={() => r.reload()} />}
+      title={t("stock.stockIntegrityCheck")}
+      actions={
+        <ConfirmButton
+          label={t("stock.runAgain")}
+          onConfirm={() => r.reload()}
+        />
+      }
     >
       {r.data && r.data.length === 0 && (
-        <div className="notice">
-          Every stock balance matches its recorded movements and reservations.
-        </div>
+        <div className="notice">{t("stock.everyStockBalanceMatchesIts")}</div>
       )}
       {r.data && r.data.length > 0 && (
         <ErrorBanner

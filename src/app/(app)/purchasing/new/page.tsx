@@ -11,8 +11,10 @@ import {
 } from "../../../../ui/kit";
 import { post } from "../../../../ui/api";
 import { LineEditor, linesPayload, type EditLine } from "../../../../ui/lines";
+import { useT } from "../../../../ui/i18n";
 
 export default function NewPurchaseOrder() {
+  const t = useT();
   const router = useRouter();
   const suppliers = useApi<{ items: { id: string; name: string }[] }>(
     "/suppliers?pageSize=100&status=ACTIVE",
@@ -30,9 +32,8 @@ export default function NewPurchaseOrder() {
   const act = useAction();
   async function save() {
     setError("");
-    if (!supplierId) return setError("Choose a supplier.");
-    if (!locationId)
-      return setError("Choose where the goods will be received.");
+    if (!supplierId) return setError(t("purch.chooseSupplier"));
+    if (!locationId) return setError(t("purch.chooseLocation"));
     let payload;
     try {
       payload = linesPayload(lines, "purchase");
@@ -48,25 +49,25 @@ export default function NewPurchaseOrder() {
           notes,
           lines: payload,
         }),
-      "Purchase order created",
+      t("purch.created"),
     );
     if (po) router.push(`/purchasing/${po.id}`);
   }
   return (
     <>
       <PageHead
-        title="New purchase order"
-        back={{ href: "/purchasing", label: "Purchase orders" }}
+        title={t("purch.newPurchaseOrder")}
+        back={{ href: "/purchasing", label: t("suppliers.purchaseOrders") }}
       />
       <ErrorBanner message={error || act.error} />
-      <Panel title="Order">
+      <Panel title={t("orders.order")}>
         <div className="form-grid">
-          <FieldBox label="Supplier">
+          <FieldBox label={t("purch.supplier")}>
             <select
               value={supplierId}
               onChange={(e) => setSupplierId(e.target.value)}
             >
-              <option value="">Choose a supplier…</option>
+              <option value="">{t("purch.chooseASupplier")}</option>
               {suppliers.data?.items.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -74,12 +75,12 @@ export default function NewPurchaseOrder() {
               ))}
             </select>
           </FieldBox>
-          <FieldBox label="Receive into">
+          <FieldBox label={t("purch.receiveInto")}>
             <select
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
             >
-              <option value="">Choose a location…</option>
+              <option value="">{t("purch.chooseALocation")}</option>
               {wh.data?.locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {
@@ -91,19 +92,19 @@ export default function NewPurchaseOrder() {
               ))}
             </select>
           </FieldBox>
-          <FieldBox label="Expected date">
+          <FieldBox label={t("purch.expectedDate")}>
             <input
               type="date"
               value={expectedDate}
               onChange={(e) => setExpectedDate(e.target.value)}
             />
           </FieldBox>
-          <FieldBox label="Notes">
+          <FieldBox label={t("docs.notes")}>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </FieldBox>
         </div>
       </Panel>
-      <Panel title="Items">
+      <Panel title={t("docs.items")}>
         <LineEditor kind="purchase" lines={lines} onChange={setLines} />
         <div className="form-actions">
           <button
@@ -111,7 +112,7 @@ export default function NewPurchaseOrder() {
             disabled={act.busy}
             onClick={() => void save()}
           >
-            Save draft
+            {t("quotations.saveDraft")}
           </button>
         </div>
       </Panel>

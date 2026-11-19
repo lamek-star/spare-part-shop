@@ -19,6 +19,7 @@ import {
 } from "../../../../ui/kit";
 import { formatDate, post } from "../../../../ui/api";
 import { TotalsBox } from "../../../../ui/doc";
+import { useT } from "../../../../ui/i18n";
 
 interface Line {
   id: string;
@@ -49,6 +50,7 @@ export default function PurchaseOrderPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useT();
   const { id } = use(params);
   const s = useSession();
   const po = useApi<PO>(`/purchase-orders/${id}`);
@@ -68,7 +70,7 @@ export default function PurchaseOrderPage({
   );
   if (po.loading && !po.data) return <Loading />;
   if (!po.data)
-    return <ErrorBanner message={po.error || "Purchase order not found."} />;
+    return <ErrorBanner message={po.error || t("purch.notFound")} />;
   const x = po.data;
   const w = s.can("purchasing.write");
   const name = (pid: string) => products.data?.items.find((p) => p.id === pid);
@@ -82,7 +84,7 @@ export default function PurchaseOrderPage({
     }));
     const ok = await act.run(
       () => post(`/purchase-orders/${id}/receive`, { lines }),
-      "Goods received into stock",
+      t("purch.received"),
     );
     if (ok) {
       setReceiving(null);
@@ -98,18 +100,16 @@ export default function PurchaseOrderPage({
             <Badge value={x.status} /> · expected {formatDate(x.expectedDate)}
           </>
         }
-        back={{ href: "/purchasing", label: "Purchase orders" }}
+        back={{ href: "/purchasing", label: t("suppliers.purchaseOrders") }}
         actions={
           w && (
             <>
               {x.status === "DRAFT" && (
                 <button
                   className="primary"
-                  onClick={() =>
-                    void step("confirm", "Purchase order confirmed")
-                  }
+                  onClick={() => void step("confirm", t("purch.confirmed"))}
                 >
-                  Confirm
+                  {t("common.confirm")}
                 </button>
               )}
               {["CONFIRMED", "PARTIALLY_RECEIVED"].includes(x.status) &&
@@ -127,26 +127,24 @@ export default function PurchaseOrderPage({
                       )
                     }
                   >
-                    Receive goods
+                    {t("purch.receiveGoods")}
                   </button>
                 )}
               {x.status === "PARTIALLY_RECEIVED" && (
                 <ConfirmButton
-                  label="Close (accept shortfall)"
+                  label={t("purch.closeAcceptShortfall")}
                   onConfirm={() =>
-                    step("close", "Purchase order closed").then(() => undefined)
+                    step("close", t("purch.closed")).then(() => undefined)
                   }
                 />
               )}
               {["DRAFT", "CONFIRMED"].includes(x.status) && (
                 <ConfirmButton
                   danger
-                  label="Cancel"
-                  confirmLabel="Yes, cancel"
+                  label={t("common.cancel")}
+                  confirmLabel={t("common.yesCancel")}
                   onConfirm={() =>
-                    step("cancel", "Purchase order cancelled").then(
-                      () => undefined,
-                    )
+                    step("cancel", t("purch.cancelled")).then(() => undefined)
                   }
                 />
               )}
@@ -155,7 +153,7 @@ export default function PurchaseOrderPage({
         }
       />
       <ErrorBanner message={act.error} onClose={act.clear} />
-      <Panel title="Order">
+      <Panel title={t("orders.order")}>
         <KeyValues
           items={[
             [
@@ -172,34 +170,38 @@ export default function PurchaseOrderPage({
           ]}
         />
       </Panel>
-      <Panel title="Items">
+      <Panel title={t("docs.items")}>
         <DataTable
           rowKey={(l) => l.id}
           rows={x.lines}
           columns={[
             {
-              header: "Product",
+              header: t("purch.product"),
               cell: (l) => (
                 <Link href={`/products/${l.productId}`}>
                   {name(l.productId)?.name ?? l.productId}
                 </Link>
               ),
             },
-            { header: "Ordered", align: "right", cell: (l) => l.quantity },
             {
-              header: "Received",
+              header: t("purch.ordered"),
+              align: "right",
+              cell: (l) => l.quantity,
+            },
+            {
+              header: t("status.RECEIVED"),
               align: "right",
               cell: (l) => l.quantityReceived,
             },
             {
-              header: "Unit cost",
+              header: t("lines.unitCost"),
               align: "right",
               cell: (l) => (
                 <Money minor={l.unitCostMinor} currency={x.currency} />
               ),
             },
             {
-              header: "Total",
+              header: t("doc.total"),
               align: "right",
               cell: (l) => (
                 <Money minor={l.lineTotalMinor} currency={x.currency} />
@@ -216,10 +218,11 @@ export default function PurchaseOrderPage({
         />
       </Panel>
       {receiving && (
-        <Modal title="Receive goods" onClose={() => setReceiving(null)}>
-          <p className="muted">
-            Enter what actually arrived. Stock increases when you save.
-          </p>
+        <Modal
+          title={t("purch.receiveGoods")}
+          onClose={() => setReceiving(null)}
+        >
+          <p className="muted">{t("purch.enterWhatActuallyArrivedStock")}</p>
           {x.lines
             .filter((l) => l.quantity > l.quantityReceived)
             .map((l) => (
@@ -237,8 +240,8 @@ export default function PurchaseOrderPage({
                 {name(l.productId)?.trackBatches && (
                   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                     <input
-                      aria-label="Batch number"
-                      placeholder="Batch number"
+                      aria-label={t("purch.batchNumber")}
+                      placeholder={t("purch.batchNumber")}
                       value={batches[l.id]?.batchNo ?? ""}
                       onChange={(e) =>
                         setBatches({
@@ -252,7 +255,7 @@ export default function PurchaseOrderPage({
                     />
                     <input
                       type="date"
-                      aria-label="Expiry date"
+                      aria-label={t("purch.expiryDate")}
                       value={batches[l.id]?.expiryDate ?? ""}
                       onChange={(e) =>
                         setBatches({
@@ -275,7 +278,7 @@ export default function PurchaseOrderPage({
               disabled={act.busy}
               onClick={() => void receive()}
             >
-              Receive into stock
+              {t("purch.receiveIntoStock")}
             </button>
           </div>
         </Modal>

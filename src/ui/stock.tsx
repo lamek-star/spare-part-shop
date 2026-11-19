@@ -1,6 +1,7 @@
 "use client";
 import { FormModal, useApi, type FieldSpec } from "./kit";
 import { post } from "./api";
+import { useT, type Translate } from "./i18n";
 
 export interface WarehousesData {
   warehouses: {
@@ -51,17 +52,21 @@ const run = (path: string, body: unknown, done: () => void) =>
   post(path, body).then(done);
 
 /** Batch number and expiry date, as printed on the pack. */
-const batchFields = (required: boolean, help?: string): FieldSpec[] => [
+const batchFields = (
+  t: Translate,
+  required: boolean,
+  help?: string,
+): FieldSpec[] => [
   {
     name: "batchNo",
-    label: "Batch number",
+    label: t("stock.batchNumber"),
     required,
     optional: !required,
     help,
   },
   {
     name: "expiryDate",
-    label: "Expiry date",
+    label: t("stock.expiryDate"),
     type: "date",
     required,
     optional: !required,
@@ -76,27 +81,28 @@ export function ReceiveStockModal({
   onClose,
   onDone,
 }: StockModalProps) {
+  const t = useT();
   const fields: FieldSpec[] = [
     {
       name: "locationId",
-      label: "Location",
+      label: t("stock.location"),
       type: "select",
       options: locationOptions(warehouses),
     },
     {
       name: "quantity",
-      label: "Quantity received",
+      label: t("stock.quantityReceived"),
       type: "number",
       required: true,
     },
-    ...(trackBatches ? batchFields(true) : []),
-    { name: "note", label: "Note (delivery note, source)", optional: true },
+    ...(trackBatches ? batchFields(t, true) : []),
+    { name: "note", label: t("stock.noteDeliveryNoteSource"), optional: true },
   ];
   return (
     <FormModal
       title={`Receive stock — ${productName}`}
       fields={fields}
-      submitLabel="Receive"
+      submitLabel={t("stock.receive")}
       onClose={onClose}
       onSubmit={(v) => run("/inventory/receive", { ...v, productId }, onDone)}
     />
@@ -110,33 +116,34 @@ export function AdjustStockModal({
   onClose,
   onDone,
 }: StockModalProps) {
+  const t = useT();
   const fields: FieldSpec[] = [
     {
       name: "locationId",
-      label: "Location",
+      label: t("stock.location"),
       type: "select",
       options: locationOptions(warehouses),
     },
     {
       name: "delta",
-      label: "Change in quantity",
+      label: t("stock.changeInQuantity"),
       type: "number",
       required: true,
-      help: "Use a negative number to remove stock, e.g. -2 for damaged goods.",
+      help: t("stock.useANegativeNumberTo"),
     },
-    ...(trackBatches
-      ? batchFields(
-          false,
-          "Needed when adding stock. When removing, leave empty to take from the batch that expires first.",
-        )
-      : []),
-    { name: "reason", label: "Reason", type: "textarea", required: true },
+    ...(trackBatches ? batchFields(t, false, t("stock.batchHelp")) : []),
+    {
+      name: "reason",
+      label: t("orders.reason"),
+      type: "textarea",
+      required: true,
+    },
   ];
   return (
     <FormModal
       title={`Adjust stock — ${productName}`}
       fields={fields}
-      submitLabel="Save adjustment"
+      submitLabel={t("stock.saveAdjustment")}
       onClose={onClose}
       onSubmit={(v) => run("/inventory/adjust", { ...v, productId }, onDone)}
     />
@@ -149,18 +156,29 @@ export function TransferStockModal({
   onClose,
   onDone,
 }: StockModalProps) {
+  const t = useT();
   const opts = locationOptions(warehouses);
   const fields: FieldSpec[] = [
-    { name: "fromLocationId", label: "From", type: "select", options: opts },
+    {
+      name: "fromLocationId",
+      label: t("stock.from"),
+      type: "select",
+      options: opts,
+    },
     { name: "toLocationId", label: "To", type: "select", options: opts },
-    { name: "quantity", label: "Quantity", type: "number", required: true },
-    { name: "note", label: "Note", optional: true },
+    {
+      name: "quantity",
+      label: t("lines.quantity"),
+      type: "number",
+      required: true,
+    },
+    { name: "note", label: t("stock.note"), optional: true },
   ];
   return (
     <FormModal
       title={`Transfer stock — ${productName}`}
       fields={fields}
-      submitLabel="Transfer"
+      submitLabel={t("stock.transfer")}
       onClose={onClose}
       onSubmit={(v) => run("/inventory/transfer", { ...v, productId }, onDone)}
     />

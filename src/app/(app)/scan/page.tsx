@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { get, qs } from "../../../ui/api";
 import { Empty, ErrorBanner, PageHead, Panel, Money } from "../../../ui/kit";
+import { useT } from "../../../ui/i18n";
 
 interface Found {
   product: {
@@ -24,6 +25,7 @@ interface Found {
   primaryImageUrl: string | null;
 }
 function Scan() {
+  const t = useT();
   const params = useSearchParams();
   const [code, setCode] = useState(params.get("code") ?? "");
   const [found, setFound] = useState<Found | null>(null);
@@ -53,8 +55,8 @@ function Scan() {
   return (
     <>
       <PageHead
-        title="Scan / lookup"
-        subtitle="Scan a barcode or QR label with a scanner, or type a SKU or any part number, then press Enter."
+        title={t("stock.scanLookup")}
+        subtitle={t("stock.scanABarcodeOrQr")}
       />
       <Panel>
         <form
@@ -66,10 +68,10 @@ function Scan() {
         >
           <input
             ref={input}
-            aria-label="Code"
+            aria-label={t("customers.code")}
             autoFocus
             autoComplete="off"
-            placeholder="Scan or type a code…"
+            placeholder={t("stock.scanOrTypeACode")}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             style={{ width: "100%", fontSize: 18, padding: 12 }}
@@ -84,7 +86,7 @@ function Scan() {
             <Link
               href={`/catalogue?q=${encodeURIComponent(params.get("code") ?? code)}`}
             >
-              Search the Reference Catalogue
+              {t("stock.searchTheReferenceCatalogue")}
             </Link>{" "}
             instead.
           </Empty>
@@ -98,7 +100,7 @@ function Scan() {
               className="button primary"
               href={`/products/${found.product.id}`}
             >
-              Open product
+              {t("stock.openProduct")}
             </Link>
           }
         >
@@ -123,7 +125,8 @@ function Scan() {
                 {found.product.brand && `· ${found.product.brand}`}
               </p>
               <p style={{ fontSize: 22, margin: "4px 0" }}>
-                {found.available} <small className="muted">available</small> ·{" "}
+                {found.available}{" "}
+                <small className="muted">{t("stock.available2")}</small> ·{" "}
                 <Money
                   minor={found.product.priceMinor}
                   currency={found.product.currency}

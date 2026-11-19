@@ -223,6 +223,12 @@ export function Tabs({
   active: string;
   onChange: (t: string) => void;
 }) {
+  // A tab's value stays its English name (pages compare it); what shows is tab.<name> in the person's language.
+  const tr = useT();
+  const label = (name: string) => {
+    const key = `tab.${name.replace(/[^A-Za-z0-9]+(.)?/g, (_, c: string) => (c ? c.toUpperCase() : "")).replace(/^./, (c) => c.toLowerCase())}`;
+    return key in en ? tr(key as MessageKey) : name;
+  };
   return (
     <div className="tabs" role="tablist">
       {tabs.map((t) => (
@@ -233,7 +239,7 @@ export function Tabs({
           className={active === t ? "selected" : ""}
           onClick={() => onChange(t)}
         >
-          {t}
+          {label(t)}
         </button>
       ))}
     </div>

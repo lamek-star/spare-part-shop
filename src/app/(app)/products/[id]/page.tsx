@@ -44,6 +44,7 @@ import {
   productPayload,
 } from "../../../../ui/productForm";
 import { LabelDialog } from "../../../../ui/labelDialog";
+import { useT } from "../../../../ui/i18n";
 
 interface Product {
   id: string;
@@ -133,6 +134,7 @@ export default function ProductPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useT();
   const { id } = use(params);
   const s = useSession();
   const d = useApi<Detail>(`/products/${id}`);
@@ -142,7 +144,7 @@ export default function ProductPage({
     s.can("suppliers.read") ? "/suppliers?pageSize=100" : null,
   );
   if (d.loading && !d.data) return <Loading />;
-  if (!d.data) return <ErrorBanner message={d.error || "Product not found."} />;
+  if (!d.data) return <ErrorBanner message={d.error || t("prod.notFound")} />;
   const { product: p, totals } = d.data;
   const low = p.reorderLevel > 0 && totals.available <= p.reorderLevel;
   return (
@@ -152,36 +154,38 @@ export default function ProductPage({
         subtitle={
           <>
             {p.sku} · <Badge value={p.status} />{" "}
-            {low && <Badge value="LOW" label="Low stock" />}
+            {low && <Badge value="LOW" label={t("dash.lowStock")} />}
           </>
         }
-        back={{ href: "/products", label: "My Products" }}
+        back={{ href: "/products", label: t("nav.products") }}
         actions={
           s.can("products.write") && (
-            <button onClick={() => setEditing(true)}>Edit product</button>
+            <button onClick={() => setEditing(true)}>
+              {t("prod.editProduct")}
+            </button>
           )
         }
       />
       <Metrics
         items={[
           {
-            label: "Available",
+            label: t("prod.available"),
             value: totals.available,
             hint: `${totals.onHand} on hand · ${totals.reserved} reserved`,
           },
           {
-            label: "Selling price",
+            label: t("prod.sellingPrice"),
             value: <Money minor={p.priceMinor} currency={p.currency} />,
           },
           ...(s.can("products.cost.read")
             ? [
                 {
-                  label: "Cost price",
+                  label: t("prod.costPrice"),
                   value: <Money minor={p.costMinor} currency={p.currency} />,
                 },
               ]
             : []),
-          { label: "Reorder level", value: p.reorderLevel },
+          { label: t("prod.reorderLevel"), value: p.reorderLevel },
         ]}
       />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
@@ -200,15 +204,16 @@ export default function ProductPage({
       {tab === "History" && <HistoryTab id={id} />}
       {editing && (
         <FormModal
-          title="Edit product"
+          title={t("prod.editProduct")}
           fields={productFields({
+            t,
             canCost: s.can("products.cost.read"),
             suppliers: suppliers.data?.items ?? [],
             creating: false,
             pharmacy: s.edition === "pharmacy",
           })}
           initial={{ ...p, defaultSupplierId: p.defaultSupplierId ?? "" }}
-          warnBeforeSave={belowCostWarning}
+          warnBeforeSave={(v) => belowCostWarning(v, t)}
           onClose={() => setEditing(false)}
           onSubmit={async (v) => {
             await patch(`/products/${id}`, productPayload(v));
@@ -222,6 +227,7 @@ export default function ProductPage({
 
 // ------------------------------------------------------------------ overview
 function Overview({ d, reload }: { d: Detail; reload: () => void }) {
+  const t = useT();
   const s = useSession();
   const p = d.product;
   const act = useAction(reload);
@@ -264,13 +270,13 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
           </Link>{" "}
           —{" "}
           <Link href={`/catalogue/parts/${ref.referencePartId}`}>
-            view reference part
+            {t("prod.viewReferencePart")}
           </Link>
         </div>
       )}
       <div className="dashboard-grid">
         <Panel
-          title="Photos"
+          title={t("prod.photos")}
           actions={
             canWrite && (
               <>
@@ -286,7 +292,7 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
                   onClick={() => file.current?.click()}
                   disabled={act.busy}
                 >
-                  {act.busy ? "Uploading…" : "Add photos"}
+                  {act.busy ? t("prod.uploading") : t("prod.addPhotos")}
                 </button>
               </>
             )
@@ -316,7 +322,7 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
                 />
               </div>
               <p className="muted" style={{ margin: "8px 0" }}>
-                {main.isPrimary ? "Primary photo" : ""} {main.caption}
+                {main.isPrimary ? t("prod.primaryPhoto") : ""} {main.caption}
               </p>
               <div className="image-thumbnails">
                 {images.map((im, i) => (
@@ -348,11 +354,11 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
                         void act.run(
                           () =>
                             put(`/products/${p.id}/images/${main.id}/primary`),
-                          "Primary photo changed",
+                          t("prod.primaryChanged"),
                         )
                       }
                     >
-                      Make primary
+                      {t("prod.makePrimary")}
                     </button>
                   )}
                   <button
@@ -365,16 +371,16 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
                     disabled={selected >= images.length - 1}
                     onClick={() => move(selected, 1)}
                   >
-                    Later →
+                    {t("prod.later")}
                   </button>
                   <ConfirmButton
                     danger
-                    label="Delete photo"
-                    confirmLabel="Delete it"
+                    label={t("prod.deletePhoto")}
+                    confirmLabel={t("prod.deleteIt")}
                     onConfirm={async () => (
                       await act.run(
                         () => del(`/products/${p.id}/images/${main.id}`),
-                        "Photo deleted",
+                        t("prod.photoDeleted"),
                       ),
                       setSelected(0)
                     )}
@@ -384,31 +390,29 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
             </>
           ) : (
             <Empty>
-              {canWrite
-                ? "No photos yet. Add clear photos of the actual item — they are shown to your staff and on documents."
-                : "No photos."}
+              {canWrite ? t("prod.noPhotosYet") : t("prod.noPhotos")}
             </Empty>
           )}
         </Panel>
-        <Panel title="Details">
+        <Panel title={t("customers.details")}>
           <KeyValues
             items={[
               ["SKU", p.sku],
               ...(p.genericName || p.strength || p.dosageForm
                 ? ([
-                    ["Generic name", p.genericName],
-                    ["Strength", p.strength],
-                    ["Dosage form", p.dosageForm],
+                    [t("prod.genericName"), p.genericName],
+                    [t("prod.strength"), p.strength],
+                    [t("prod.dosageForm"), p.dosageForm],
                   ] as [string, string][])
                 : []),
               ...(p.prescriptionOnly
-                ? ([["Prescription", "Prescription only"]] as [
+                ? ([[t("prod.prescription"), t("prod.prescriptionOnly")]] as [
                     string,
                     string,
                   ][])
                 : []),
               ...(p.trackBatches
-                ? ([["Stock", "Kept in batches with expiry dates"]] as [
+                ? ([[t("tab.stock"), t("prod.keptInBatches")]] as [
                     string,
                     string,
                   ][])
@@ -426,7 +430,9 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
             ]}
           />
           <div className="actions" style={{ marginTop: 16 }}>
-            <button onClick={() => setLabel(true)}>Print label</button>
+            <button onClick={() => setLabel(true)}>
+              {t("prod.printLabel")}
+            </button>
           </div>
         </Panel>
       </div>
@@ -466,17 +472,17 @@ interface RefPart {
   }[];
 }
 function Fitment({ d }: { d: Detail }) {
+  const t = useT();
   const link = d.referenceLinks[0];
   const part = useApi<RefPart>(
     link ? `/catalogue/parts/${link.referencePartId}` : null,
   );
   if (!link)
     return (
-      <Panel title="Vehicle fitment">
+      <Panel title={t("prod.vehicleFitment")}>
         <Empty>
-          Fitment comes from the Reference Catalogue. Link this product to a
-          reference part on the <strong>OEM Reference</strong> tab to see which
-          vehicles it fits.
+          {t("prod.fitmentHelp1")} <strong>{t("prod.oemReference")}</strong>{" "}
+          {t("prod.fitmentHelp2")}
         </Empty>
       </Panel>
     );
@@ -488,7 +494,7 @@ function Fitment({ d }: { d: Detail }) {
           className="button"
           href={`/catalogue/parts/${link.referencePartId}`}
         >
-          Open reference part
+          {t("prod.openReferencePart")}
         </Link>
       }
     >
@@ -499,21 +505,21 @@ function Fitment({ d }: { d: Detail }) {
           <DataTable
             rowKey={(f) => f.id}
             rows={part.data.fitments}
-            empty="The reference has no fitment data yet."
+            empty={t("prod.theReferenceHasNoFitment")}
             columns={[
-              { header: "Make", cell: (f) => f.make },
-              { header: "Model", cell: (f) => f.model },
-              { header: "Chassis", cell: (f) => f.chassis },
-              { header: "Engine", cell: (f) => f.engineText },
+              { header: t("prod.make"), cell: (f) => f.make },
+              { header: t("prod.model"), cell: (f) => f.model },
+              { header: t("prod.chassis"), cell: (f) => f.chassis },
+              { header: t("prod.engine"), cell: (f) => f.engineText },
               {
-                header: "Production",
+                header: t("prod.production"),
                 cell: (f) =>
                   [f.productionFrom, f.productionTo]
                     .filter(Boolean)
                     .join(" → "),
               },
-              { header: "Market", cell: (f) => f.market },
-              { header: "Section", cell: (f) => f.section },
+              { header: t("prod.market"), cell: (f) => f.market },
+              { header: t("prod.section"), cell: (f) => f.section },
             ]}
           />
           {part.data.drawings.length > 0 && (
@@ -538,6 +544,7 @@ function Fitment({ d }: { d: Detail }) {
 
 // ------------------------------------------------------------------ stock
 function StockTab({ d, reload }: { d: Detail; reload: () => void }) {
+  const t = useT();
   const s = useSession();
   const wh = useWarehouses(s.can("inventory.read"));
   const [modal, setModal] = useState<"" | "receive" | "adjust" | "transfer">(
@@ -586,13 +593,19 @@ function StockTab({ d, reload }: { d: Detail; reload: () => void }) {
   return (
     <>
       <Panel
-        title="Stock by location"
+        title={t("prod.stockByLocation")}
         actions={
           s.can("inventory.write") && (
             <>
-              <button onClick={() => setModal("receive")}>Receive</button>
-              <button onClick={() => setModal("transfer")}>Transfer</button>
-              <button onClick={() => setModal("adjust")}>Adjust</button>
+              <button onClick={() => setModal("receive")}>
+                {t("prod.receive")}
+              </button>
+              <button onClick={() => setModal("transfer")}>
+                {t("prod.transfer")}
+              </button>
+              <button onClick={() => setModal("adjust")}>
+                {t("prod.adjust")}
+              </button>
             </>
           )
         }
@@ -600,26 +613,34 @@ function StockTab({ d, reload }: { d: Detail; reload: () => void }) {
         <DataTable
           rowKey={(b) => b.locationId}
           rows={d.stock}
-          empty="No stock recorded. Receive stock to start."
+          empty={t("prod.noStockRecordedReceiveStock")}
           columns={[
-            { header: "Warehouse", cell: (b) => b.warehouseName },
-            { header: "Location", cell: (b) => b.locationCode },
-            { header: "On hand", align: "right", cell: (b) => b.onHand },
-            { header: "Reserved", align: "right", cell: (b) => b.reserved },
-            { header: "Available", align: "right", cell: (b) => b.available },
+            { header: t("prod.warehouse"), cell: (b) => b.warehouseName },
+            { header: t("prod.location"), cell: (b) => b.locationCode },
+            { header: t("prod.onHand"), align: "right", cell: (b) => b.onHand },
+            {
+              header: t("prod.reserved"),
+              align: "right",
+              cell: (b) => b.reserved,
+            },
+            {
+              header: t("prod.available"),
+              align: "right",
+              cell: (b) => b.available,
+            },
           ]}
         />
       </Panel>
       {d.product.trackBatches && batches.data && (
-        <Panel title="Batches (sold earliest expiry first)">
+        <Panel title={t("prod.batchesSoldEarliestExpiryFirst")}>
           <DataTable
             rowKey={(b) => b.id}
             rows={batches.data}
-            empty="No batches in stock."
+            empty={t("prod.noBatchesInStock")}
             columns={[
-              { header: "Batch", cell: (b) => b.batchNo },
+              { header: t("prod.batch"), cell: (b) => b.batchNo },
               {
-                header: "Expires",
+                header: t("prod.expires"),
                 cell: (b) => (
                   <span
                     className={`badge ${b.expiryDate < new Date().toISOString().slice(0, 10) ? "red" : "green"}`}
@@ -628,27 +649,40 @@ function StockTab({ d, reload }: { d: Detail; reload: () => void }) {
                   </span>
                 ),
               },
-              { header: "Location", cell: (b) => locName(b.locationId) },
-              { header: "Units", align: "right", cell: (b) => b.onHand },
+              {
+                header: t("prod.location"),
+                cell: (b) => locName(b.locationId),
+              },
+              {
+                header: t("prod.units"),
+                align: "right",
+                cell: (b) => b.onHand,
+              },
             ]}
           />
         </Panel>
       )}
       {moves.data && (
-        <Panel title="Recent movements">
+        <Panel title={t("prod.recentMovements")}>
           <DataTable
             rowKey={(m) => m.id}
             rows={moves.data.items}
             columns={[
-              { header: "When", cell: (m) => formatDateTime(m.createdAt) },
-              { header: "Type", cell: (m) => titleCase(m.type) },
-              { header: "Location", cell: (m) => locName(m.locationId) },
               {
-                header: "Change",
+                header: t("audit.when"),
+                cell: (m) => formatDateTime(m.createdAt),
+              },
+              { header: t("audit.type"), cell: (m) => titleCase(m.type) },
+              {
+                header: t("prod.location"),
+                cell: (m) => locName(m.locationId),
+              },
+              {
+                header: t("prod.change"),
                 align: "right",
                 cell: (m) => (m.quantity > 0 ? `+${m.quantity}` : m.quantity),
               },
-              { header: "Note", cell: (m) => m.note },
+              { header: t("prod.note"), cell: (m) => m.note },
             ]}
           />
         </Panel>
@@ -670,6 +704,7 @@ function SupplierTab({
   suppliers: { id: string; name: string }[];
   reload: () => void;
 }) {
+  const t = useT();
   const s = useSession();
   const [editing, setEditing] = useState(false);
   const act = useAction(reload);
@@ -677,34 +712,34 @@ function SupplierTab({
   const fields: FieldSpec[] = [
     {
       name: "supplierId",
-      label: "Supplier",
+      label: t("prod.supplier"),
       type: "select",
       options: suppliers.map((x) => ({ value: x.id, label: x.name })),
     },
     {
       name: "supplierPartNumber",
-      label: "Supplier's part number",
+      label: t("prod.supplierSPartNumber"),
       optional: true,
     },
     ...(s.can("products.cost.read")
       ? ([
           {
             name: "costMinor",
-            label: "Cost from this supplier",
+            label: t("prod.costFromThisSupplier"),
             type: "money",
             optional: true,
           },
         ] as FieldSpec[])
       : []),
-    { name: "isDefault", label: "Preferred supplier", type: "checkbox" },
+    { name: "isDefault", label: t("prod.preferredSupplier"), type: "checkbox" },
   ];
   return (
     <Panel
-      title="Suppliers"
+      title={t("nav.suppliers")}
       actions={
         s.can("products.write") && (
           <button onClick={() => setEditing(true)}>
-            Add / update supplier
+            {t("prod.addUpdateSupplier")}
           </button>
         )
       }
@@ -713,21 +748,24 @@ function SupplierTab({
       <DataTable
         rowKey={(x) => x.id}
         rows={d.suppliers}
-        empty="No supplier linked yet."
+        empty={t("prod.noSupplierLinkedYet")}
         columns={[
           {
-            header: "Supplier",
+            header: t("prod.supplier"),
             cell: (x) => (
               <Link href={`/suppliers/${x.supplierId}`}>
                 {name(x.supplierId)}
               </Link>
             ),
           },
-          { header: "Their part number", cell: (x) => x.supplierPartNumber },
+          {
+            header: t("prod.theirPartNumber"),
+            cell: (x) => x.supplierPartNumber,
+          },
           ...(s.can("products.cost.read")
             ? [
                 {
-                  header: "Cost",
+                  header: t("prod.cost"),
                   align: "right" as const,
                   cell: (x: Detail["suppliers"][number]) => (
                     <Money minor={x.costMinor} currency={x.currency} />
@@ -736,22 +774,26 @@ function SupplierTab({
               ]
             : []),
           {
-            header: "Preferred",
+            header: t("prod.preferred"),
             cell: (x) =>
-              x.isDefault ? <Badge value="ACTIVE" label="Preferred" /> : "",
+              x.isDefault ? (
+                <Badge value="ACTIVE" label={t("prod.preferred")} />
+              ) : (
+                ""
+              ),
           },
           {
             header: "",
             cell: (x) =>
               s.can("products.write") && (
                 <ConfirmButton
-                  label="Remove"
+                  label={t("prod.remove")}
                   onConfirm={() =>
                     act
                       .run(
                         () =>
                           del(`/products/${d.product.id}/suppliers/${x.id}`),
-                        "Supplier removed",
+                        t("prod.supplierRemoved"),
                       )
                       .then(() => undefined)
                   }
@@ -762,7 +804,7 @@ function SupplierTab({
       />
       {editing && (
         <FormModal
-          title="Supplier for this product"
+          title={t("prod.supplierForThisProduct")}
           fields={fields}
           onClose={() => setEditing(false)}
           onSubmit={async (v) => (
@@ -777,6 +819,7 @@ function SupplierTab({
 
 // ------------------------------------------------------------------ OEM reference
 function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
+  const t = useT();
   const s = useSession();
   const act = useAction(reload);
   const [adding, setAdding] = useState(false);
@@ -797,9 +840,13 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
   return (
     <>
       <Panel
-        title="Part numbers"
+        title={t("prod.partNumbers")}
         actions={
-          w && <button onClick={() => setAdding(true)}>Add number</button>
+          w && (
+            <button onClick={() => setAdding(true)}>
+              {t("prod.addNumber")}
+            </button>
+          )
         }
       >
         <ErrorBanner message={act.error} onClose={act.clear} />
@@ -807,12 +854,15 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
           rowKey={(n) => n.id}
           rows={d.numbers}
           columns={[
-            { header: "Number", cell: (n) => <strong>{n.display}</strong> },
-            { header: "Type", cell: (n) => titleCase(n.type) },
-            { header: "Brand", cell: (n) => n.brand },
-            { header: "Source", cell: (n) => n.source },
             {
-              header: "Notes",
+              header: t("docs.number"),
+              cell: (n) => <strong>{n.display}</strong>,
+            },
+            { header: t("audit.type"), cell: (n) => titleCase(n.type) },
+            { header: t("prod.brand"), cell: (n) => n.brand },
+            { header: t("prod.source"), cell: (n) => n.source },
+            {
+              header: t("docs.notes"),
               cell: (n) =>
                 n.supersededByNumber
                   ? `Superseded by ${n.supersededByNumber}`
@@ -824,7 +874,7 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
                 w &&
                 n.type !== "INTERNAL_SKU" && (
                   <ConfirmButton
-                    label="Remove"
+                    label={t("prod.remove")}
                     onConfirm={() =>
                       act
                         .run(
@@ -840,27 +890,27 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
           ]}
         />
       </Panel>
-      <Panel title="Reference Catalogue links">
+      <Panel title={t("prod.referenceCatalogueLinks")}>
         <DataTable
           rowKey={(l) => l.id}
           rows={d.referenceLinks}
-          empty="Not linked to any reference part."
+          empty={t("prod.notLinkedToAnyReference")}
           columns={[
             {
-              header: "Reference part",
+              header: t("prod.referencePart"),
               cell: (l) => (
                 <Link href={`/catalogue/parts/${l.referencePartId}`}>
                   {l.oemNumber}
                 </Link>
               ),
             },
-            { header: "Linked", cell: (l) => formatDate(l.linkedAt) },
+            { header: t("prod.linked"), cell: (l) => formatDate(l.linkedAt) },
             {
               header: "",
               cell: (l) =>
                 w && (
                   <ConfirmButton
-                    label="Unlink"
+                    label={t("prod.unlink")}
                     onConfirm={() =>
                       act
                         .run(
@@ -882,7 +932,7 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
             <label>
               Link to a reference part{" "}
               <input
-                placeholder="Search by part number or description"
+                placeholder={t("prod.searchByPartNumberOr")}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 style={{ minWidth: 320 }}
@@ -922,12 +972,12 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
       </Panel>
       {adding && (
         <FormModal
-          title="Add part number"
+          title={t("prod.addPartNumber")}
           fields={[
-            { name: "display", label: "Number", required: true },
+            { name: "display", label: t("docs.number"), required: true },
             {
               name: "type",
-              label: "Type",
+              label: t("audit.type"),
               type: "select",
               options: [
                 "OEM_OE",
@@ -940,8 +990,8 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
                 "OTHER",
               ].map((v) => ({ value: v, label: titleCase(v) })),
             },
-            { name: "brand", label: "Brand", optional: true },
-            { name: "notes", label: "Notes", optional: true },
+            { name: "brand", label: t("prod.brand"), optional: true },
+            { name: "notes", label: t("docs.notes"), optional: true },
           ]}
           onClose={() => setAdding(false)}
           onSubmit={async (v) => (
@@ -956,6 +1006,7 @@ function ReferenceTab({ d, reload }: { d: Detail; reload: () => void }) {
 
 // ------------------------------------------------------------------ sales & history
 function SalesTab({ id }: { id: string }) {
+  const t = useT();
   const s = useSession();
   const r = useApi<{
     quantity: number;
@@ -974,8 +1025,8 @@ function SalesTab({ id }: { id: string }) {
   }>(s.can("invoices.read") ? `/products/${id}/sales` : null);
   if (!s.can("invoices.read"))
     return (
-      <Panel title="Sales">
-        {<Empty>Your role cannot see sales figures.</Empty>}
+      <Panel title={t("nav.group.sales")}>
+        {<Empty>{t("prod.yourRoleCannotSeeSales")}</Empty>}
       </Panel>
     );
   return (
@@ -983,39 +1034,42 @@ function SalesTab({ id }: { id: string }) {
       {r.data && (
         <Metrics
           items={[
-            { label: "Units sold", value: r.data.quantity },
+            { label: t("prod.unitsSold"), value: r.data.quantity },
             {
-              label: "Sales value",
+              label: t("prod.salesValue"),
               value: <Money minor={r.data.totalMinor} />,
             },
-            { label: "Invoices", value: r.data.invoices },
-            { label: "Last sold", value: formatDate(r.data.lastSoldAt) },
+            { label: t("dash.invoices"), value: r.data.invoices },
+            { label: t("prod.lastSold"), value: formatDate(r.data.lastSoldAt) },
           ]}
         />
       )}
-      <Panel title="Recent sales">
+      <Panel title={t("prod.recentSales")}>
         {r.data && (
           <DataTable
             rowKey={(x) => x.invoiceId + x.quantity + x.unitPriceMinor}
             rows={r.data.recent}
-            empty="Not sold yet."
+            empty={t("prod.notSoldYet")}
             columns={[
               {
-                header: "Invoice",
+                header: t("invoices.invoice"),
                 cell: (x) => (
                   <Link href={`/invoices/${x.invoiceId}`}>{x.number}</Link>
                 ),
               },
-              { header: "Date", cell: (x) => formatDate(x.issueDate) },
-              { header: "Customer", cell: (x) => x.customerName },
-              { header: "Qty", align: "right", cell: (x) => x.quantity },
               {
-                header: "Unit price",
+                header: t("invoices.date"),
+                cell: (x) => formatDate(x.issueDate),
+              },
+              { header: t("docs.customer"), cell: (x) => x.customerName },
+              { header: t("doc.qty"), align: "right", cell: (x) => x.quantity },
+              {
+                header: t("doc.unitPrice"),
                 align: "right",
                 cell: (x) => <Money minor={x.unitPriceMinor} />,
               },
               {
-                header: "Total",
+                header: t("doc.total"),
                 align: "right",
                 cell: (x) => <Money minor={x.totalMinor} />,
               },
@@ -1027,6 +1081,7 @@ function SalesTab({ id }: { id: string }) {
   );
 }
 function HistoryTab({ id }: { id: string }) {
+  const t = useT();
   const s = useSession();
   const audit = useApi<
     {
@@ -1057,40 +1112,43 @@ function HistoryTab({ id }: { id: string }) {
   return (
     <>
       {audit.data && (
-        <Panel title="Changes">
+        <Panel title={t("prod.changes")}>
           <DataTable
             rowKey={(e) => e.id}
             rows={audit.data}
-            empty="No recorded changes."
+            empty={t("prod.noRecordedChanges")}
             columns={[
-              { header: "When", cell: (e) => formatDateTime(e.at) },
-              { header: "Who", cell: (e) => e.actorLabel },
-              { header: "What", cell: (e) => e.summary },
+              { header: t("audit.when"), cell: (e) => formatDateTime(e.at) },
+              { header: t("audit.who"), cell: (e) => e.actorLabel },
+              { header: t("audit.what"), cell: (e) => e.summary },
             ]}
           />
         </Panel>
       )}
       {moves.data && (
-        <Panel title="Stock ledger">
+        <Panel title={t("prod.stockLedger")}>
           <DataTable
             rowKey={(m) => m.id}
             rows={moves.data.items}
             columns={[
-              { header: "When", cell: (m) => formatDateTime(m.createdAt) },
-              { header: "Type", cell: (m) => titleCase(m.type) },
               {
-                header: "Change",
+                header: t("audit.when"),
+                cell: (m) => formatDateTime(m.createdAt),
+              },
+              { header: t("audit.type"), cell: (m) => titleCase(m.type) },
+              {
+                header: t("prod.change"),
                 align: "right",
                 cell: (m) => (m.quantity > 0 ? `+${m.quantity}` : m.quantity),
               },
-              { header: "Note", cell: (m) => m.note },
+              { header: t("prod.note"), cell: (m) => m.note },
             ]}
           />
         </Panel>
       )}
       {!audit.data && !moves.data && (
-        <Panel title="History">
-          <Empty>Your role cannot see history.</Empty>
+        <Panel title={t("prod.history")}>
+          <Empty>{t("prod.yourRoleCannotSeeHistory")}</Empty>
         </Panel>
       )}
     </>
