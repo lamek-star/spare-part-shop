@@ -10,7 +10,7 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { put } from "../../../../ui/api";
-import { LANGUAGES, useI18n, type Language } from "../../../../ui/i18n";
+import { LANGUAGES, useI18n, useT, type Language } from "../../../../ui/i18n";
 
 /** The language for everyone who has not chosen their own (saved at once; audited on the server). */
 function ShopLanguage() {
@@ -55,6 +55,7 @@ interface Settings {
   invoiceNotes: string;
 }
 export default function ShopSettings() {
+  const t = useT();
   const s = useApi<Settings>("/settings");
   const [f, setF] = useState<Record<string, string> | null>(null);
   const act = useAction(s.reload);
@@ -90,30 +91,30 @@ export default function ShopSettings() {
           quotationTerms: f!.quotationTerms,
           invoiceNotes: f!.invoiceNotes,
         }),
-      "Settings saved",
+      t("settings.saved"),
     );
     setTimeout(() => location.reload(), 600);
   }
   return (
     <>
       <PageHead
-        title="Shop settings"
-        subtitle="These details appear on quotations and invoices."
+        title={t("nav.settings")}
+        subtitle={t("settings.theseDetailsAppearOnQuotations")}
       />
       <ErrorBanner message={act.error} onClose={act.clear} />
       <ShopLanguage />
       <form onSubmit={save}>
-        <Panel title="Business">
+        <Panel title={t("settings.business")}>
           <div className="form-grid">
-            <FieldBox label="Shop name">
+            <FieldBox label={t("auth.shopName")}>
               <input value={f.shopName} onChange={set("shopName")} required />
             </FieldBox>
             <FieldBox
-              label="Tax registration number"
+              label={t("settings.taxRegistrationNumber")}
               help={
                 !f.taxRegistration.trim() && Number(f.defaultTaxPercent) > 0
-                  ? "Tax is charged but no number is set: invoices are printed as INVOICE, not TAX INVOICE, until you enter it."
-                  : "Printed on quotations and invoices. With it, invoices are titled TAX INVOICE."
+                  ? t("settings.taxNoNumber")
+                  : t("settings.taxNumberHelp")
               }
             >
               <input
@@ -121,22 +122,22 @@ export default function ShopSettings() {
                 onChange={set("taxRegistration")}
               />
             </FieldBox>
-            <FieldBox label="Phone">
+            <FieldBox label={t("settings.phone")}>
               <input value={f.phone} onChange={set("phone")} />
             </FieldBox>
-            <FieldBox label="Email">
+            <FieldBox label={t("auth.email")}>
               <input type="email" value={f.email} onChange={set("email")} />
             </FieldBox>
-            <FieldBox label="Address">
+            <FieldBox label={t("settings.address")}>
               <textarea rows={2} value={f.address} onChange={set("address")} />
             </FieldBox>
           </div>
         </Panel>
-        <Panel title="Sales defaults">
+        <Panel title={t("settings.salesDefaults")}>
           <div className="form-grid">
             <FieldBox
-              label="Currency"
-              help="3-letter code. Existing documents keep the currency they were issued in."
+              label={t("settings.currency")}
+              help={t("settings.3LetterCodeExistingDocuments")}
             >
               <input
                 value={f.currency}
@@ -144,35 +145,35 @@ export default function ShopSettings() {
                 maxLength={3}
               />
             </FieldBox>
-            <FieldBox label="Default tax rate (%)">
+            <FieldBox label={t("settings.defaultTaxRate")}>
               <input
                 inputMode="decimal"
                 value={f.defaultTaxPercent}
                 onChange={set("defaultTaxPercent")}
               />
             </FieldBox>
-            <FieldBox label="Quotation valid for (days)">
+            <FieldBox label={t("settings.quotationValidForDays")}>
               <input
                 inputMode="numeric"
                 value={f.quotationValidityDays}
                 onChange={set("quotationValidityDays")}
               />
             </FieldBox>
-            <FieldBox label="Invoice due after (days)">
+            <FieldBox label={t("settings.invoiceDueAfterDays")}>
               <input
                 inputMode="numeric"
                 value={f.invoiceDueDays}
                 onChange={set("invoiceDueDays")}
               />
             </FieldBox>
-            <FieldBox label="Standard quotation terms">
+            <FieldBox label={t("settings.standardQuotationTerms")}>
               <textarea
                 rows={3}
                 value={f.quotationTerms}
                 onChange={set("quotationTerms")}
               />
             </FieldBox>
-            <FieldBox label="Standard invoice notes">
+            <FieldBox label={t("settings.standardInvoiceNotes")}>
               <textarea
                 rows={3}
                 value={f.invoiceNotes}
@@ -182,7 +183,7 @@ export default function ShopSettings() {
           </div>
           <div className="form-actions">
             <button className="primary" disabled={act.busy}>
-              Save settings
+              {t("settings.saveSettings")}
             </button>
           </div>
         </Panel>

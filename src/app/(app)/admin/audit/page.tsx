@@ -8,6 +8,7 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { formatDateTime, qs } from "../../../../ui/api";
+import { useT } from "../../../../ui/i18n";
 
 interface Event {
   id: string;
@@ -19,6 +20,7 @@ interface Event {
   summary: string;
 }
 export default function AuditLog() {
+  const t = useT();
   const [entityType, setEntityType] = useState("");
   const [before, setBefore] = useState<string[]>([]);
   const cursor = before[before.length - 1];
@@ -28,16 +30,16 @@ export default function AuditLog() {
   return (
     <>
       <PageHead
-        title="Audit log"
-        subtitle="A permanent record of who changed what. Passwords and secrets are never recorded."
+        title={t("nav.audit")}
+        subtitle={t("audit.aPermanentRecordOfWho")}
       />
       <div className="toolbar">
         <select
-          aria-label="Type"
+          aria-label={t("audit.type")}
           value={entityType}
           onChange={(e) => (setEntityType(e.target.value), setBefore([]))}
         >
-          <option value="">Everything</option>
+          <option value="">{t("audit.everything")}</option>
           {[
             "product",
             "customer",
@@ -62,12 +64,12 @@ export default function AuditLog() {
             <DataTable
               rowKey={(e) => e.id}
               rows={r.data}
-              empty="No events."
+              empty={t("audit.noEvents")}
               columns={[
-                { header: "When", cell: (e) => formatDateTime(e.at) },
-                { header: "Who", cell: (e) => e.actorLabel },
-                { header: "Action", cell: (e) => e.action },
-                { header: "What", cell: (e) => e.summary },
+                { header: t("audit.when"), cell: (e) => formatDateTime(e.at) },
+                { header: t("audit.who"), cell: (e) => e.actorLabel },
+                { header: t("audit.action"), cell: (e) => e.action },
+                { header: t("audit.what"), cell: (e) => e.summary },
               ]}
             />
             <div className="pagination">
@@ -75,7 +77,7 @@ export default function AuditLog() {
                 disabled={before.length === 0}
                 onClick={() => setBefore(before.slice(0, -1))}
               >
-                Newer
+                {t("audit.newer")}
               </button>
               <button
                 disabled={r.data.length < 50}
@@ -83,7 +85,7 @@ export default function AuditLog() {
                   setBefore([...before, r.data![r.data!.length - 1].at])
                 }
               >
-                Older
+                {t("audit.older")}
               </button>
             </div>
           </>

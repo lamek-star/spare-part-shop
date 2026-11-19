@@ -16,6 +16,7 @@ import {
 } from "../../../../ui/kit";
 import { formatDate, patch } from "../../../../ui/api";
 import { supplierFields } from "../../../../ui/parties";
+import { useT } from "../../../../ui/i18n";
 
 interface Supplier {
   id: string;
@@ -37,6 +38,7 @@ export default function SupplierPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const t = useT();
   const s = useSession();
   const c = useApi<Supplier>(`/suppliers/${id}`);
   const po = useApi<{
@@ -56,57 +58,65 @@ export default function SupplierPage({
   const [editing, setEditing] = useState(false);
   if (c.loading && !c.data) return <Loading />;
   if (!c.data)
-    return <ErrorBanner message={c.error || "Supplier not found."} />;
+    return <ErrorBanner message={c.error || t("suppliers.notFound")} />;
   const x = c.data;
   return (
     <>
       <PageHead
         title={x.name}
         subtitle={`${x.code} · ${x.status.toLowerCase()}`}
-        back={{ href: "/suppliers", label: "Suppliers" }}
+        back={{ href: "/suppliers", label: t("nav.suppliers") }}
         actions={
           s.can("suppliers.write") && (
-            <button onClick={() => setEditing(true)}>Edit</button>
+            <button onClick={() => setEditing(true)}>
+              {t("suppliers.edit")}
+            </button>
           )
         }
       />
-      <Panel title="Details">
+      <Panel title={t("suppliers.details")}>
         <div className="detail-grid">
           <KeyValues
             items={[
-              ["Contact", x.contactPerson],
-              ["Phone", x.phone],
-              ["Email", x.email],
-              ["Country", x.country],
+              [t("party.contact"), x.contactPerson],
+              [t("party.phone"), x.phone],
+              [t("party.email"), x.email],
+              [t("party.country"), x.country],
             ]}
           />
           <KeyValues
             items={[
-              ["Tax number", x.taxNumber],
-              ["Currency", x.currency],
-              ["Payment terms", x.paymentTerms],
-              ["Notes", x.notes],
+              [t("party.taxNumber"), x.taxNumber],
+              [t("party.currency"), x.currency],
+              [t("party.paymentTerms"), x.paymentTerms],
+              [t("docs.notes"), x.notes],
             ]}
           />
         </div>
       </Panel>
       {po.data && (
-        <Panel title="Purchase orders">
+        <Panel title={t("suppliers.purchaseOrders")}>
           <DataTable
             rowKey={(d) => d.id}
             rows={po.data.items}
-            empty="No purchase orders."
+            empty={t("suppliers.noPurchaseOrders")}
             columns={[
               {
-                header: "Number",
+                header: t("docs.number"),
                 cell: (d) => (
                   <Link href={`/purchasing/${d.id}`}>{d.number}</Link>
                 ),
               },
-              { header: "Date", cell: (d) => formatDate(d.createdAt) },
-              { header: "Status", cell: (d) => <Badge value={d.status} /> },
               {
-                header: "Total",
+                header: t("invoices.date"),
+                cell: (d) => formatDate(d.createdAt),
+              },
+              {
+                header: t("common.status"),
+                cell: (d) => <Badge value={d.status} />,
+              },
+              {
+                header: t("doc.total"),
                 align: "right",
                 cell: (d) => (
                   <Money minor={d.totalMinor} currency={d.currency} />
@@ -118,7 +128,7 @@ export default function SupplierPage({
       )}
       {editing && (
         <FormModal
-          title="Edit supplier"
+          title={t("suppliers.editSupplier")}
           fields={supplierFields}
           initial={x as unknown as Record<string, unknown>}
           onClose={() => setEditing(false)}

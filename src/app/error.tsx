@@ -1,19 +1,18 @@
 "use client";
+import { useT } from "../ui/i18n";
 export default function ErrorPage({
   reset,
 }: {
   error: Error;
   reset: () => void;
 }) {
+  const t = useT();
   return (
     <main className="boot">
-      <h1>Unable to display this workspace</h1>
-      <p>
-        An unexpected error interrupted the page. Your last successfully saved
-        demo data remains in this browser.
-      </p>
+      <h1>{t("errors.unableToDisplayThisWorkspace")}</h1>
+      <p>{t("errors.anUnexpectedErrorInterruptedThe")}</p>
       <button className="primary" onClick={reset}>
-        Try again
+        {t("errors.tryAgain")}
       </button>
     </main>
   );

@@ -6,6 +6,7 @@ import { ListPage } from "../../../ui/ListPage";
 import { Badge, FormModal } from "../../../ui/kit";
 import { post } from "../../../ui/api";
 import { supplierFields } from "../../../ui/parties";
+import { useT } from "../../../ui/i18n";
 
 interface Supplier {
   id: string;
@@ -17,40 +18,44 @@ interface Supplier {
   status: string;
 }
 export default function Suppliers() {
+  const t = useT();
   const s = useSession();
   const [creating, setCreating] = useState(false);
   const [tick, setTick] = useState(0);
   return (
     <>
       <ListPage<Supplier>
-        title="Suppliers"
+        title={t("nav.suppliers")}
         endpoint="/suppliers"
-        searchPlaceholder="Search name, code, phone or email"
+        searchPlaceholder={t("suppliers.searchNameCodePhoneOr")}
         statuses={["ACTIVE", "INACTIVE"]}
         refreshKey={tick}
         actions={
           s.can("suppliers.write") && (
             <button className="primary" onClick={() => setCreating(true)}>
-              New supplier
+              {t("suppliers.newSupplier")}
             </button>
           )
         }
         rowKey={(c) => c.id}
         columns={[
-          { header: "Code", cell: (c) => c.code },
+          { header: t("suppliers.code"), cell: (c) => c.code },
           {
-            header: "Name",
+            header: t("suppliers.name"),
             cell: (c) => <Link href={`/suppliers/${c.id}`}>{c.name}</Link>,
           },
-          { header: "Contact", cell: (c) => c.contactPerson },
-          { header: "Phone", cell: (c) => c.phone },
-          { header: "Email", cell: (c) => c.email },
-          { header: "Status", cell: (c) => <Badge value={c.status} /> },
+          { header: t("suppliers.contact"), cell: (c) => c.contactPerson },
+          { header: t("suppliers.phone"), cell: (c) => c.phone },
+          { header: t("auth.email"), cell: (c) => c.email },
+          {
+            header: t("common.status"),
+            cell: (c) => <Badge value={c.status} />,
+          },
         ]}
       />
       {creating && (
         <FormModal
-          title="New supplier"
+          title={t("suppliers.newSupplier")}
           fields={supplierFields}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => (

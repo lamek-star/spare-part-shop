@@ -11,6 +11,7 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { formatDateTime, patch, post, titleCase } from "../../../../ui/api";
+import { useT, type Translate } from "../../../../ui/i18n";
 
 interface User {
   id: string;
@@ -21,14 +22,15 @@ interface User {
   mustChangePassword: boolean;
   lastLoginAt: string | null;
 }
-const ROLES = [
-  { value: "OWNER", label: "Owner — everything, including users" },
-  { value: "ADMIN", label: "Admin — everything except users" },
-  { value: "SALES", label: "Sales — customers, quotations, orders, invoices" },
-  { value: "INVENTORY", label: "Inventory — products, stock, purchasing" },
-  { value: "VIEWER", label: "Viewer — read-only catalogue, products, stock" },
+const roles = (t: Translate) => [
+  { value: "OWNER", label: t("users.ownerEverythingIncludingUsers") },
+  { value: "ADMIN", label: t("users.adminEverythingExceptUsers") },
+  { value: "SALES", label: t("users.salesCustomersQuotationsOrdersInvoices") },
+  { value: "INVENTORY", label: t("users.inventoryProductsStockPurchasing") },
+  { value: "VIEWER", label: t("users.viewerReadOnlyCatalogueProducts") },
 ];
 export default function Users() {
+  const t = useT();
   const users = useApi<User[]>("/users");
   const [modal, setModal] = useState<
     { kind: "new" } | { kind: "edit" | "reset"; user: User } | null
@@ -37,11 +39,11 @@ export default function Users() {
   return (
     <>
       <PageHead
-        title="Users"
-        subtitle="Who can sign in, and what they can do. Permissions are enforced by the server."
+        title={t("nav.users")}
+        subtitle={t("users.whoCanSignInAnd")}
         actions={
           <button className="primary" onClick={() => setModal({ kind: "new" })}>
-            Add user
+            {t("users.addUser")}
           </button>
         }
       />
@@ -52,12 +54,15 @@ export default function Users() {
             rowKey={(u) => u.id}
             rows={users.data}
             columns={[
-              { header: "Name", cell: (u) => u.displayName },
-              { header: "Email", cell: (u) => u.email },
-              { header: "Role", cell: (u) => titleCase(u.role) },
-              { header: "Status", cell: (u) => <Badge value={u.status} /> },
+              { header: t("users.name"), cell: (u) => u.displayName },
+              { header: t("auth.email"), cell: (u) => u.email },
+              { header: t("users.role"), cell: (u) => titleCase(u.role) },
               {
-                header: "Last sign-in",
+                header: t("common.status"),
+                cell: (u) => <Badge value={u.status} />,
+              },
+              {
+                header: t("users.lastSignIn"),
                 cell: (u) => formatDateTime(u.lastLoginAt),
               },
               {
@@ -65,12 +70,12 @@ export default function Users() {
                 cell: (u) => (
                   <div className="actions">
                     <button onClick={() => setModal({ kind: "edit", user: u })}>
-                      Edit
+                      {t("users.edit")}
                     </button>
                     <button
                       onClick={() => setModal({ kind: "reset", user: u })}
                     >
-                      Reset password
+                      {t("users.resetPassword")}
                     </button>
                     {u.status === "ACTIVE" ? (
                       <button
@@ -79,22 +84,22 @@ export default function Users() {
                           void act.run(
                             () =>
                               patch(`/users/${u.id}`, { status: "DISABLED" }),
-                            "User disabled",
+                            t("users.disabled"),
                           )
                         }
                       >
-                        Disable
+                        {t("users.disable")}
                       </button>
                     ) : (
                       <button
                         onClick={() =>
                           void act.run(
                             () => patch(`/users/${u.id}`, { status: "ACTIVE" }),
-                            "User enabled",
+                            t("users.enabled"),
                           )
                         }
                       >
-                        Enable
+                        {t("users.enable")}
                       </button>
                     )}
                   </div>
@@ -106,22 +111,27 @@ export default function Users() {
       </Panel>
       {modal?.kind === "new" && (
         <FormModal
-          title="Add user"
+          title={t("users.addUser")}
           fields={[
-            { name: "displayName", label: "Name", required: true },
+            { name: "displayName", label: t("users.name"), required: true },
             {
               name: "email",
-              label: "Email (used to sign in)",
+              label: t("users.emailUsedToSignIn"),
               type: "email",
               required: true,
             },
-            { name: "role", label: "Role", type: "select", options: ROLES },
+            {
+              name: "role",
+              label: t("users.role"),
+              type: "select",
+              options: roles(t),
+            },
             {
               name: "password",
-              label: "Temporary password",
+              label: t("pw.temporary"),
               type: "password",
               required: true,
-              help: "At least 10 characters. They must change it at first sign-in.",
+              help: t("users.atLeast10CharactersThey"),
             },
           ]}
           initial={{ role: "SALES" }}
@@ -133,8 +143,13 @@ export default function Users() {
         <FormModal
           title={`Edit ${modal.user.displayName}`}
           fields={[
-            { name: "displayName", label: "Name", required: true },
-            { name: "role", label: "Role", type: "select", options: ROLES },
+            { name: "displayName", label: t("users.name"), required: true },
+            {
+              name: "role",
+              label: t("users.role"),
+              type: "select",
+              options: roles(t),
+            },
           ]}
           initial={modal.user as unknown as Record<string, unknown>}
           onClose={() => setModal(null)}
@@ -150,10 +165,10 @@ export default function Users() {
           fields={[
             {
               name: "password",
-              label: "New temporary password",
+              label: t("users.newTemporaryPassword"),
               type: "password",
               required: true,
-              help: "Their existing sessions end immediately.",
+              help: t("users.theirExistingSessionsEndImmediately"),
             },
           ]}
           onClose={() => setModal(null)}

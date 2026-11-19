@@ -13,6 +13,7 @@ import {
   DataTable,
 } from "../../ui/kit";
 import { qs } from "../../ui/api";
+import { useT } from "../../ui/i18n";
 
 interface Dash {
   products: number;
@@ -30,6 +31,7 @@ interface Dash {
 const n = (v: number | null) => (v === null ? "—" : v.toLocaleString("en-US"));
 
 export default function Dashboard() {
+  const t = useT();
   const s = useSession();
   const d = useApi<Dash>("/reports/dashboard");
   const low = useApi<
@@ -67,60 +69,69 @@ export default function Dashboard() {
   return (
     <>
       <PageHead
-        title="Business overview"
+        title={t("dash.businessOverview")}
         subtitle={`Signed in as ${s.me?.user.displayName} (${s.me?.user.role})`}
       />
       <ErrorBanner message={d.error} />
-      {d.loading && !d.data && <Loading what="Loading overview" />}
+      {d.loading && !d.data && <Loading what={t("dash.loadingOverview")} />}
       {d.data && (
         <>
           {first && (
             <div className="notice">
-              <strong>Your shop is empty.</strong> Start by adding{" "}
-              <Link href="/inventory">a warehouse</Link>, then{" "}
-              <Link href="/products">your products</Link>
+              <strong>{t("dash.yourShopIsEmpty")}</strong> {t("dash.startHere")}{" "}
+              <Link href="/inventory">{t("dash.addWarehouse")}</Link> ·{" "}
+              <Link href="/products">{t("dash.addProducts")}</Link>
               {s.can("catalogue.import") && (
                 <>
-                  , or build your{" "}
-                  <Link href="/catalogue/import">reference catalogue</Link>
+                  {" "}
+                  ·{" "}
+                  <Link href="/catalogue/import">
+                    {t("dash.buildCatalogue")}
+                  </Link>
                 </>
               )}
-              .{s.me?.features?.sampleData && <SampleDataButton />}
+              {s.me?.features?.sampleData && <SampleDataButton />}
             </div>
           )}
           <Metrics
             items={[
               {
-                label: "Products",
+                label: t("dash.products"),
                 value: n(d.data.products),
                 hint: `${n(d.data.activeProducts)} active`,
               },
               {
-                label: "Low stock",
+                label: t("dash.lowStock"),
                 value: n(d.data.lowStockProducts),
                 hint: "at or below reorder level",
               },
               {
-                label: "Stock value (cost)",
+                label: t("dash.stockValueCost"),
                 value: <Money minor={d.data.inventoryValueMinor} />,
                 hint:
                   d.data.inventoryValueMinor === null
-                    ? "Not visible to your role"
+                    ? t("dash.notVisible")
                     : undefined,
               },
               {
-                label: "Sales this month",
+                label: t("dash.salesThisMonth"),
                 value: <Money minor={d.data.salesThisMonthMinor} />,
               },
             ]}
           />
           <Metrics
             items={[
-              { label: "Open enquiries", value: n(d.data.openEnquiries) },
-              { label: "Open quotations", value: n(d.data.openQuotations) },
-              { label: "Open orders", value: n(d.data.openOrders) },
               {
-                label: "Outstanding invoices",
+                label: t("dash.openEnquiries"),
+                value: n(d.data.openEnquiries),
+              },
+              {
+                label: t("dash.openQuotations"),
+                value: n(d.data.openQuotations),
+              },
+              { label: t("dash.openOrders"), value: n(d.data.openOrders) },
+              {
+                label: t("dash.outstandingInvoices"),
                 value: n(d.data.outstandingInvoices),
                 hint: <Money minor={d.data.outstandingBalanceMinor} />,
               },
@@ -131,10 +142,10 @@ export default function Dashboard() {
       <div className="dashboard-grid">
         {s.can("enquiries.read") && (
           <Panel
-            title="New enquiries"
+            title={t("dash.newEnquiries")}
             actions={
               <Link className="button" href="/enquiries">
-                All enquiries
+                {t("dash.allEnquiries")}
               </Link>
             }
           >
@@ -142,25 +153,28 @@ export default function Dashboard() {
               <DataTable
                 rowKey={(r) => r.id}
                 rows={recent.data.items}
-                empty="No enquiries waiting."
+                empty={t("dash.noEnquiriesWaiting")}
                 columns={[
                   {
-                    header: "Number",
+                    header: t("docs.number"),
                     cell: (r) => (
                       <Link href={`/enquiries/${r.id}`}>{r.number}</Link>
                     ),
                   },
-                  { header: "Contact", cell: (r) => r.contactName },
-                  { header: "Received", cell: (r) => r.createdAt.slice(0, 10) },
+                  { header: t("dash.contact"), cell: (r) => r.contactName },
+                  {
+                    header: t("status.RECEIVED"),
+                    cell: (r) => r.createdAt.slice(0, 10),
+                  },
                 ]}
               />
             )}
           </Panel>
         )}
         {s.can("reports.inventory") && (
-          <Panel title="Needs reordering">
+          <Panel title={t("dash.needsReordering")}>
             {low.data && low.data.length === 0 && (
-              <Empty>Nothing is below its reorder level.</Empty>
+              <Empty>{t("dash.nothingIsBelowItsReorder")}</Empty>
             )}
             {low.data?.slice(0, 8).map((r) => (
               <div className="top-part" key={r.productId}>
@@ -181,10 +195,10 @@ export default function Dashboard() {
       </div>
       {s.can("reports.sales") && overdue.data && overdue.data.length > 0 && (
         <Panel
-          title="Unpaid invoices"
+          title={t("dash.unpaidInvoices")}
           actions={
             <Link className="button" href="/invoices">
-              Invoices
+              {t("dash.invoices")}
             </Link>
           }
         >
@@ -193,19 +207,21 @@ export default function Dashboard() {
             rows={overdue.data.slice(0, 8)}
             columns={[
               {
-                header: "Invoice",
+                header: t("invoices.invoice"),
                 cell: (r) => (
                   <Link href={`/invoices/${r.invoiceId}`}>{r.number}</Link>
                 ),
               },
-              { header: "Customer", cell: (r) => r.customerName },
+              { header: t("docs.customer"), cell: (r) => r.customerName },
               {
-                header: "Overdue",
+                header: t("dash.overdue"),
                 cell: (r) =>
-                  r.daysOverdue > 0 ? `${r.daysOverdue} days` : "Not yet due",
+                  r.daysOverdue > 0
+                    ? t("dash.days", { count: r.daysOverdue })
+                    : t("dash.notYetDue"),
               },
               {
-                header: "Balance",
+                header: t("docs.balance"),
                 align: "right",
                 cell: (r) => <Money minor={r.balanceMinor} />,
               },
@@ -218,6 +234,7 @@ export default function Dashboard() {
 }
 
 function SampleDataButton() {
+  const t = useT();
   return (
     <p>
       <button
@@ -227,7 +244,7 @@ function SampleDataButton() {
           location.reload();
         }}
       >
-        Load sample data (development only)
+        {t("dash.loadSampleDataDevelopmentOnly")}
       </button>
     </p>
   );

@@ -16,6 +16,7 @@ import {
 } from "../../../../ui/kit";
 import { formatDate, patch } from "../../../../ui/api";
 import { customerFields } from "../../../../ui/parties";
+import { useT } from "../../../../ui/i18n";
 
 interface Customer {
   id: string;
@@ -49,6 +50,7 @@ export default function CustomerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const t = useT();
   const s = useSession();
   const c = useApi<Customer>(`/customers/${id}`);
   const [editing, setEditing] = useState(false);
@@ -72,23 +74,26 @@ export default function CustomerPage({
       <DataTable
         rowKey={(d) => d.id}
         rows={rows}
-        empty="None yet."
+        empty={t("customers.noneYet")}
         columns={[
           {
-            header: "Number",
+            header: t("docs.number"),
             cell: (d) => <Link href={`${base}/${d.id}`}>{d.number}</Link>,
           },
-          { header: "Date", cell: (d) => formatDate(d.createdAt) },
-          { header: "Status", cell: (d) => <Badge value={d.status} /> },
+          { header: t("invoices.date"), cell: (d) => formatDate(d.createdAt) },
           {
-            header: "Total",
+            header: t("common.status"),
+            cell: (d) => <Badge value={d.status} />,
+          },
+          {
+            header: t("doc.total"),
             align: "right",
             cell: (d) => <Money minor={d.totalMinor} currency={d.currency} />,
           },
           ...(showBalance
             ? [
                 {
-                  header: "Balance",
+                  header: t("docs.balance"),
                   align: "right" as const,
                   cell: (d: Doc) => (
                     <Money minor={d.balanceMinor} currency={d.currency} />
@@ -101,38 +106,40 @@ export default function CustomerPage({
     );
   if (c.loading && !c.data) return <Loading />;
   if (!c.data)
-    return <ErrorBanner message={c.error || "Customer not found."} />;
+    return <ErrorBanner message={c.error || t("customers.notFound")} />;
   const x = c.data;
   return (
     <>
       <PageHead
         title={x.name}
         subtitle={`${x.code} · ${x.status.toLowerCase()}`}
-        back={{ href: "/customers", label: "Customers" }}
+        back={{ href: "/customers", label: t("nav.customers") }}
         actions={
           s.can("customers.write") && (
-            <button onClick={() => setEditing(true)}>Edit</button>
+            <button onClick={() => setEditing(true)}>
+              {t("customers.edit")}
+            </button>
           )
         }
       />
-      <Panel title="Details">
+      <Panel title={t("customers.details")}>
         <div className="detail-grid">
           <KeyValues
             items={[
-              ["Contact", x.contactPerson],
-              ["Phone", x.phone],
-              ["Email", x.email],
-              ["Country", x.country],
-              ["Tax number", x.taxNumber],
+              [t("party.contact"), x.contactPerson],
+              [t("party.phone"), x.phone],
+              [t("party.email"), x.email],
+              [t("party.country"), x.country],
+              [t("party.taxNumber"), x.taxNumber],
             ]}
           />
           <KeyValues
             items={[
-              ["Billing address", x.billingAddress],
-              ["Shipping address", x.shippingAddress],
-              ["Payment terms", x.paymentTerms],
+              [t("party.billingAddress"), x.billingAddress],
+              [t("party.shippingAddress"), x.shippingAddress],
+              [t("party.paymentTerms"), x.paymentTerms],
               [
-                "Credit limit",
+                t("party.creditLimit"),
                 <Money
                   key="c"
                   minor={x.creditLimitMinor}
@@ -145,21 +152,23 @@ export default function CustomerPage({
         </div>
       </Panel>
       {q.data && (
-        <Panel title="Quotations">
+        <Panel title={t("nav.quotations")}>
           {docTable(q.data.items, "/quotations")}
         </Panel>
       )}
       {o.data && (
-        <Panel title="Orders">{docTable(o.data.items, "/orders")}</Panel>
+        <Panel title={t("nav.orders")}>
+          {docTable(o.data.items, "/orders")}
+        </Panel>
       )}
       {i.data && (
-        <Panel title="Invoices">
+        <Panel title={t("customers.invoices")}>
           {docTable(i.data.items, "/invoices", true)}
         </Panel>
       )}
       {editing && (
         <FormModal
-          title="Edit customer"
+          title={t("customers.editCustomer")}
           fields={customerFields}
           initial={x as unknown as Record<string, unknown>}
           onClose={() => setEditing(false)}
