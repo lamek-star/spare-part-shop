@@ -35,42 +35,45 @@ import {
 } from "./session";
 import { ToastProvider, ErrorBanner, FormModal, errorText } from "./kit";
 import { post } from "./api";
+import { I18nProvider, LANGUAGES, useI18n, useT, type Language } from "./i18n";
+import type { MessageKey } from "./messages";
 
 interface NavItem {
   href: string;
-  label: string;
+  /** Message key of the label (ui/messages). */
+  label: MessageKey;
   icon: ReactNode;
   perm: string;
   /** Shown only in this edition. */
   only?: Edition;
   /** The label in the pharmacy edition, when it differs. */
-  pharmacyLabel?: string;
+  pharmacyLabel?: MessageKey;
 }
-const NAV: { group: string; items: NavItem[] }[] = [
+const NAV: { group: MessageKey; items: NavItem[] }[] = [
   {
-    group: "Overview",
+    group: "nav.group.overview",
     items: [
       {
         href: "/",
-        label: "Dashboard",
+        label: "nav.dashboard",
         icon: <LayoutDashboard size={17} />,
         perm: "settings.read",
       },
     ],
   },
   {
-    group: "Catalogue",
+    group: "nav.group.catalogue",
     items: [
       {
         href: "/catalogue",
-        label: "Reference Catalogue",
+        label: "nav.catalogue",
         icon: <Library size={17} />,
         perm: "catalogue.read",
         only: "spare-parts",
       },
       {
         href: "/catalogue/import",
-        label: "Import",
+        label: "nav.import",
         icon: <Upload size={17} />,
         perm: "catalogue.import",
         only: "spare-parts",
@@ -78,125 +81,125 @@ const NAV: { group: string; items: NavItem[] }[] = [
     ],
   },
   {
-    group: "Inventory",
+    group: "nav.group.inventory",
     items: [
       {
         href: "/products",
-        label: "My Products",
-        pharmacyLabel: "Medicines & Products",
+        label: "nav.products",
+        pharmacyLabel: "nav.productsPharmacy",
         icon: <Package size={17} />,
         perm: "products.read",
       },
       {
         href: "/inventory",
-        label: "Stock & Locations",
+        label: "nav.inventory",
         icon: <Warehouse size={17} />,
         perm: "inventory.read",
       },
       {
         href: "/scan",
-        label: "Scan / Lookup",
+        label: "nav.scan",
         icon: <ScanLine size={17} />,
         perm: "products.read",
       },
       {
         href: "/expiry",
-        label: "Expiry & Batches",
+        label: "nav.expiry",
         icon: <CalendarClock size={17} />,
         perm: "inventory.read",
         only: "pharmacy",
       },
       {
         href: "/purchasing",
-        label: "Purchase Orders",
+        label: "nav.purchasing",
         icon: <Truck size={17} />,
         perm: "purchasing.read",
       },
     ],
   },
   {
-    group: "Sales",
+    group: "nav.group.sales",
     items: [
       {
         href: "/sell",
-        label: "Sell (till)",
+        label: "nav.sell",
         icon: <Pill size={17} />,
         perm: "payments.record",
         only: "pharmacy",
       },
       {
         href: "/enquiries",
-        label: "Enquiries",
+        label: "nav.enquiries",
         icon: <Inbox size={17} />,
         perm: "enquiries.read",
         only: "spare-parts",
       },
       {
         href: "/quotations",
-        label: "Quotations",
+        label: "nav.quotations",
         icon: <FileText size={17} />,
         perm: "quotations.read",
       },
       {
         href: "/orders",
-        label: "Orders",
+        label: "nav.orders",
         icon: <ShoppingCart size={17} />,
         perm: "orders.read",
       },
       {
         href: "/invoices",
-        label: "Invoices & Payments",
+        label: "nav.invoices",
         icon: <Receipt size={17} />,
         perm: "invoices.read",
       },
     ],
   },
   {
-    group: "Contacts",
+    group: "nav.group.contacts",
     items: [
       {
         href: "/customers",
-        label: "Customers",
+        label: "nav.customers",
         icon: <Users size={17} />,
         perm: "customers.read",
       },
       {
         href: "/suppliers",
-        label: "Suppliers",
+        label: "nav.suppliers",
         icon: <Building2 size={17} />,
         perm: "suppliers.read",
       },
     ],
   },
   {
-    group: "Insights",
+    group: "nav.group.insights",
     items: [
       {
         href: "/reports",
-        label: "Reports",
+        label: "nav.reports",
         icon: <BarChart3 size={17} />,
         perm: "settings.read",
       },
     ],
   },
   {
-    group: "Administration",
+    group: "nav.group.admin",
     items: [
       {
         href: "/admin/users",
-        label: "Users",
+        label: "nav.users",
         icon: <UserCog size={17} />,
         perm: "users.manage",
       },
       {
         href: "/admin/settings",
-        label: "Shop settings",
+        label: "nav.settings",
         icon: <Settings size={17} />,
         perm: "settings.manage",
       },
       {
         href: "/admin/audit",
-        label: "Audit log",
+        label: "nav.audit",
         icon: <ScrollText size={17} />,
         perm: "audit.read",
       },
@@ -207,17 +210,20 @@ const NAV: { group: string; items: NavItem[] }[] = [
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <ToastProvider>{children}</ToastProvider>
+      <I18nProvider>
+        <ToastProvider>{children}</ToastProvider>
+      </I18nProvider>
     </SessionProvider>
   );
 }
 
 export function Shell({ children }: { children: ReactNode }) {
   const s = useSession();
+  const t = useT();
   if (s.status === "loading")
     return (
       <div className="boot" role="status">
-        Loading…
+        {t("shell.loading")}
       </div>
     );
   if (s.status === "anonymous") return <AuthScreen />;
@@ -227,6 +233,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
 function AppFrame({ children }: { children: ReactNode }) {
   const s = useSession();
+  const t = useT();
   const path = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -271,7 +278,7 @@ function AppFrame({ children }: { children: ReactNode }) {
         collapsed ? { gridTemplateColumns: "64px minmax(0, 1fr)" } : undefined
       }
     >
-      <aside className="sidebar no-print" aria-label="Main navigation">
+      <aside className="sidebar no-print" aria-label={t("shell.mainNav")}>
         <div className="brandmark">
           <Box />{" "}
           {!collapsed && <span>{s.shopName || productNameOf(s.edition)}</span>}
@@ -300,7 +307,7 @@ function AppFrame({ children }: { children: ReactNode }) {
                       letterSpacing: 0.6,
                     }}
                   >
-                    {g.group}
+                    {t(g.group)}
                   </small>
                 )}
                 {items.map((i) => (
@@ -309,9 +316,9 @@ function AppFrame({ children }: { children: ReactNode }) {
                     href={i.href}
                     className={`nav-item button ${active(i.href) ? "active" : ""}`}
                     aria-current={active(i.href) ? "page" : undefined}
-                    title={i.label}
+                    title={t(i.label)}
                   >
-                    {i.icon} {!collapsed && <span>{i.label}</span>}
+                    {i.icon} {!collapsed && <span>{t(i.label)}</span>}
                   </Link>
                 ))}
               </div>
@@ -326,15 +333,13 @@ function AppFrame({ children }: { children: ReactNode }) {
                 style={offline ? { background: "#e0a030" } : undefined}
               />{" "}
               <span className="sidebar-status">
-                {offline ? "Offline — working locally" : "Connected"}
+                {offline ? t("shell.offline") : t("shell.connected")}
               </span>
-              <small style={{ display: "block" }}>
-                All data is stored on this server
-              </small>
+              <small style={{ display: "block" }}>{t("shell.localData")}</small>
             </>
           )}
           <button
-            aria-label="Collapse sidebar"
+            aria-label={t("shell.collapse")}
             onClick={() => setCollapsed(!collapsed)}
           >
             <PanelLeftClose size={18} />
@@ -356,8 +361,8 @@ function AppFrame({ children }: { children: ReactNode }) {
           >
             <Search size={17} />
             <input
-              aria-label="Quick find"
-              placeholder="Scan or type a SKU / part number…"
+              aria-label={t("shell.quickFind")}
+              placeholder={t("shell.searchPlaceholder")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -367,12 +372,17 @@ function AppFrame({ children }: { children: ReactNode }) {
               <span className="avatar">{initials}</span>
               <span>
                 {s.me?.user.displayName}
-                <small>{s.me?.user.role}</small>
+                <small>
+                  {s.me ? t(`role.${s.me.user.role}` as MessageKey) : ""}
+                </small>
               </span>
             </summary>
-            <button onClick={() => void s.signOut()}>
-              <LogOut size={15} /> Sign out
-            </button>
+            <div className="account-menu">
+              <LanguagePicker />
+              <button onClick={() => void s.signOut()}>
+                <LogOut size={15} /> {t("shell.signOut")}
+              </button>
+            </div>
           </details>
         </header>
         <main>{children}</main>
@@ -383,6 +393,7 @@ function AppFrame({ children }: { children: ReactNode }) {
 
 function AuthScreen() {
   const s = useSession();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -410,25 +421,21 @@ function AuthScreen() {
         <h1>{s.shopName || productNameOf(s.edition)}</h1>
         <p>
           {s.edition === "pharmacy"
-            ? "Medicines, batches and expiry, the till, and the accounts in one place — running on your own server."
-            : "Catalogue, stock, quotations and invoices in one place — running on your own server."}
+            ? t("auth.taglinePharmacy")
+            : t("auth.taglineParts")}
         </p>
       </div>
       <form className="login-card" onSubmit={submit}>
         <div className="brandmark">
           <Box /> {s.shopName || productNameOf(s.edition)}
         </div>
-        <h2>{s.needsSetup ? "Set up your shop" : "Sign in"}</h2>
-        {s.needsSetup && (
-          <p className="muted">
-            Create the Owner account. You can add staff afterwards.
-          </p>
-        )}
+        <h2>{s.needsSetup ? t("auth.setupTitle") : t("auth.signIn")}</h2>
+        {s.needsSetup && <p className="muted">{t("auth.setupHelp")}</p>}
         <ErrorBanner message={error} />
         {s.needsSetup && (
           <>
             <div className="field">
-              <label htmlFor="shop">Shop name</label>
+              <label htmlFor="shop">{t("auth.shopName")}</label>
               <input
                 id="shop"
                 value={shop}
@@ -438,7 +445,7 @@ function AuthScreen() {
               />
             </div>
             <div className="field">
-              <label htmlFor="name">Your name</label>
+              <label htmlFor="name">{t("auth.yourName")}</label>
               <input
                 id="name"
                 value={name}
@@ -450,7 +457,7 @@ function AuthScreen() {
           </>
         )}
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">{t("auth.email")}</label>
           <input
             id="email"
             type="email"
@@ -461,7 +468,7 @@ function AuthScreen() {
           />
         </div>
         <div className="field">
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">{t("auth.password")}</label>
           <input
             id="password"
             type="password"
@@ -470,16 +477,14 @@ function AuthScreen() {
             required
             autoComplete={s.needsSetup ? "new-password" : "current-password"}
           />
-          {s.needsSetup && (
-            <small className="muted">At least 10 characters.</small>
-          )}
+          {s.needsSetup && <small className="muted">{t("auth.min10")}</small>}
         </div>
         <button className="primary" disabled={busy}>
           {busy
-            ? "Please wait…"
+            ? t("auth.wait")
             : s.needsSetup
-              ? "Create Owner account"
-              : "Sign in"}
+              ? t("auth.createOwner")
+              : t("auth.signIn")}
         </button>
       </form>
     </main>
@@ -488,30 +493,28 @@ function AuthScreen() {
 
 function ChangePasswordScreen() {
   const s = useSession();
+  const t = useT();
   return (
     <main className="login" style={{ gridTemplateColumns: "1fr" }}>
       <div className="login-card">
-        <h2>Choose a new password</h2>
-        <p className="muted">
-          Your account was created with a temporary password. Set your own to
-          continue.
-        </p>
+        <h2>{t("pw.title")}</h2>
+        <p className="muted">{t("pw.help")}</p>
         <FormModal
-          title="Change password"
-          submitLabel="Change password"
+          title={t("pw.change")}
+          submitLabel={t("pw.change")}
           fields={[
             {
               name: "currentPassword",
-              label: "Temporary password",
+              label: t("pw.temporary"),
               type: "password",
               required: true,
             },
             {
               name: "newPassword",
-              label: "New password",
+              label: t("pw.new"),
               type: "password",
               required: true,
-              help: "At least 10 characters.",
+              help: t("auth.min10"),
             },
           ]}
           onSubmit={async (v) => {
@@ -522,5 +525,44 @@ function ChangePasswordScreen() {
         />
       </div>
     </main>
+  );
+}
+
+/** The person's own language, in the account menu; "Shop default" follows the shop's setting. */
+function LanguagePicker() {
+  const { t, choice, choose } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <label className="language-picker">
+      <span>{t("lang.label")}</span>
+      <select
+        value={choice?.personal ?? ""}
+        disabled={busy || !choice}
+        onChange={async (e) => {
+          setBusy(true);
+          setError("");
+          try {
+            await choose(e.target.value ? (e.target.value as Language) : null);
+          } catch (err) {
+            setError(errorText(err));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <option value="">
+          {t("lang.followShop", {
+            language: LANGUAGES[choice?.shop ?? "en"].native,
+          })}
+        </option>
+        {(Object.keys(LANGUAGES) as Language[]).map((l) => (
+          <option key={l} value={l} lang={l}>
+            {LANGUAGES[l].native}
+          </option>
+        ))}
+      </select>
+      {error && <small role="alert">{error}</small>}
+    </label>
   );
 }

@@ -15,6 +15,11 @@ import type {
 } from "../catalogue/model";
 import type { Actor, Role } from "../domain/types";
 import { loadSampleData } from "../dev/sampleData";
+import {
+  languageChoice,
+  setPersonalLanguage,
+  setShopLanguage,
+} from "../i18n/language";
 import { Router, type Ctx, type Query } from "./core";
 
 /**
@@ -142,6 +147,25 @@ export function buildRouter(): Router {
       shopName: (await c.container.repos.config.get()).shopName,
       features: { sampleData: sampleDataEnabled() },
     },
+  }));
+  // The language of the screens and printed documents (server/i18n/language.ts).
+  r.get("/me/language", { allowMustChange: true }, async (c) => ({
+    data: await languageChoice(c.container.db, c.actor.id),
+  }));
+  r.put("/me/language", { allowMustChange: true }, async (c) => ({
+    data: await setPersonalLanguage(
+      c.container.db,
+      c.actor,
+      (await c.json()).language ?? null,
+    ),
+  }));
+  r.put("/settings/language", { permission: "settings.manage" }, async (c) => ({
+    data: await setShopLanguage(
+      c.container.db,
+      c.container.repos.audit,
+      c.actor,
+      (await c.json()).language,
+    ),
   }));
   r.post("/auth/password", { allowMustChange: true }, async (c) => {
     const b = await c.json();

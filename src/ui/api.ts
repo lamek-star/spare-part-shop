@@ -59,9 +59,13 @@ export async function api<T = unknown>(
   }
   if (!res.ok) {
     const e = parsed.error;
+    // Not for the session checks themselves (/auth/me, /auth/status): the session provider asks them
+    // after this very event, so announcing their 401 asked again forever on the sign-in page.
     if (
       res.status === 401 &&
       !path.startsWith("/auth/login") &&
+      !path.startsWith("/auth/me") &&
+      !path.startsWith("/auth/status") &&
       typeof window !== "undefined"
     )
       window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));

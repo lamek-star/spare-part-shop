@@ -1,3 +1,19 @@
+/* Amharic and Tigrinya (Ethiopic script): Noto Sans Ethiopic is bundled (SIL Open Font License, fonts/), so the text
+   looks the same on every PC and phone and needs no internet. unicode-range keeps it to Ethiopic letters only. */
+@font-face {
+  font-family: "Noto Sans Ethiopic";
+  src: url("./fonts/noto-sans-ethiopic-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+1200-139F, U+2D80-2DDF, U+AB00-AB2F, U+1E7E0-1E7FF;
+}
+@font-face {
+  font-family: "Noto Sans Ethiopic";
+  src: url("./fonts/noto-sans-ethiopic-700.woff2") format("woff2");
+  font-weight: 600 700;
+  font-display: swap;
+  unicode-range: U+1200-139F, U+2D80-2DDF, U+AB00-AB2F, U+1E7E0-1E7FF;
+}
 :root {
   --navy: #172c40;
   --teal: #087f75;
@@ -13,7 +29,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: "Segoe UI", "Noto Sans Ethiopic", Tahoma, Arial, sans-serif;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -182,7 +198,7 @@ strong {
 }
 .nav-item span {
   flex: 1;
-  text-align: left;
+  text-align: start;
 }
 .nav-item.active {
   background: #29465c;
@@ -215,7 +231,7 @@ strong {
   display: inline-block;
   background: #58c7b2;
   border-radius: 100%;
-  margin-right: 7px;
+  margin-inline-end: 7px;
 }
 .topbar {
   height: 74px;
@@ -255,11 +271,23 @@ strong {
   font-weight: 600;
   font-size: 12px;
 }
-.account button {
+/* The account menu: the person's language and Sign out (ui/Shell.tsx). */
+.account-menu {
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   top: 50px;
+  z-index: 20;
+  display: grid;
+  min-width: 220px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   box-shadow: 0 7px 22px #172c4020;
+}
+.account-menu > button {
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 0 0 8px 8px;
 }
 .avatar {
   border-radius: 50%;
@@ -300,7 +328,7 @@ main {
 .today {
   font-size: 12px;
   color: var(--muted);
-  margin-right: 8px;
+  margin-inline-end: 8px;
 }
 .metrics {
   display: grid;
@@ -313,7 +341,7 @@ main {
 }
 .metric {
   padding: 21px 23px;
-  border-right: 1px solid var(--line);
+  border-inline-end: 1px solid var(--line);
 }
 .metric:last-child {
   border: 0;
@@ -374,7 +402,7 @@ main {
 table {
   border-collapse: collapse;
   width: 100%;
-  text-align: left;
+  text-align: start;
   white-space: nowrap;
   font-size: 12px;
 }
@@ -393,11 +421,11 @@ td {
 }
 th:first-child,
 td:first-child {
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 th:last-child,
 td:last-child {
-  padding-right: 20px;
+  padding-inline-end: 20px;
 }
 tr:last-child td {
   border-bottom: 0;
@@ -443,7 +471,7 @@ tbody tr:hover {
   font-size: 11px;
 }
 .top-part strong {
-  text-align: right;
+  text-align: end;
 }
 .toolbar {
   display: flex;
@@ -474,7 +502,7 @@ tbody tr:hover {
 .search-box input {
   border: 0;
   width: 100%;
-  padding-left: 0;
+  padding-inline-start: 0;
 }
 .part-cell {
   display: flex;
@@ -537,7 +565,7 @@ dd {
   padding: 12px 15px;
   border-radius: 5px;
   background: #f4f7f9;
-  border-left: 3px solid #9badbb;
+  border-inline-start: 3px solid #9badbb;
   color: #5b7081;
   font-size: 12px;
   margin: 18px 0;
@@ -556,7 +584,7 @@ dd {
 .toast {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  inset-inline-end: 24px;
   background: #1c574d;
   color: white;
   padding: 13px 22px;
@@ -655,8 +683,8 @@ dialog::backdrop {
 .search-results {
   position: absolute;
   top: 42px;
-  left: 0;
-  right: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
   background: #fff;
   border: 1px solid var(--line);
   box-shadow: 0 12px 30px #172c4022;
@@ -669,7 +697,7 @@ dialog::backdrop {
 .search-results > button {
   display: block;
   width: 100%;
-  text-align: left;
+  text-align: start;
   border: 0;
   padding: 9px;
   font-size: 12px;
@@ -818,8 +846,8 @@ footer > span:first-child {
     font-size: 11px;
   }
   .search-results {
-    left: auto;
-    right: -45px;
+    inset-inline-start: auto;
+    inset-inline-end: -45px;
     min-width: 260px;
   }
   main {
@@ -884,8 +912,8 @@ footer > span:first-child {
     margin-bottom: 5px;
   }
   .toast {
-    left: 75px;
-    right: 12px;
+    inset-inline-start: 75px;
+    inset-inline-end: 12px;
     bottom: 12px;
   }
   .app.collapsed {
@@ -1088,4 +1116,20 @@ main a:not(.button):hover {
   .sidebar-bottom small {
     display: none !important;
   }
+}
+
+/* The person's language, in the account menu (ui/Shell.tsx LanguagePicker). */
+.language-picker {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.language-picker select {
+  min-width: 190px;
+}
+.language-picker [role="alert"] {
+  color: #b42318;
 }

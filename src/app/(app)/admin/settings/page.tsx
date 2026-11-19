@@ -10,6 +10,36 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { put } from "../../../../ui/api";
+import { LANGUAGES, useI18n, type Language } from "../../../../ui/i18n";
+
+/** The language for everyone who has not chosen their own (saved at once; audited on the server). */
+function ShopLanguage() {
+  const { t, choice, setShopDefault } = useI18n();
+  const act = useAction();
+  return (
+    <Panel title={t("lang.shopDefault")}>
+      <ErrorBanner message={act.error} onClose={act.clear} />
+      <FieldBox label={t("lang.label")} help={t("lang.shopDefaultHelp")}>
+        <select
+          value={choice?.shop ?? "en"}
+          disabled={!choice || act.busy}
+          onChange={(e) =>
+            void act.run(
+              () => setShopDefault(e.target.value as Language),
+              t("lang.saved"),
+            )
+          }
+        >
+          {(Object.keys(LANGUAGES) as Language[]).map((l) => (
+            <option key={l} value={l} lang={l}>
+              {LANGUAGES[l].native}
+            </option>
+          ))}
+        </select>
+      </FieldBox>
+    </Panel>
+  );
+}
 
 interface Settings {
   shopName: string;
@@ -71,6 +101,7 @@ export default function ShopSettings() {
         subtitle="These details appear on quotations and invoices."
       />
       <ErrorBanner message={act.error} onClose={act.clear} />
+      <ShopLanguage />
       <form onSubmit={save}>
         <Panel title="Business">
           <div className="form-grid">
