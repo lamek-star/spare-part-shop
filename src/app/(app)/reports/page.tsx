@@ -13,77 +13,84 @@ import {
 } from "../../../ui/kit";
 import { qs, titleCase } from "../../../ui/api";
 import { apiUrl } from "@/lib/basePath";
+import { useT } from "../../../ui/i18n";
+import type { MessageKey } from "../../../ui/messages";
 
 const REPORTS: {
   key: string;
-  label: string;
+  /** Message key (ui/messages). */
+  label: MessageKey;
   perm: string;
   ranged?: boolean;
   pharmacyOnly?: boolean;
 }[] = [
   {
     key: "daily-sales",
-    label: "Daily sales book (accountant)",
+    label: "rep.dailySalesBookAccountant",
     perm: "reports.financial",
     ranged: true,
   },
   {
     key: "batch-valuation",
-    label: "Stock value by batch and expiry (cost)",
+    label: "rep.stockValueByBatchAnd",
     perm: "reports.financial",
   },
   {
     key: "expired-write-offs",
-    label: "Expired stock written off (loss)",
+    label: "rep.expiredStockWrittenOffLoss",
     perm: "reports.financial",
     ranged: true,
   },
   {
     key: "prescription-register",
-    label: "Prescription register",
+    label: "rep.prescriptionRegister",
     perm: "reports.sales",
     ranged: true,
     pharmacyOnly: true,
   },
-  { key: "stock-on-hand", label: "Stock on hand", perm: "reports.inventory" },
-  { key: "low-stock", label: "Low stock", perm: "reports.inventory" },
+  {
+    key: "stock-on-hand",
+    label: "stock.stockOnHand",
+    perm: "reports.inventory",
+  },
+  { key: "low-stock", label: "dash.lowStock", perm: "reports.inventory" },
   {
     key: "inventory-valuation",
-    label: "Inventory valuation (cost)",
+    label: "rep.inventoryValuationCost",
     perm: "reports.financial",
   },
   {
     key: "sales-by-period",
-    label: "Sales by month",
+    label: "rep.salesByMonth",
     perm: "reports.sales",
     ranged: true,
   },
   {
     key: "sales-by-product",
-    label: "Sales by product",
+    label: "rep.salesByProduct",
     perm: "reports.sales",
     ranged: true,
   },
   {
     key: "customer-activity",
-    label: "Customer activity",
+    label: "rep.customerActivity",
     perm: "reports.sales",
     ranged: true,
   },
   {
     key: "outstanding-invoices",
-    label: "Outstanding invoices",
+    label: "dash.outstandingInvoices",
     perm: "reports.sales",
   },
   {
     key: "quotation-conversion",
-    label: "Quotation conversion",
+    label: "rep.quotationConversion",
     perm: "reports.sales",
     ranged: true,
   },
   {
     key: "supplier-overview",
-    label: "Supplier overview",
+    label: "rep.supplierOverview",
     perm: "suppliers.read",
   },
 ];
@@ -97,6 +104,7 @@ const heading = (k: string) =>
   );
 
 export default function Reports() {
+  const t = useT();
   const s = useSession();
   const available = REPORTS.filter(
     (r) => s.can(r.perm) && (!r.pharmacyOnly || s.edition === "pharmacy"),
@@ -119,8 +127,8 @@ export default function Reports() {
   return (
     <>
       <PageHead
-        title="Reports"
-        subtitle="Calculated live from your stock movements, invoices and payments."
+        title={t("nav.reports")}
+        subtitle={t("rep.calculatedLiveFromYourStock")}
         actions={
           rows && rows.length > 0 ? (
             <a
@@ -129,20 +137,20 @@ export default function Reports() {
                 `/reports/${key}${qs({ format: "csv", ...(def?.ranged ? { from, to } : {}) })}`,
               )}
             >
-              Export CSV
+              {t("rep.exportCsv")}
             </a>
           ) : undefined
         }
       />
       <div className="toolbar">
         <select
-          aria-label="Report"
+          aria-label={t("rep.report")}
           value={key}
           onChange={(e) => setKey(e.target.value)}
         >
           {available.map((x) => (
             <option key={x.key} value={x.key}>
-              {x.label}
+              {t(x.label)}
             </option>
           ))}
         </select>
@@ -168,13 +176,13 @@ export default function Reports() {
         )}
       </div>
       <ErrorBanner message={r.error} />
-      {r.loading && <Loading what="Running report" />}
-      <Panel title={def?.label}>
+      {r.loading && <Loading what={t("rep.runningReport")} />}
+      <Panel title={def ? t(def.label) : undefined}>
         {rows && (
           <DataTable
             rowKey={(row) => JSON.stringify(row)}
             rows={rows}
-            empty="No data for this report yet."
+            empty={t("rep.noDataForThisReport")}
             columns={headers.map((h) => ({
               header: heading(h),
               align:

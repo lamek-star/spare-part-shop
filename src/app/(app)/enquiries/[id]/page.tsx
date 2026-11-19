@@ -18,6 +18,7 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { formatDateTime, post } from "../../../../ui/api";
+import { useT } from "../../../../ui/i18n";
 
 interface Enquiry {
   id: string;
@@ -44,6 +45,7 @@ export default function EnquiryPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useT();
   const { id } = use(params);
   const s = useSession();
   const router = useRouter();
@@ -55,7 +57,7 @@ export default function EnquiryPage({
   const [quoting, setQuoting] = useState(false);
   const [customerId, setCustomerId] = useState("");
   if (e.loading && !e.data) return <Loading />;
-  if (!e.data) return <ErrorBanner message={e.error || "Enquiry not found."} />;
+  if (!e.data) return <ErrorBanner message={e.error || t("enq.notFound")} />;
   const x = e.data;
   const open = ["SUBMITTED", "QUOTED"].includes(x.status);
   const createQuotation = async () => {
@@ -64,7 +66,7 @@ export default function EnquiryPage({
         post<{ id: string }>(`/enquiries/${id}/quotation`, {
           customerId: customerId || x.customerId || undefined,
         }),
-      "Quotation created",
+      t("quotations.created"),
     );
     if (q) router.push(`/quotations/${q.id}`);
   };
@@ -73,7 +75,7 @@ export default function EnquiryPage({
       <PageHead
         title={x.number}
         subtitle={<Badge value={x.status} />}
-        back={{ href: "/enquiries", label: "Enquiries" }}
+        back={{ href: "/enquiries", label: t("nav.enquiries") }}
         actions={
           <>
             {open && s.can("quotations.write") && (
@@ -83,19 +85,19 @@ export default function EnquiryPage({
                   x.customerId ? void createQuotation() : setQuoting(true)
                 }
               >
-                Create quotation
+                {t("enq.createQuotation")}
               </button>
             )}
             {open && s.can("enquiries.write") && (
               <ConfirmButton
                 danger
-                label="Cancel enquiry"
-                confirmLabel="Yes, cancel it"
+                label={t("enq.cancelEnquiry")}
+                confirmLabel={t("enq.yesCancelIt")}
                 onConfirm={() =>
                   act
                     .run(
                       () => post(`/enquiries/${id}/cancel`),
-                      "Enquiry cancelled",
+                      t("enq.cancelled"),
                     )
                     .then(() => undefined)
                 }
@@ -105,7 +107,7 @@ export default function EnquiryPage({
         }
       />
       <ErrorBanner message={act.error} onClose={act.clear} />
-      <Panel title="Contact">
+      <Panel title={t("dash.contact")}>
         <KeyValues
           items={[
             ["Name", x.contactName],
@@ -123,7 +125,7 @@ export default function EnquiryPage({
           rows={x.items}
           columns={[
             {
-              header: "Part number",
+              header: t("enq.partNumber"),
               cell: (i) =>
                 i.referencePartId ? (
                   <Link href={`/catalogue/parts/${i.referencePartId}`}>
@@ -133,24 +135,24 @@ export default function EnquiryPage({
                   i.oemNumber
                 ),
             },
-            { header: "Description", cell: (i) => i.partName },
-            { header: "Vehicle", cell: (i) => i.vehicleDescription },
-            { header: "Qty", align: "right", cell: (i) => i.quantity },
+            { header: t("lines.description"), cell: (i) => i.partName },
+            { header: t("enq.vehicle"), cell: (i) => i.vehicleDescription },
+            { header: t("doc.qty"), align: "right", cell: (i) => i.quantity },
           ]}
         />
-        <p className="muted">
-          Quotation lines are priced automatically from My Products when the
-          part number matches a product you stock.
-        </p>
+        <p className="muted">{t("enq.quotationLinesArePricedAutomatically")}</p>
       </Panel>
       {quoting && (
-        <Modal title="Create quotation" onClose={() => setQuoting(false)}>
-          <FieldBox label="Customer">
+        <Modal
+          title={t("enq.createQuotation")}
+          onClose={() => setQuoting(false)}
+        >
+          <FieldBox label={t("docs.customer")}>
             <select
               value={customerId}
               onChange={(ev) => setCustomerId(ev.target.value)}
             >
-              <option value="">Choose a customer…</option>
+              <option value="">{t("quotations.chooseCustomerOption")}</option>
               {customers.data?.items.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -159,7 +161,8 @@ export default function EnquiryPage({
             </select>
           </FieldBox>
           <p className="muted">
-            Not listed? <Link href="/customers">Add the customer</Link> first.
+            Not listed? <Link href="/customers">{t("enq.addTheCustomer")}</Link>{" "}
+            first.
           </p>
           <div className="form-actions">
             <button
@@ -167,7 +170,7 @@ export default function EnquiryPage({
               disabled={!customerId || act.busy}
               onClick={() => void createQuotation()}
             >
-              Create quotation
+              {t("enq.createQuotation")}
             </button>
           </div>
         </Modal>

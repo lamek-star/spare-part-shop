@@ -22,6 +22,7 @@ import {
   useAddToEnquiry,
   type LinkedProduct,
 } from "../../../ui/catalogue";
+import { useT } from "../../../ui/i18n";
 
 interface Hit {
   id: string;
@@ -51,6 +52,7 @@ interface Stats {
 }
 
 function CatalogueSearch() {
+  const t = useT();
   const s = useSession();
   const router = useRouter();
   const params = useSearchParams();
@@ -93,23 +95,23 @@ function CatalogueSearch() {
   return (
     <>
       <PageHead
-        title="Reference Catalogue"
-        subtitle="Manufacturer part numbers, fitment and drawings. This is reference data — it holds no shop prices or stock."
+        title={t("nav.catalogue")}
+        subtitle={t("cat.manufacturerPartNumbersFitmentAnd")}
       />
       {stats.data && (
         <Metrics
           items={[
             {
-              label: "Reference parts",
+              label: t("cat.referenceParts"),
               value: stats.data.parts.toLocaleString("en-US"),
             },
-            { label: "Manufacturers", value: stats.data.manufacturers },
+            { label: t("cat.manufacturers"), value: stats.data.manufacturers },
             {
-              label: "Vehicles",
+              label: t("cat.vehicles"),
               value: stats.data.vehicles.toLocaleString("en-US"),
             },
             {
-              label: "Drawings",
+              label: t("cat.drawings"),
               value: stats.data.drawings,
               hint: `${stats.data.drawingsWithImages} with stored images`,
             },
@@ -118,11 +120,11 @@ function CatalogueSearch() {
       )}
       {empty && (
         <div className="notice">
-          <strong>The Reference Catalogue is empty.</strong>{" "}
+          <strong>{t("cat.theReferenceCatalogueIsEmpty")}</strong>{" "}
           {s.can("catalogue.import") ? (
             <>
               Import a CSV or an offline catalogue package to fill it.{" "}
-              <Link href="/catalogue/import">Go to import</Link>.
+              <Link href="/catalogue/import">{t("cat.goToImport")}</Link>.
             </>
           ) : (
             "Ask an administrator to import catalogue data."
@@ -141,21 +143,21 @@ function CatalogueSearch() {
         <div className="search-box" style={{ maxWidth: 640 }}>
           <Search size={17} />
           <input
-            aria-label="Search the reference catalogue"
-            placeholder="Part number (any format), description, vehicle or chassis…"
+            aria-label={t("cat.searchTheReferenceCatalogue")}
+            placeholder={t("cat.partNumberAnyFormatDescription")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ border: 0, flex: 1, outline: "none", padding: "11px 0" }}
             autoFocus
           />
         </div>
-        <button className="primary">Search</button>
+        <button className="primary">{t("common.search")}</button>
         <button type="button" onClick={() => setShowFilters(!showFilters)}>
-          {showFilters ? "Hide filters" : "Filters"}
+          {showFilters ? t("cat.hideFilters") : t("cat.filters")}
         </button>
       </form>
       {showFilters && browse.data && (
-        <Panel title="Filters">
+        <Panel title={t("cat.filters")}>
           <div className="form-grid">
             <label className="field">
               Manufacturer
@@ -163,7 +165,7 @@ function CatalogueSearch() {
                 value={filters.manufacturer}
                 onChange={(e) => setF("manufacturer", e.target.value)}
               >
-                <option value="">Any</option>
+                <option value="">{t("cat.any")}</option>
                 {browse.data.manufacturers.map((m) => (
                   <option key={m.id} value={m.name}>
                     {m.name} ({m.parts})
@@ -177,7 +179,7 @@ function CatalogueSearch() {
                 value={filters.model}
                 onChange={(e) => setF("model", e.target.value)}
               >
-                <option value="">Any</option>
+                <option value="">{t("cat.any")}</option>
                 {[...new Set(browse.data.models.map((m) => m.name))].map(
                   (m) => (
                     <option key={m}>{m}</option>
@@ -190,7 +192,7 @@ function CatalogueSearch() {
               <input
                 value={filters.chassis}
                 onChange={(e) => setF("chassis", e.target.value)}
-                placeholder="e.g. AT151"
+                placeholder={t("cat.eGAt151")}
               />
             </label>
             <label className="field">
@@ -199,7 +201,7 @@ function CatalogueSearch() {
                 value={filters.engine}
                 onChange={(e) => setF("engine", e.target.value)}
               >
-                <option value="">Any</option>
+                <option value="">{t("cat.any")}</option>
                 {browse.data.engines.map((m) => (
                   <option key={m}>{m}</option>
                 ))}
@@ -211,22 +213,22 @@ function CatalogueSearch() {
                 value={filters.market}
                 onChange={(e) => setF("market", e.target.value)}
               >
-                <option value="">Any</option>
+                <option value="">{t("cat.any")}</option>
                 {browse.data.markets.map((m) => (
                   <option key={m}>{m}</option>
                 ))}
               </select>
             </label>
             <label className="field">
-              Part status
+              {t("cat.partStatus")}
               <select
                 value={filters.status}
                 onChange={(e) => setF("status", e.target.value)}
               >
-                <option value="">Any</option>
-                <option value="ACTIVE">Active</option>
-                <option value="ENDED">Ended / discontinued</option>
-                <option value="SUPERSEDED">Superseded</option>
+                <option value="">{t("cat.any")}</option>
+                <option value="ACTIVE">{t("status.ACTIVE")}</option>
+                <option value="ENDED">{t("cat.endedDiscontinued")}</option>
+                <option value="SUPERSEDED">{t("cat.superseded")}</option>
               </select>
             </label>
           </div>
@@ -236,7 +238,7 @@ function CatalogueSearch() {
               checked={filters.hasDrawing}
               onChange={(e) => setF("hasDrawing", e.target.checked)}
             />{" "}
-            Only parts that appear on a drawing
+            {t("cat.onlyOnDrawing")}
           </label>
         </Panel>
       )}
@@ -249,16 +251,18 @@ function CatalogueSearch() {
               : "Searching"
           }
         >
-          {results.loading && !results.data && <Loading what="Searching" />}
+          {results.loading && !results.data && (
+            <Loading what={t("cat.searching")} />
+          )}
           {results.data && (
             <>
               <DataTable
                 rowKey={(h) => h.id}
                 rows={results.data.items}
-                empty="No reference part matches. Check the number, try fewer words, or import more catalogue data."
+                empty={t("cat.noReferencePartMatchesCheck")}
                 columns={[
                   {
-                    header: "Part number",
+                    header: t("cat.partNumber"),
                     cell: (h) => (
                       <div>
                         <Link href={`/catalogue/parts/${h.id}`}>
@@ -271,21 +275,24 @@ function CatalogueSearch() {
                       </div>
                     ),
                   },
-                  { header: "Description", cell: (h) => h.description },
                   {
-                    header: "Fits",
+                    header: t("lines.description"),
+                    cell: (h) => h.description,
+                  },
+                  {
+                    header: t("cat.fits"),
                     cell: (h) =>
                       h.vehicles.length
                         ? `${h.vehicles.slice(0, 3).join(", ")}${h.vehicles.length > 3 ? ` +${h.vehicles.length - 3}` : ""}`
                         : "",
                   },
                   {
-                    header: "Drawings",
+                    header: t("cat.drawings"),
                     align: "right",
                     cell: (h) => h.drawingCount || "",
                   },
                   {
-                    header: "Status",
+                    header: t("common.status"),
                     cell: (h) => (
                       <Badge
                         value={h.statusClass}
@@ -294,7 +301,7 @@ function CatalogueSearch() {
                     ),
                   },
                   {
-                    header: "My Products",
+                    header: t("nav.products"),
                     cell: (h) => <InMyProducts linked={h.linkedProducts} />,
                   },
                   {
@@ -302,7 +309,7 @@ function CatalogueSearch() {
                     cell: (h) =>
                       enquiry.enabled && (
                         <button onClick={() => void enquiry.add(h)}>
-                          Add to enquiry
+                          {t("cat.addToEnquiry")}
                         </button>
                       ),
                   },
@@ -320,9 +327,9 @@ function CatalogueSearch() {
       ) : (
         !empty &&
         browse.data && (
-          <Panel title="Browse by manufacturer">
+          <Panel title={t("cat.browseByManufacturer")}>
             {browse.data.manufacturers.length === 0 && (
-              <Empty>Nothing to browse yet.</Empty>
+              <Empty>{t("cat.nothingToBrowseYet")}</Empty>
             )}
             <div className="actions">
               {browse.data.manufacturers.map((m) => (
@@ -331,10 +338,7 @@ function CatalogueSearch() {
                 </button>
               ))}
             </div>
-            <p className="muted">
-              Or search above by part number in any format — “90915-10009”,
-              “9091510009” and “90915 10009” all find the same part.
-            </p>
+            <p className="muted">{t("cat.anyFormat")}</p>
           </Panel>
         )
       )}

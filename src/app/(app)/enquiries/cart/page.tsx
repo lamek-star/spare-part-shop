@@ -15,6 +15,7 @@ import {
   useToast,
 } from "../../../../ui/kit";
 import { del, post } from "../../../../ui/api";
+import { useT } from "../../../../ui/i18n";
 
 interface Item {
   id: string;
@@ -33,6 +34,7 @@ interface Customer {
   name: string;
 }
 export default function EnquiryCart() {
+  const t = useT();
   const router = useRouter();
   const toast = useToast();
   const cart = useApi<Enquiry | null>("/enquiries/current");
@@ -60,9 +62,9 @@ export default function EnquiryCart() {
   return (
     <>
       <PageHead
-        title="Enquiry cart"
-        subtitle="Parts collected for one customer request. Submit it to start a quotation."
-        back={{ href: "/enquiries", label: "Enquiries" }}
+        title={t("enq.enquiryCart")}
+        subtitle={t("enq.partsCollectedForOneCustomer")}
+        back={{ href: "/enquiries", label: t("nav.enquiries") }}
       />
       <ErrorBanner message={cart.error || act.error} />
       {cart.loading && !cart.data && <Loading />}
@@ -70,10 +72,10 @@ export default function EnquiryCart() {
         <DataTable
           rowKey={(i) => i.id}
           rows={items}
-          empty="The cart is empty. Find parts in the Reference Catalogue and choose “Add to enquiry”."
+          empty={t("enq.theCartIsEmptyFind")}
           columns={[
             {
-              header: "Part number",
+              header: t("enq.partNumber"),
               cell: (i) =>
                 i.referencePartId ? (
                   <Link href={`/catalogue/parts/${i.referencePartId}`}>
@@ -83,9 +85,9 @@ export default function EnquiryCart() {
                   i.oemNumber
                 ),
             },
-            { header: "Description", cell: (i) => i.partName },
-            { header: "Vehicle", cell: (i) => i.vehicleDescription },
-            { header: "Qty", align: "right", cell: (i) => i.quantity },
+            { header: t("lines.description"), cell: (i) => i.partName },
+            { header: t("enq.vehicle"), cell: (i) => i.vehicleDescription },
+            { header: t("doc.qty"), align: "right", cell: (i) => i.quantity },
             {
               header: "",
               cell: (i) => (
@@ -97,7 +99,7 @@ export default function EnquiryCart() {
                     )
                   }
                 >
-                  Remove
+                  {t("prod.remove")}
                 </button>
               ),
             },
@@ -105,7 +107,7 @@ export default function EnquiryCart() {
         />
       </Panel>
       {items.length > 0 && (
-        <Panel title="Submit enquiry">
+        <Panel title={t("enq.submitEnquiry")}>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -122,9 +124,9 @@ export default function EnquiryCart() {
             }}
           >
             <div className="form-grid">
-              <FieldBox label="Existing customer (optional)">
+              <FieldBox label={t("enq.existingCustomerOptional")}>
                 <select value={form.customerId} onChange={set("customerId")}>
-                  <option value="">— not linked to a customer —</option>
+                  <option value="">{t("enq.notLinkedToACustomer")}</option>
                   {customers.data?.items.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -132,43 +134,43 @@ export default function EnquiryCart() {
                   ))}
                 </select>
               </FieldBox>
-              <FieldBox label="Contact name">
+              <FieldBox label={t("enq.contactName")}>
                 <input
                   value={form.contactName}
                   onChange={set("contactName")}
                   required
                 />
               </FieldBox>
-              <FieldBox label="Email">
+              <FieldBox label={t("auth.email")}>
                 <input
                   type="email"
                   value={form.contactEmail}
                   onChange={set("contactEmail")}
                 />
               </FieldBox>
-              <FieldBox label="Phone">
+              <FieldBox label={t("settings.phone")}>
                 <input
                   value={form.contactPhone}
                   onChange={set("contactPhone")}
                 />
               </FieldBox>
-              <FieldBox label="VIN / chassis number">
+              <FieldBox label={t("enq.vinChassisNumber")}>
                 <input value={form.vin} onChange={set("vin")} />
               </FieldBox>
-              <FieldBox label="Notes">
+              <FieldBox label={t("docs.notes")}>
                 <textarea rows={2} value={form.notes} onChange={set("notes")} />
               </FieldBox>
             </div>
             <div className="form-actions">
               <button className="primary" disabled={act.busy}>
-                Submit enquiry
+                {t("enq.submitEnquiry")}
               </button>
             </div>
           </form>
         </Panel>
       )}
       {!cart.loading && items.length === 0 && (
-        <Empty>Nothing in the cart.</Empty>
+        <Empty>{t("enq.nothingInTheCart")}</Empty>
       )}
     </>
   );

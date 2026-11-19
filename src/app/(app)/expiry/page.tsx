@@ -14,6 +14,7 @@ import {
   useApi,
 } from "../../../ui/kit";
 import { useSession } from "../../../ui/session";
+import { useT } from "../../../ui/i18n";
 
 interface ExpiringBatch {
   id: string;
@@ -39,6 +40,7 @@ const WINDOWS = [30, 60, 90, 180] as const;
 
 /** Batches that expire soon or have expired, what to reorder, and writing off expired stock. */
 export default function ExpiryPage() {
+  const t = useT();
   const s = useSession();
   const [days, setDays] = useState<number>(90);
   const [refresh, setRefresh] = useState(0);
@@ -59,7 +61,7 @@ export default function ExpiryPage() {
 
   const columns = (withWriteOff: boolean) => [
     {
-      header: "Medicine",
+      header: t("pharm.medicine"),
       cell: (b: ExpiringBatch) => (
         <Link href={`/products/${b.productId}`}>
           <strong>{b.name}</strong>
@@ -67,9 +69,9 @@ export default function ExpiryPage() {
         </Link>
       ),
     },
-    { header: "Batch", cell: (b: ExpiringBatch) => b.batchNo },
+    { header: t("prod.batch"), cell: (b: ExpiringBatch) => b.batchNo },
     {
-      header: "Expires",
+      header: t("prod.expires"),
       cell: (b: ExpiringBatch) => (
         <span
           className={`badge ${b.expired ? "red" : b.daysLeft <= 30 ? "amber" : "green"}`}
@@ -81,9 +83,9 @@ export default function ExpiryPage() {
         </span>
       ),
     },
-    { header: "Location", cell: (b: ExpiringBatch) => b.locationCode },
+    { header: t("prod.location"), cell: (b: ExpiringBatch) => b.locationCode },
     {
-      header: "Units",
+      header: t("prod.units"),
       align: "right" as const,
       cell: (b: ExpiringBatch) => b.onHand,
     },
@@ -93,7 +95,7 @@ export default function ExpiryPage() {
             header: "",
             cell: (b: ExpiringBatch) => (
               <ConfirmButton
-                label="Write off"
+                label={t("pharm.writeOff")}
                 confirmLabel={`Write off ${b.onHand}?`}
                 danger
                 onConfirm={() =>
@@ -113,8 +115,8 @@ export default function ExpiryPage() {
   return (
     <>
       <PageHead
-        title="Expiry & batches"
-        subtitle="Medicines are sold from the batch that expires first. Expired batches are never sold: write them off here so the stock and the accounts are right."
+        title={t("pharm.expiryBatches")}
+        subtitle={t("pharm.medicinesAreSoldFromThe")}
         actions={
           <label>
             Show what expires within{" "}
@@ -138,27 +140,30 @@ export default function ExpiryPage() {
         <>
           <Metrics
             items={[
-              { label: "Expired batches", value: expired.length },
+              { label: t("pharm.expiredBatches"), value: expired.length },
               {
-                label: "Expired units",
+                label: t("pharm.expiredUnits"),
                 value: expired.reduce((n, b) => n + b.onHand, 0),
               },
               { label: `Expiring within ${days} days`, value: soon.length },
-              { label: "To reorder", value: low.data ? low.data.length : "—" },
+              {
+                label: t("pharm.toReorder"),
+                value: low.data ? low.data.length : "—",
+              },
             ]}
           />
           <Panel
-            title="Expired — cannot be sold"
+            title={t("pharm.expiredCannotBeSold")}
             actions={
               canWrite && expired.length > 0 ? (
                 <ConfirmButton
-                  label="Write off all expired"
+                  label={t("pharm.writeOffAllExpired")}
                   confirmLabel={`Write off ${expired.length} batches?`}
                   danger
                   onConfirm={() =>
                     void action.run(
                       () => post("/inventory/write-off-expired", {}),
-                      "Expired stock written off",
+                      t("pharm.writtenOff"),
                     )
                   }
                 />
@@ -169,7 +174,7 @@ export default function ExpiryPage() {
               columns={columns(true)}
               rows={expired}
               rowKey={(b) => b.id}
-              empty="No expired stock."
+              empty={t("pharm.noExpiredStock")}
             />
           </Panel>
           <Panel title={`Expiring within ${days} days`}>
@@ -177,34 +182,37 @@ export default function ExpiryPage() {
               columns={columns(false)}
               rows={soon}
               rowKey={(b) => b.id}
-              empty="Nothing expires in this period."
+              empty={t("pharm.nothingExpiresInThisPeriod")}
             />
           </Panel>
           {low.data && (
-            <Panel title="At or below the reorder level">
+            <Panel title={t("pharm.atOrBelowTheReorder")}>
               <DataTable
                 columns={[
                   {
-                    header: "Product",
+                    header: t("prod.product"),
                     cell: (r: LowStockRow) => (
                       <Link href={`/products/${r.productId}`}>{r.name}</Link>
                     ),
                   },
-                  { header: "SKU / barcode", cell: (r: LowStockRow) => r.sku },
                   {
-                    header: "Available",
+                    header: t("pharm.skuBarcode"),
+                    cell: (r: LowStockRow) => r.sku,
+                  },
+                  {
+                    header: t("prod.available"),
                     align: "right",
                     cell: (r: LowStockRow) => r.available,
                   },
                   {
-                    header: "Reorder level",
+                    header: t("prod.reorderLevel"),
                     align: "right",
                     cell: (r: LowStockRow) => r.reorderLevel,
                   },
                 ]}
                 rows={low.data}
                 rowKey={(r) => r.productId}
-                empty="Nothing needs reordering."
+                empty={t("pharm.nothingNeedsReordering")}
               />
             </Panel>
           )}

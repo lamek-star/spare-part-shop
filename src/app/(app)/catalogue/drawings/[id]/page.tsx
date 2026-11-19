@@ -5,12 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { DrawingViewer, type DrawingDetail } from "../../../../../ui/catalogue";
 import { ErrorBanner, Loading, PageHead, useApi } from "../../../../../ui/kit";
+import { useT } from "../../../../../ui/i18n";
 
 function Inner({ id }: { id: string }) {
+  const t = useT();
   const part = useSearchParams().get("part") ?? "";
   const d = useApi<DrawingDetail>(`/catalogue/drawings/${id}`);
   if (d.loading && !d.data) return <Loading />;
-  if (!d.data) return <ErrorBanner message={d.error || "Drawing not found."} />;
+  if (!d.data)
+    return <ErrorBanner message={d.error || t("cat.drawingNotFound")} />;
   return (
     <>
       <PageHead
@@ -18,12 +21,15 @@ function Inner({ id }: { id: string }) {
         subtitle={d.data.title}
         back={
           part
-            ? { href: `/catalogue/parts/${part}`, label: "Reference part" }
-            : { href: "/catalogue", label: "Reference Catalogue" }
+            ? {
+                href: `/catalogue/parts/${part}`,
+                label: t("prod.referencePart"),
+              }
+            : { href: "/catalogue", label: t("nav.catalogue") }
         }
         actions={
           <Link className="button" href="/catalogue">
-            Search catalogue
+            {t("cat.searchCatalogue")}
           </Link>
         }
       />

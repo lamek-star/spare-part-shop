@@ -10,6 +10,7 @@ import {
   Money,
   errorText,
 } from "../../../ui/kit";
+import { useT } from "../../../ui/i18n";
 
 interface Product {
   id: string;
@@ -52,6 +53,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 /** The till: scan (a barcode scanner types the code and Enter), check, take payment. */
 export default function SellPage() {
+  const t = useT();
   const [code, setCode] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
@@ -167,8 +169,8 @@ export default function SellPage() {
   return (
     <>
       <PageHead
-        title="Sell (till)"
-        subtitle="Scan each item's barcode (or type it and press Enter). Stock leaves from the batch that expires first; expired stock is never sold."
+        title={t("nav.sell")}
+        subtitle={t("pharm.scanEachItemSBarcode")}
       />
       <Panel>
         <form
@@ -180,9 +182,9 @@ export default function SellPage() {
         >
           <input
             ref={scan}
-            aria-label="Barcode"
+            aria-label={t("label.barcode")}
             autoComplete="off"
-            placeholder="Scan a barcode…"
+            placeholder={t("pharm.scanABarcode")}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             style={{ width: "100%", fontSize: 20, padding: 12 }}
@@ -192,7 +194,7 @@ export default function SellPage() {
       <ErrorBanner message={error} />
 
       {done && (
-        <Panel title="Sale complete">
+        <Panel title={t("pharm.saleComplete")}>
           <p style={{ fontSize: 20, margin: "4px 0" }}>
             Invoice <strong>{done.invoice.number}</strong> ·{" "}
             <Money
@@ -213,24 +215,24 @@ export default function SellPage() {
             </p>
           )}
           <Link className="button" href={`/invoices/${done.invoice.id}`}>
-            Open the invoice (print / PDF)
+            {t("pharm.openTheInvoicePrintPdf")}
           </Link>
         </Panel>
       )}
 
-      <Panel title="This sale">
+      <Panel title={t("pharm.thisSale")}>
         {lines.length === 0 ? (
-          <Empty>Nothing scanned yet.</Empty>
+          <Empty>{t("pharm.nothingScannedYet")}</Empty>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Item</th>
-                  <th>Stock</th>
-                  <th style={{ width: 110 }}>Quantity</th>
-                  <th style={{ textAlign: "right" }}>Price</th>
-                  <th style={{ textAlign: "right" }}>Line</th>
+                  <th>{t("doc.item")}</th>
+                  <th>{t("tab.stock")}</th>
+                  <th style={{ width: 110 }}>{t("lines.quantity")}</th>
+                  <th style={{ textAlign: "right" }}>{t("lines.price")}</th>
+                  <th style={{ textAlign: "right" }}>{t("pharm.line")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -240,7 +242,7 @@ export default function SellPage() {
                       <strong>{l.product.name}</strong>
                       {l.product.prescriptionOnly && (
                         <span className="badge amber" style={{ marginLeft: 6 }}>
-                          Prescription
+                          {t("prod.prescription")}
                         </span>
                       )}
                       <div className="muted">
@@ -311,7 +313,7 @@ export default function SellPage() {
               <tfoot>
                 <tr>
                   <td colSpan={4} style={{ textAlign: "right" }}>
-                    Total before tax (tax is added on the invoice)
+                    {t("pharm.totalBeforeTaxTaxIs")}
                   </td>
                   <td style={{ textAlign: "right", fontSize: 18 }}>
                     <strong>
@@ -332,38 +334,37 @@ export default function SellPage() {
       </Panel>
 
       {lines.length > 0 && (
-        <Panel title="Payment">
+        <Panel title={t("pharm.payment")}>
           <div style={{ display: "grid", gap: 12, maxWidth: 520 }}>
             {needsPrescription && (
               <label>
-                Prescription reference (required: a prescription-only item is in
-                this sale)
+                {t("pharm.prescriptionRef")}
                 <input
                   value={prescriptionRef}
                   maxLength={120}
-                  placeholder="e.g. RX number and the prescriber"
+                  placeholder={t("pharm.eGRxNumberAnd")}
                   onChange={(e) => setPrescriptionRef(e.target.value)}
                   style={{ width: "100%" }}
                 />
               </label>
             )}
             <label>
-              Paid by
+              {t("pharm.paidBy")}
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
                 style={{ width: "100%" }}
               >
-                {METHODS.map(([v, label]) => (
+                {METHODS.map(([v]) => (
                   <option key={v} value={v}>
-                    {label}
+                    {t(`method.${v}`)}
                   </option>
                 ))}
               </select>
             </label>
             {method === "CASH" ? (
               <label>
-                Cash given (optional, to work out the change)
+                {t("pharm.cashGiven")}
                 <input
                   inputMode="decimal"
                   value={given}
@@ -374,7 +375,7 @@ export default function SellPage() {
               </label>
             ) : (
               <label>
-                Payment reference (optional)
+                {t("pharm.paymentRef")}
                 <input
                   value={reference}
                   maxLength={120}
@@ -389,7 +390,7 @@ export default function SellPage() {
                 disabled={!canComplete || busy}
                 onClick={() => void complete()}
               >
-                {busy ? "Completing…" : "Complete sale"}
+                {busy ? t("pharm.completing") : t("pharm.completeSale")}
               </button>
               <button
                 className="button"
@@ -399,7 +400,7 @@ export default function SellPage() {
                   setError("");
                 }}
               >
-                Clear
+                {t("pharm.clear")}
               </button>
             </div>
           </div>

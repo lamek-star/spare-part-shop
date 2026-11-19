@@ -15,6 +15,7 @@ import {
   useApi,
 } from "../../../../../ui/kit";
 import { formatDateTime, patch, post, qs } from "../../../../../ui/api";
+import { useT } from "../../../../../ui/i18n";
 
 interface Job {
   id: string;
@@ -71,6 +72,7 @@ export default function ImportJobPage({
 }: {
   params: Promise<{ jobId: string }>;
 }) {
+  const t = useT();
   const { jobId } = use(params);
   const job = useApi<Job>(`/catalogue/import/jobs/${jobId}`);
   const [filter, setFilter] = useState("");
@@ -91,7 +93,7 @@ export default function ImportJobPage({
   }, [running, job]);
   if (job.loading && !job.data) return <Loading />;
   if (!job.data)
-    return <ErrorBanner message={job.error || "Import not found."} />;
+    return <ErrorBanner message={job.error || t("imp.notFound")} />;
   const j = job.data;
   const review = j.status === "REVIEW_REQUIRED";
   const canResume = running || j.status === "FAILED";
@@ -107,7 +109,7 @@ export default function ImportJobPage({
             {formatDateTime(j.createdAt)}
           </>
         }
-        back={{ href: "/catalogue/import", label: "Import" }}
+        back={{ href: "/catalogue/import", label: t("nav.import") }}
         actions={
           <>
             {(review || (j.kind === "CSV" && canResume)) && (
@@ -117,7 +119,7 @@ export default function ImportJobPage({
                 onClick={() =>
                   void act.run(
                     () => post(`/catalogue/import/jobs/${jobId}/commit`),
-                    "Import started",
+                    t("imp.started"),
                   )
                 }
               >
@@ -129,13 +131,13 @@ export default function ImportJobPage({
             {(review || running) && (
               <ConfirmButton
                 danger
-                label="Cancel import"
-                confirmLabel="Yes, cancel"
+                label={t("cat.cancelImport")}
+                confirmLabel={t("common.yesCancel")}
                 onConfirm={() =>
                   act
                     .run(
                       () => post(`/catalogue/import/jobs/${jobId}/cancel`),
-                      "Import cancelled",
+                      t("imp.cancelled"),
                     )
                     .then(() => undefined)
                 }
@@ -149,19 +151,22 @@ export default function ImportJobPage({
       <Metrics
         items={[
           {
-            label: "Rows detected",
+            label: t("cat.rowsDetected"),
             value: j.discovered.toLocaleString("en-US"),
           },
           {
-            label: "Valid",
+            label: t("cat.valid"),
             value: j.valid.toLocaleString("en-US"),
             hint: `${j.invalid} invalid · ${j.duplicates} duplicate`,
           },
           {
-            label: "Processed",
+            label: t("cat.processed"),
             value: `${j.processed.toLocaleString("en-US")} / ${j.discovered.toLocaleString("en-US")}`,
           },
-          { label: "Warnings / errors", value: `${j.warnings} / ${j.errors}` },
+          {
+            label: t("cat.warningsErrors"),
+            value: `${j.warnings} / ${j.errors}`,
+          },
         ]}
       />
       {(j.created + j.updated + j.unchanged + j.skipped > 0 ||
@@ -169,31 +174,52 @@ export default function ImportJobPage({
         j.status === "COMPLETED_WITH_WARNINGS") && (
         <Metrics
           items={[
-            { label: "New", value: j.created.toLocaleString("en-US") },
-            { label: "Updated", value: j.updated.toLocaleString("en-US") },
             {
-              label: "Already present",
+              label: t("status.NEW"),
+              value: j.created.toLocaleString("en-US"),
+            },
+            {
+              label: t("cat.updated"),
+              value: j.updated.toLocaleString("en-US"),
+            },
+            {
+              label: t("cat.alreadyPresent"),
               value: j.unchanged.toLocaleString("en-US"),
             },
-            { label: "Skipped", value: j.skipped.toLocaleString("en-US") },
+            {
+              label: t("cat.skipped"),
+              value: j.skipped.toLocaleString("en-US"),
+            },
           ]}
         />
       )}
       {j.manifest?.summary && (
-        <Panel title="By table">
+        <Panel title={t("cat.byTable")}>
           <DataTable
             rowKey={(r) => r[0]}
             rows={Object.entries(j.manifest.summary)}
             columns={[
-              { header: "Table", cell: (r) => r[0] },
-              { header: "New", align: "right", cell: (r) => r[1].created },
-              { header: "Updated", align: "right", cell: (r) => r[1].updated },
+              { header: t("cat.table"), cell: (r) => r[0] },
               {
-                header: "Unchanged",
+                header: t("status.NEW"),
+                align: "right",
+                cell: (r) => r[1].created,
+              },
+              {
+                header: t("cat.updated"),
+                align: "right",
+                cell: (r) => r[1].updated,
+              },
+              {
+                header: t("cat.unchanged"),
                 align: "right",
                 cell: (r) => r[1].unchanged,
               },
-              { header: "Skipped", align: "right", cell: (r) => r[1].skipped },
+              {
+                header: t("cat.skipped"),
+                align: "right",
+                cell: (r) => r[1].skipped,
+              },
             ]}
           />
         </Panel>
@@ -205,7 +231,7 @@ export default function ImportJobPage({
             rows={issues.slice(0, 200)}
             columns={[
               {
-                header: "Level",
+                header: t("cat.level"),
                 cell: (i) => (
                   <Badge
                     value={i.level === "error" ? "FAILED" : "PENDING"}
@@ -213,22 +239,22 @@ export default function ImportJobPage({
                   />
                 ),
               },
-              { header: "Where", cell: (i) => i.where },
-              { header: "Message", cell: (i) => i.message },
+              { header: t("cat.where"), cell: (i) => i.where },
+              { header: t("cat.message"), cell: (i) => i.message },
             ]}
           />
         </Panel>
       )}
       {j.kind === "CSV" && (
         <Panel
-          title="Rows"
+          title={t("cat.rows")}
           actions={
             <select
-              aria-label="Filter rows"
+              aria-label={t("cat.filterRows")}
               value={filter}
               onChange={(e) => (setFilter(e.target.value), setPage(1))}
             >
-              <option value="">All rows</option>
+              <option value="">{t("cat.allRows")}</option>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s.toLowerCase()}
@@ -242,18 +268,25 @@ export default function ImportJobPage({
               <DataTable
                 rowKey={(r) => r.id}
                 rows={rows.data.items}
-                empty="No rows in this view."
+                empty={t("cat.noRowsInThisView")}
                 columns={[
-                  { header: "Line", align: "right", cell: (r) => r.rowNumber },
-                  { header: "Part", cell: (r) => r.identity },
-                  { header: "Status", cell: (r) => <Badge value={r.status} /> },
                   {
-                    header: "Will",
+                    header: t("cat.line"),
+                    align: "right",
+                    cell: (r) => r.rowNumber,
+                  },
+                  { header: t("cat.part"), cell: (r) => r.identity },
+                  {
+                    header: t("common.status"),
+                    cell: (r) => <Badge value={r.status} />,
+                  },
+                  {
+                    header: t("cat.will"),
                     cell: (r) =>
                       r.action === "NONE" ? "nothing" : r.action.toLowerCase(),
                   },
                   {
-                    header: "Problems",
+                    header: t("cat.problems"),
                     cell: (r) => [...r.errors, ...r.warnings].join(" · "),
                   },
                   {
@@ -287,7 +320,7 @@ export default function ImportJobPage({
           )}
         </Panel>
       )}
-      <Panel title="Details">
+      <Panel title={t("customers.details")}>
         <KeyValues
           items={[
             ["Provider key", j.providerKey],

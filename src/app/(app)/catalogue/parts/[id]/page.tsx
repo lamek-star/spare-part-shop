@@ -25,6 +25,7 @@ import {
   type LinkedProduct,
 } from "../../../../../ui/catalogue";
 import { locationOptions, useWarehouses } from "../../../../../ui/stock";
+import { useT } from "../../../../../ui/i18n";
 
 interface Part {
   id: string;
@@ -95,6 +96,7 @@ export default function ReferencePartPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useT();
   const { id } = use(params);
   const s = useSession();
   const router = useRouter();
@@ -111,20 +113,20 @@ export default function ReferencePartPage({
   const wh = useWarehouses(importing && s.can("inventory.read"));
   if (p.loading && !p.data) return <Loading />;
   if (!p.data)
-    return <ErrorBanner message={p.error || "Reference part not found."} />;
+    return <ErrorBanner message={p.error || t("cat.partNotFound")} />;
   const x = p.data;
   const mine = x.linkedProducts[0];
   const fields: FieldSpec[] = [
     {
       name: "sku",
-      label: "Your SKU",
+      label: t("cat.yourSku"),
       required: true,
-      help: "Your own stock code for this item.",
+      help: t("cat.yourOwnStockCodeFor"),
     },
-    { name: "name", label: "Product name", required: true },
+    { name: "name", label: t("cat.productName"), required: true },
     {
       name: "priceMinor",
-      label: "Selling price",
+      label: t("prod.sellingPrice"),
       type: "money",
       optional: true,
     },
@@ -132,7 +134,7 @@ export default function ReferencePartPage({
       ? ([
           {
             name: "costMinor",
-            label: "Cost price",
+            label: t("prod.costPrice"),
             type: "money",
             optional: true,
           },
@@ -140,7 +142,7 @@ export default function ReferencePartPage({
       : []),
     {
       name: "reorderLevel",
-      label: "Reorder level",
+      label: t("prod.reorderLevel"),
       type: "number",
       optional: true,
     },
@@ -148,11 +150,11 @@ export default function ReferencePartPage({
       ? ([
           {
             name: "supplierId",
-            label: "Supplier",
+            label: t("prod.supplier"),
             type: "select",
             optional: true,
             options: [
-              { value: "", label: "— none —" },
+              { value: "", label: t("prod.none") },
               ...suppliers.data.items.map((v) => ({
                 value: v.id,
                 label: v.name,
@@ -165,17 +167,17 @@ export default function ReferencePartPage({
       ? ([
           {
             name: "locationId",
-            label: "Store in",
+            label: t("cat.storeIn"),
             type: "select",
             optional: true,
             options: [
-              { value: "", label: "— no stock yet —" },
+              { value: "", label: t("cat.noStockYet") },
               ...locationOptions(wh.data),
             ],
           },
           {
             name: "openingQuantity",
-            label: "Quantity in stock now",
+            label: t("cat.quantityInStockNow"),
             type: "number",
             optional: true,
           },
@@ -195,7 +197,7 @@ export default function ReferencePartPage({
             <Badge value={x.verification} />
           </>
         }
-        back={{ href: "/catalogue", label: "Reference Catalogue" }}
+        back={{ href: "/catalogue", label: t("nav.catalogue") }}
         actions={
           enquiry.enabled && (
             <button
@@ -206,14 +208,14 @@ export default function ReferencePartPage({
                 )
               }
             >
-              Add to enquiry
+              {t("cat.addToEnquiry")}
             </button>
           )
         }
       />
       <ErrorBanner message={verify.error} onClose={verify.clear} />
 
-      <Panel title="My Products">
+      <Panel title={t("nav.products")}>
         {mine ? (
           <div
             style={{
@@ -229,7 +231,7 @@ export default function ReferencePartPage({
                 className="button primary"
                 href={`/products/${mine.productId}`}
               >
-                VIEW MY PRODUCT
+                {t("cat.viewMyProduct")}
               </Link>
             )}
             {x.linkedProducts.length > 1 && (
@@ -247,13 +249,10 @@ export default function ReferencePartPage({
               flexWrap: "wrap",
             }}
           >
-            <span className="muted">
-              This part is not in your shop yet. Reference data stays separate
-              until you import it.
-            </span>
+            <span className="muted">{t("cat.notInShop")}</span>
             {s.can("products.write") && (
               <button className="primary" onClick={() => setImporting(true)}>
-                IMPORT TO MY PRODUCTS
+                {t("cat.importToMyProducts")}
               </button>
             )}
           </div>
@@ -261,7 +260,7 @@ export default function ReferencePartPage({
       </Panel>
 
       <div className="dashboard-grid">
-        <Panel title="Part">
+        <Panel title={t("cat.part")}>
           <KeyValues
             items={[
               ["Description", x.description],
@@ -271,8 +270,8 @@ export default function ReferencePartPage({
             ]}
           />
         </Panel>
-        <Panel title="Replacements & supersessions">
-          {x.relations.length === 0 && <Empty>None recorded.</Empty>}
+        <Panel title={t("cat.replacementsSupersessions")}>
+          {x.relations.length === 0 && <Empty>{t("cat.noneRecorded")}</Empty>}
           {x.relations.map((r) => (
             <div className="top-part" key={r.id}>
               <span>
@@ -296,9 +295,7 @@ export default function ReferencePartPage({
       </div>
 
       <Panel title={`Drawings (${x.drawings.length})`}>
-        {x.drawings.length === 0 && (
-          <Empty>This part is not on any imported drawing.</Empty>
-        )}
+        {x.drawings.length === 0 && <Empty>{t("cat.thisPartIsNotOn")}</Empty>}
         <div className="actions">
           {x.drawings.map((d) => (
             <Link
@@ -318,38 +315,38 @@ export default function ReferencePartPage({
         <DataTable
           rowKey={(f) => f.id}
           rows={x.fitments}
-          empty="No fitment data has been imported for this part."
+          empty={t("cat.noFitmentDataHasBeen")}
           columns={[
-            { header: "Make", cell: (f) => f.make },
-            { header: "Model", cell: (f) => f.model },
-            { header: "Chassis", cell: (f) => f.chassis },
-            { header: "Engine", cell: (f) => f.engineText },
+            { header: t("prod.make"), cell: (f) => f.make },
+            { header: t("prod.model"), cell: (f) => f.model },
+            { header: t("prod.chassis"), cell: (f) => f.chassis },
+            { header: t("prod.engine"), cell: (f) => f.engineText },
             {
-              header: "Production",
+              header: t("prod.production"),
               cell: (f) =>
                 [f.productionFrom, f.productionTo].filter(Boolean).join(" → "),
             },
-            { header: "Market", cell: (f) => f.market },
+            { header: t("prod.market"), cell: (f) => f.market },
             {
-              header: "Catalogue / section",
+              header: t("cat.catalogueSection"),
               cell: (f) => [f.catalogue, f.section].filter(Boolean).join(" · "),
             },
-            { header: "Notes", cell: (f) => f.notes },
+            { header: t("docs.notes"), cell: (f) => f.notes },
           ]}
         />
       </Panel>
 
-      <Panel title="Where this information came from">
+      <Panel title={t("cat.whereThisInformationCameFrom")}>
         <DataTable
           rowKey={(f) => f.id}
           rows={x.facts}
-          empty="No source facts recorded."
+          empty={t("cat.noSourceFactsRecorded")}
           columns={[
-            { header: "Source", cell: (f) => f.source },
-            { header: "Description", cell: (f) => f.description },
-            { header: "Status", cell: (f) => f.status },
+            { header: t("prod.source"), cell: (f) => f.source },
+            { header: t("lines.description"), cell: (f) => f.description },
+            { header: t("common.status"), cell: (f) => f.status },
             {
-              header: "Reference price (info only)",
+              header: t("cat.referencePriceInfoOnly"),
               cell: (f) =>
                 [
                   f.priceUsdMinor !== null &&
@@ -360,7 +357,7 @@ export default function ReferencePartPage({
                   .join(" · "),
             },
             {
-              header: "Notes",
+              header: t("docs.notes"),
               cell: (f) =>
                 f.notes ? (
                   <span style={{ whiteSpace: "pre-line" }}>{f.notes}</span>
@@ -368,27 +365,31 @@ export default function ReferencePartPage({
                   "—"
                 ),
             },
-            { header: "Recorded", cell: (f) => formatDate(f.observedAt) },
+            {
+              header: t("cat.recorded"),
+              cell: (f) => formatDate(f.observedAt),
+            },
           ]}
         />
-        <p className="muted">
-          Reference prices come from the source and are not your selling prices.
-        </p>
+        <p className="muted">{t("cat.referencePricesComeFromThe")}</p>
         <DataTable
           rowKey={(r) => r.id}
           rows={x.sources}
           empty=""
           columns={[
-            { header: "Source record", cell: (r) => r.source },
-            { header: "External ID", cell: (r) => r.externalId },
+            { header: t("cat.sourceRecord"), cell: (r) => r.source },
+            { header: t("cat.externalId"), cell: (r) => r.externalId },
             {
-              header: "Catalogue",
+              header: t("nav.group.catalogue"),
               cell: (r) =>
                 [r.catalogueCode, r.market].filter(Boolean).join(" · "),
             },
-            { header: "Imported", cell: (r) => formatDate(r.importedAt) },
             {
-              header: "Link",
+              header: t("cat.imported"),
+              cell: (r) => formatDate(r.importedAt),
+            },
+            {
+              header: t("cat.link"),
               cell: (r) =>
                 r.sourceUrl ? (
                   <a
@@ -396,7 +397,7 @@ export default function ReferencePartPage({
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    Source page
+                    {t("cat.sourcePage")}
                   </a>
                 ) : (
                   ""
@@ -416,7 +417,7 @@ export default function ReferencePartPage({
                       put(`/catalogue/parts/${id}/verification`, {
                         status: e.target.value,
                       }),
-                    "Verification updated",
+                    t("cat.verificationUpdated"),
                   )
                 }
               >
@@ -439,7 +440,7 @@ export default function ReferencePartPage({
       {importing && (
         <FormModal
           title={`Import ${x.oemNumber} to My Products`}
-          submitLabel="IMPORT TO MY PRODUCTS"
+          submitLabel={t("cat.importToMyProducts")}
           fields={fields}
           initial={{ sku: x.oemNumber, name: x.description, reorderLevel: 0 }}
           onClose={() => setImporting(false)}

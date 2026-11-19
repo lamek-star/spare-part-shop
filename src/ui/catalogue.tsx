@@ -5,6 +5,7 @@ import { Badge, Empty, useToast } from "./kit";
 import { ApiError, post } from "./api";
 import { useSession } from "./session";
 import { apiUrl } from "@/lib/basePath";
+import { useT } from "./i18n";
 
 export interface LinkedProduct {
   productId: string;
@@ -47,6 +48,7 @@ export interface DrawingDetail {
 
 /** "In My Products" chip, or nothing. */
 export function InMyProducts({ linked }: { linked: LinkedProduct[] }) {
+  const t = useT();
   if (!linked.length) return null;
   const l = linked[0];
   return (
@@ -58,7 +60,7 @@ export function InMyProducts({ linked }: { linked: LinkedProduct[] }) {
         flexWrap: "wrap",
       }}
     >
-      <Badge value="ACTIVE" label="✓ In My Products" />
+      <Badge value="ACTIVE" label={t("cat.inMyProducts")} />
       <Link href={`/products/${l.productId}`}>{l.sku}</Link>
       {l.available !== null && (
         <span className="muted">{l.available} available</span>
@@ -69,6 +71,7 @@ export function InMyProducts({ linked }: { linked: LinkedProduct[] }) {
 
 export function useAddToEnquiry() {
   const toast = useToast();
+  const t = useT();
   const s = useSession();
   return {
     enabled: s.can("enquiries.write"),
@@ -84,11 +87,9 @@ export function useAddToEnquiry() {
           quantity: 1,
           referencePartId: part.id,
         });
-        toast(`${part.oemNumber} added to the enquiry cart`);
+        toast(t("cat.addedToCart", { number: part.oemNumber }));
       } catch (e) {
-        toast(
-          e instanceof ApiError ? e.message : "Could not add to the enquiry.",
-        );
+        toast(e instanceof ApiError ? e.message : t("cat.couldNotAdd"));
       }
     },
   };
@@ -106,6 +107,7 @@ export function DrawingViewer({
   drawing: DrawingDetail;
   highlightPartId?: string;
 }) {
+  const t = useT();
   const linked = drawing.linked ?? {};
   const [active, setActive] = useState<string>("");
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(
@@ -200,8 +202,8 @@ export function DrawingViewer({
               <strong>{drawing.code}</strong>
               <p className="muted">
                 {drawing.rights === "DO_NOT_REPUBLISH"
-                  ? "This drawing may not be displayed (rights withdrawn)."
-                  : "The drawing image is not stored in this system, so only its parts list is shown."}
+                  ? t("cat.rightsWithdrawn")
+                  : t("cat.imageNotStored")}
               </p>
               {drawing.sourceImageUrl && (
                 <a
@@ -209,7 +211,7 @@ export function DrawingViewer({
                   target="_blank"
                   rel="noreferrer noopener"
                 >
-                  View at the source
+                  {t("cat.viewAtTheSource")}
                 </a>
               )}
             </div>
@@ -226,8 +228,8 @@ export function DrawingViewer({
             {total} part line{total === 1 ? "" : "s"} on this drawing
           </strong>
           <input
-            aria-label="Filter parts"
-            placeholder="Filter by number, name or callout"
+            aria-label={t("cat.filterParts")}
+            placeholder={t("cat.filterByNumberNameOr")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             style={{ minWidth: 240 }}
@@ -238,10 +240,10 @@ export function DrawingViewer({
             <thead>
               <tr>
                 <th>No.</th>
-                <th>Part number</th>
-                <th>Description</th>
-                <th>Qty</th>
-                <th>Status</th>
+                <th>{t("cat.partNumber")}</th>
+                <th>{t("lines.description")}</th>
+                <th>{t("doc.qty")}</th>
+                <th>{t("common.status")}</th>
                 <th />
               </tr>
             </thead>
@@ -260,7 +262,7 @@ export function DrawingViewer({
                       <span className="sp-callout">{c.label}</span>
                     </td>
                     <td colSpan={5} className="muted">
-                      No part number recorded for this callout.
+                      {t("cat.noPartNumberRecordedFor")}
                     </td>
                   </tr>
                 ) : (
@@ -304,7 +306,7 @@ export function DrawingViewer({
                       <td>
                         {enquiry.enabled && (
                           <button onClick={() => void enquiry.add(p)}>
-                            Add to enquiry
+                            {t("cat.addToEnquiry")}
                           </button>
                         )}
                       </td>
@@ -314,7 +316,7 @@ export function DrawingViewer({
               )}
             </tbody>
           </table>
-          {!groups.length && <Empty>Nothing matches the filter.</Empty>}
+          {!groups.length && <Empty>{t("cat.nothingMatchesTheFilter")}</Empty>}
         </div>
       </div>
     </div>

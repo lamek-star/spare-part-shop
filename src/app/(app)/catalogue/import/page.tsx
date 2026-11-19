@@ -15,6 +15,8 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { api, formatDateTime, titleCase } from "../../../../ui/api";
+import { useT } from "../../../../ui/i18n";
+import type { MessageKey } from "../../../../ui/messages";
 
 const FIELD_LABELS: Record<string, string> = {
   oem_number: "Part number (OEM) *",
@@ -67,13 +69,14 @@ interface Job {
 }
 
 export default function ImportPage() {
+  const t = useT();
   const [tab, setTab] = useState("CSV import");
   return (
     <>
       <PageHead
-        title="Import reference catalogue"
-        subtitle="Bring manufacturer data into the Reference Catalogue. Nothing here touches your own products or stock."
-        back={{ href: "/catalogue", label: "Reference Catalogue" }}
+        title={t("cat.importReferenceCatalogue")}
+        subtitle={t("cat.bringManufacturerDataIntoThe")}
+        back={{ href: "/catalogue", label: t("nav.catalogue") }}
       />
       <Tabs
         tabs={["CSV import", "Offline package", "History"]}
@@ -88,6 +91,7 @@ export default function ImportPage() {
 }
 
 function CsvWizard() {
+  const t = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -138,7 +142,7 @@ function CsvWizard() {
   return (
     <>
       <ErrorBanner message={act.error} onClose={act.clear} />
-      <Panel title="1. Choose a CSV file">
+      <Panel title={t("cat.1ChooseACsvFile")}>
         <input
           ref={input}
           className="file-input"
@@ -148,7 +152,7 @@ function CsvWizard() {
         />
         <div className="actions">
           <button onClick={() => input.current?.click()}>
-            {file ? "Choose a different file" : "Choose CSV file"}
+            {file ? t("imp.chooseDifferentFile") : t("imp.chooseCsv")}
           </button>
           {file && (
             <span>
@@ -156,15 +160,11 @@ function CsvWizard() {
             </span>
           )}
         </div>
-        <p className="muted">
-          UTF-8 CSV with a header row. Quoted fields, commas and line breaks
-          inside quotes, and a byte-order mark are all handled. Column names do
-          not need to match ours — you map them next.
-        </p>
+        <p className="muted">{t("cat.utf8CsvWithA")}</p>
       </Panel>
       {det && (
         <>
-          <Panel title="2. Match your columns">
+          <Panel title={t("cat.2MatchYourColumns")}>
             <p className="muted">
               {det.rowCount.toLocaleString("en-US")} data row(s) found. We
               suggested a match for each column we recognised — check them, and
@@ -172,14 +172,14 @@ function CsvWizard() {
             </p>
             <div className="form-grid">
               {Object.keys(FIELD_LABELS).map((f) => (
-                <FieldBox key={f} label={FIELD_LABELS[f]}>
+                <FieldBox key={f} label={t(`imp.field.${f}` as MessageKey)}>
                   <select
                     value={mapping[f] ?? ""}
                     onChange={(e) =>
                       setMapping((m) => ({ ...m, [f]: e.target.value }))
                     }
                   >
-                    <option value="">— not in my file —</option>
+                    <option value="">{t("cat.notInMyFile")}</option>
                     {det.headers.map((h) => (
                       <option key={h} value={h}>
                         {h}
@@ -191,8 +191,8 @@ function CsvWizard() {
             </div>
             <div className="form-grid">
               <FieldBox
-                label="Default manufacturer"
-                help="Used for rows where the manufacturer column is empty or not mapped."
+                label={t("cat.defaultManufacturer")}
+                help={t("cat.usedForRowsWhereThe")}
               >
                 <input
                   value={defaults.defaultManufacturer}
@@ -205,8 +205,8 @@ function CsvWizard() {
                 />
               </FieldBox>
               <FieldBox
-                label="Default source name"
-                help="Recorded as the origin of these rows."
+                label={t("cat.defaultSourceName")}
+                help={t("cat.recordedAsTheOriginOf")}
               >
                 <input
                   value={defaults.defaultSource}
@@ -215,7 +215,7 @@ function CsvWizard() {
                   }
                 />
               </FieldBox>
-              <FieldBox label="Default market">
+              <FieldBox label={t("cat.defaultMarket")}>
                 <input
                   value={defaults.defaultMarket}
                   onChange={(e) =>
@@ -224,7 +224,7 @@ function CsvWizard() {
                 />
               </FieldBox>
             </div>
-            <h3>Sample of your file</h3>
+            <h3>{t("cat.sampleOfYourFile")}</h3>
             <div className="table-wrap">
               <table>
                 <thead>
@@ -246,15 +246,13 @@ function CsvWizard() {
               </table>
             </div>
           </Panel>
-          <Panel title="3. Check and continue">
+          <Panel title={t("cat.3CheckAndContinue")}>
             {!mapping.oem_number && (
-              <div className="error">
-                Choose the column that holds the part number.
-              </div>
+              <div className="error">{t("cat.chooseTheColumnThatHolds")}</div>
             )}
             {mapping.oem_number && needManufacturer && (
               <div className="error">
-                Choose the manufacturer column, or type a default manufacturer.
+                {t("cat.chooseTheManufacturerColumnOr")}
               </div>
             )}
             <label>
@@ -265,17 +263,14 @@ function CsvWizard() {
               />{" "}
               I confirm that my organisation is allowed to use this data.
             </label>
-            <p className="muted">
-              Next you will see every row checked — new, already present,
-              changed, duplicated, or invalid — before anything is saved.
-            </p>
+            <p className="muted">{t("cat.nextYouWillSeeEvery")}</p>
             <div className="form-actions">
               <button
                 className="primary"
                 disabled={!ready || act.busy}
                 onClick={() => void stage()}
               >
-                {act.busy ? "Checking…" : "Validate and preview"}
+                {act.busy ? t("imp.checking") : t("imp.validate")}
               </button>
             </div>
           </Panel>
@@ -300,6 +295,7 @@ interface PackageReport {
   issues: { level: string; where: string; message: string }[];
 }
 function PackageImport() {
+  const t = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -329,10 +325,11 @@ function PackageImport() {
   return (
     <>
       <ErrorBanner message={act.error} onClose={act.clear} />
-      <Panel title="Offline catalogue package">
+      <Panel title={t("cat.offlineCataloguePackage")}>
         <p>
-          A package is a single <code>.ifcatalog</code> or <code>.zip</code>{" "}
-          file with <code>manifest.json</code>, CSV tables (parts, fitments,
+          A package is a single <code>{t("cat.ifcatalog")}</code> or{" "}
+          <code>{t("cat.zip")}</code> file with{" "}
+          <code>{t("cat.manifestJson")}</code>, CSV tables (parts, fitments,
           drawings, callouts, supersessions…) and drawing images. It is checked
           (checksums, sizes, safe file names) before anything is read, and
           everything is copied into this system — the file can be removed
@@ -346,22 +343,25 @@ function PackageImport() {
           onChange={(e) => void choose(e.target.files?.[0] ?? null)}
         />
         <button onClick={() => input.current?.click()}>
-          {file ? "Choose a different package" : "Choose package file"}
+          {file ? t("imp.chooseDifferentPackage") : t("imp.choosePackage")}
         </button>{" "}
         {file && <span>{file.name}</span>}
       </Panel>
       {report && (
-        <Panel title="Package check">
+        <Panel title={t("cat.packageCheck")}>
           {report.manifest && (
             <Metrics
               items={[
-                { label: "Package", value: report.manifest.package_id },
-                { label: "Provider", value: report.manifest.provider },
+                { label: t("cat.package"), value: report.manifest.package_id },
+                { label: t("cat.provider"), value: report.manifest.provider },
                 {
-                  label: "Images found",
+                  label: t("cat.imagesFound"),
                   value: `${report.assets.found}/${report.assets.declared}`,
                 },
-                { label: "Result", value: report.ok ? "Ready" : "Rejected" },
+                {
+                  label: t("cat.result"),
+                  value: report.ok ? "Ready" : "Rejected",
+                },
               ]}
             />
           )}
@@ -369,21 +369,29 @@ function PackageImport() {
             rowKey={(r) => r[0]}
             rows={Object.entries(report.tables)}
             columns={[
-              { header: "Table", cell: (r) => titleCase(r[0]) },
-              { header: "Rows", align: "right", cell: (r) => r[1].rows },
-              { header: "Valid", align: "right", cell: (r) => r[1].valid },
-              { header: "Invalid", align: "right", cell: (r) => r[1].invalid },
+              { header: t("cat.table"), cell: (r) => titleCase(r[0]) },
+              { header: t("cat.rows"), align: "right", cell: (r) => r[1].rows },
+              {
+                header: t("cat.valid"),
+                align: "right",
+                cell: (r) => r[1].valid,
+              },
+              {
+                header: t("cat.invalid"),
+                align: "right",
+                cell: (r) => r[1].invalid,
+              },
             ]}
           />
           {report.issues.length > 0 && (
             <>
-              <h3>Findings</h3>
+              <h3>{t("cat.findings")}</h3>
               <DataTable
                 rowKey={(i) => i.where + i.message}
                 rows={report.issues.slice(0, 100)}
                 columns={[
                   {
-                    header: "Level",
+                    header: t("cat.level"),
                     cell: (i) => (
                       <Badge
                         value={i.level === "error" ? "FAILED" : "PENDING"}
@@ -391,8 +399,8 @@ function PackageImport() {
                       />
                     ),
                   },
-                  { header: "Where", cell: (i) => i.where },
-                  { header: "Message", cell: (i) => i.message },
+                  { header: t("cat.where"), cell: (i) => i.where },
+                  { header: t("cat.message"), cell: (i) => i.message },
                 ]}
               />
             </>
@@ -417,7 +425,7 @@ function PackageImport() {
                   disabled={act.busy}
                   onClick={() => void run()}
                 >
-                  {act.busy ? "Importing…" : "Import package"}
+                  {act.busy ? t("imp.importing") : t("imp.importPackage")}
                 </button>
               </div>
             </>
@@ -429,29 +437,44 @@ function PackageImport() {
 }
 
 function History() {
+  const t = useT();
   const jobs = useApi<Job[]>("/catalogue/import/jobs?limit=50");
   return (
-    <Panel title="Import history">
+    <Panel title={t("cat.importHistory")}>
       <ErrorBanner message={jobs.error} />
       {jobs.data && (
         <DataTable
           rowKey={(j) => j.id}
           rows={jobs.data}
-          empty="No imports yet."
+          empty={t("cat.noImportsYet")}
           columns={[
-            { header: "When", cell: (j) => formatDateTime(j.createdAt) },
-            { header: "Type", cell: (j) => titleCase(j.kind) },
             {
-              header: "Source",
+              header: t("audit.when"),
+              cell: (j) => formatDateTime(j.createdAt),
+            },
+            { header: t("audit.type"), cell: (j) => titleCase(j.kind) },
+            {
+              header: t("prod.source"),
               cell: (j) => (
                 <Link href={`/catalogue/import/${j.id}`}>{j.sourceLabel}</Link>
               ),
             },
-            { header: "Status", cell: (j) => <Badge value={j.status} /> },
-            { header: "Rows", align: "right", cell: (j) => j.discovered },
-            { header: "New", align: "right", cell: (j) => j.created },
-            { header: "Updated", align: "right", cell: (j) => j.updated },
-            { header: "Errors", align: "right", cell: (j) => j.errors },
+            {
+              header: t("common.status"),
+              cell: (j) => <Badge value={j.status} />,
+            },
+            {
+              header: t("cat.rows"),
+              align: "right",
+              cell: (j) => j.discovered,
+            },
+            { header: t("status.NEW"), align: "right", cell: (j) => j.created },
+            {
+              header: t("cat.updated"),
+              align: "right",
+              cell: (j) => j.updated,
+            },
+            { header: t("cat.errors"), align: "right", cell: (j) => j.errors },
           ]}
         />
       )}
