@@ -427,7 +427,10 @@ export class InventoryOps {
     const total = balances.reduce((n, b) => n + b.available, 0);
     if (total < req.quantity)
       throw conflict(
-        `Insufficient available stock for ${product.sku}: ${req.quantity} requested, ${total} available${product.trackBatches ? " (expired batches are not counted)" : ""}.`,
+        // Two whole sentences (not a spliced-in note), so the screens can translate each.
+        product.trackBatches
+          ? `Insufficient available stock for ${product.sku}: ${req.quantity} requested, ${total} available (expired batches are not counted).`
+          : `Insufficient available stock for ${product.sku}: ${req.quantity} requested, ${total} available.`,
         "INSUFFICIENT_STOCK",
       );
     let remaining = req.quantity;

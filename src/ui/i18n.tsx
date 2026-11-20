@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { get, put } from "./api";
+import { get, put, setMessageLanguage } from "./api";
 import { useSession } from "./session";
 import {
   isLanguage,
@@ -55,7 +55,8 @@ function remembered(): Language {
 export function I18nProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const [choice, setChoice] = useState<Choice | null>(null);
-  const [fallback, setFallback] = useState<Language>("en");
+  // null until this device's remembered language has been read (so it is never overwritten first).
+  const [fallback, setFallback] = useState<Language | null>(null);
   useEffect(() => setFallback(remembered()), []);
 
   const userId = session.me?.user.id;
@@ -77,18 +78,22 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     };
   }, [session.status, userId]);
 
-  const language = choice?.effective ?? fallback;
+  const language = choice?.effective ?? fallback ?? "en";
+  const known = choice !== null || fallback !== null;
   const dir = LANGUAGES[language].dir;
 
+  // Server messages (errors) follow the same language; set while rendering so the first request already has it.
+  setMessageLanguage(language);
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = dir;
+    if (!known) return;
     try {
       window.localStorage.setItem(LAST_KEY, language);
     } catch {
       /* private window: only the sign-in screen's language is affected */
     }
-  }, [language, dir]);
+  }, [language, dir, known]);
 
   const choose = useCallback(async (next: Language | null) => {
     setChoice(await put<Choice>("/me/language", { language: next }));

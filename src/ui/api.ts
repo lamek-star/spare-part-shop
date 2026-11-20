@@ -1,5 +1,7 @@
 "use client";
 import { apiUrl } from "@/lib/basePath";
+import type { Language } from "./messages";
+import { translateServerMessage } from "./serverMessages";
 /** Browser client for the standalone API (/api/v1). Cookies carry the
  * session; state-changing calls also send the CSRF token from /auth/me. */
 export class ApiError extends Error {
@@ -13,6 +15,13 @@ export class ApiError extends Error {
   }
 }
 let csrf = "";
+// The language error messages are shown in; the I18nProvider keeps it current.
+let messageLanguage: Language = "en";
+export const setMessageLanguage = (language: Language) => {
+  messageLanguage = language;
+};
+const say = (english: string) =>
+  translateServerMessage(messageLanguage, english);
 export const setCsrfToken = (t: string) => {
   csrf = t;
 };
@@ -42,7 +51,7 @@ export async function api<T = unknown>(
   } catch {
     throw new ApiError(
       "NETWORK",
-      "Cannot reach the server. Check that the application is running.",
+      say("Cannot reach the server. Check that the application is running."),
       0,
     );
   }
@@ -71,7 +80,7 @@ export async function api<T = unknown>(
       window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));
     throw new ApiError(
       e?.code ?? "ERROR",
-      e?.message ?? `The server answered ${res.status}.`,
+      say(e?.message ?? `The server answered ${res.status}.`),
       res.status,
       e?.requestId,
     );

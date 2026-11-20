@@ -956,6 +956,269 @@ export const en = {
   "col.unitCost": "Unit cost",
   "col.quotations": "Quotations",
   "col.conversionRate": "Conversion rate",
+
+  // Server messages: requests, sign-in, checks, platform
+  "srv.v.invalidChars": "{field} contains invalid characters.",
+  "srv.v.email": "{field} is not a valid email address.",
+  "srv.v.required": "{field} is required.",
+  "srv.v.date": "{field} must be a date (YYYY-MM-DD).",
+  "srv.v.positiveInt": "{field} must be a whole number greater than zero.",
+  "srv.v.int": "{field} must be a whole number.",
+  "srv.v.nonNegInt": "{field} must be a non-negative whole number.",
+  "srv.v.min": "{field} must be at least {min}.",
+  "srv.v.maxChars": "{field} must be at most {max} characters.",
+  "srv.v.max": "{field} must be at most {max}.",
+  "srv.v.oneOf": "{field} must be one of: {allowed}.",
+  "srv.v.text": "{field} must be text.",
+  "srv.v.yesNo": "{field} must be yes or no.",
+  "srv.v.bool": "{field} must be true or false.",
+  "srv.v.jsonObject": "{field} must be a JSON object.",
+  "srv.v.currencyAed": "Currency must be a 3-letter code such as AED.",
+  "srv.v.currency": "Currency must be a 3-letter code.",
+  "srv.v.taxRate": "Tax rate is out of range.",
+  "srv.lang.choose": "Choose English, Arabic, Amharic or Tigrinya.",
+  "srv.http.crossSite": "Cross-site requests are not allowed.",
+  "srv.http.noEndpoint": "No such endpoint.",
+  "srv.http.json": "Send the request as application/json.",
+  "srv.http.multipart": "Send the request as multipart/form-data.",
+  "srv.http.method": "That method is not allowed here.",
+  "srv.http.address": "The address is malformed.",
+  "srv.http.badJson": "The request body is not valid JSON.",
+  "srv.http.bodyObject": "The request body must be a JSON object.",
+  "srv.http.csrf":
+    "The security token is missing or has expired. Reload the page and try again.",
+  "srv.http.upload": "The upload could not be read.",
+  "srv.http.tooLarge": "The upload is larger than the {mb} MB limit.",
+  "srv.http.rate": "Too many attempts. Wait a minute and try again.",
+  "srv.http.mustChange": "You must change your password before continuing.",
+  "srv.http.signIn": "Sign in to continue.",
+  "srv.http.forbidden": "You do not have permission to do that.",
+  "srv.http.internal": "Something went wrong on the server. Reference: {ref}.",
+  "srv.net.down":
+    "Cannot reach the server. Check that the application is running.",
+  "srv.net.status": "The server answered {code}.",
+  "srv.perm.denied": "You do not have permission to perform this action.",
+  "srv.perm.role": "Your role ({role}) may not perform this action.",
+  "srv.id.emailTaken": "A user with that email already exists.",
+  "srv.id.differentPw": "Choose a different password.",
+  "srv.id.currentPw": "Current password is incorrect.",
+  "srv.id.badLogin": "Email or password is incorrect.",
+  "srv.id.email": "Enter a valid email address.",
+  "srv.id.name": "Enter the person's name.",
+  "srv.id.firstOnly":
+    "Only the first account may be created without signing in.",
+  "srv.id.pwLong": "Password is too long.",
+  "srv.id.pwEmail": "Password must not contain your email name.",
+  "srv.id.pwEasy": "That password is too easy to guess.",
+  "srv.id.firstOwner": "The first account must be the Owner.",
+  "srv.id.oneOwner": "There must always be at least one active Owner.",
+  "srv.id.locked":
+    "Too many failed sign-in attempts. Try again in {minutes} minutes.",
+  "srv.id.role": "Unknown role.",
+  "srv.id.status": "Unknown status.",
+  "srv.id.pwShort": "Use a password of at least 10 characters.",
+  "srv.id.setupDone": "Setup has already been completed.",
+  "srv.pf.notInstalled":
+    "{product} is not installed yet. In IntraForge, open Apps and install it.",
+  "srv.pf.signIn": "Sign in to IntraForge and open {product} from Apps.",
+  "srv.pf.down":
+    "IntraForge is not answering. Try again in a moment; if it persists, open the IntraForge Control Center.",
+  "srv.pf.people":
+    "People, passwords and roles are managed in IntraForge (Organization > Members and Roles).",
+  "srv.pf.notAccepted": "The request was not accepted.",
+  "srv.file.empty": "The file is empty.",
+  "srv.file.malware":
+    "The file was blocked by the malware scanner and was not stored.",
+  "srv.file.choose": "Choose a file to upload.",
+
+  // Server messages: sales, quotations, invoices, IntraForge Pay
+  "srv.sale.rx":
+    "{product} is prescription-only: enter the prescription reference.",
+  "srv.sale.addItem": "Scan or add at least one item.",
+  "srv.sale.tendered": "The amount given is less than the total.",
+  "srv.cust.inactive": "That customer is inactive.",
+  "srv.enq.cannotCancel": "A {status} enquiry cannot be cancelled.",
+  "srv.enq.cannotQuote": "A {status} enquiry cannot be quoted.",
+  "srv.enq.addPart": "Add at least one part before submitting.",
+  "srv.enq.maxItems": "An enquiry may have at most 200 items.",
+  "srv.enq.customer": "Choose a customer or enter a contact name.",
+  "srv.enq.draftOnly": "Only a draft enquiry can be edited.",
+  "srv.enq.other": "This enquiry cart belongs to another user.",
+  "srv.enq.submitted": "This enquiry has already been submitted.",
+  "srv.enq.empty": "This enquiry has no items.",
+  "srv.q.cannotMove": "A {status} quotation cannot be {to}.",
+  "srv.q.cannotIssue": "A {status} quotation cannot be issued.",
+  "srv.q.customer": "Choose the customer this quotation is for.",
+  "srv.q.draftOnly":
+    "Only a draft quotation can be edited. Cancel it and create a new one to change an issued quotation.",
+  "srv.q.unpriced":
+    'Price every line before issuing — "{description}" has no price.',
+  "srv.q.notAccepted":
+    "Quotation {number} is {status}; only an accepted quotation can become an order.",
+  "srv.q.validPast": "The valid-until date is in the past.",
+  "srv.q.expired": "This quotation has expired. Create a new one to continue.",
+  "srv.q.stale":
+    "This quotation was changed by someone else. Reload it and try again.",
+  "srv.so.cannotFulfil": "A {status} order cannot be fulfilled.",
+  "srv.so.cannotReserve": "A {status} order cannot reserve stock.",
+  "srv.so.cancelledInvoice": "A cancelled order cannot be invoiced.",
+  "srv.so.delivered":
+    "Goods have already been delivered on this order. Record a return instead of cancelling.",
+  "srv.so.nothing": "Nothing to fulfil.",
+  "srv.so.remain": 'Only {qty} of "{description}" remain to fulfil.',
+  "srv.so.nothingToInvoice":
+    "There is nothing delivered that has not already been invoiced. Fulfil the order first.",
+  "srv.ret.items": "Choose the items being returned.",
+  "srv.ret.only": 'Only {qty} of "{description}" can be returned.',
+  "srv.doc.maxLines": "A document may have at most 200 lines.",
+  "srv.doc.addLine": "Add at least one line.",
+  "srv.doc.lineDesc": "Line {line} needs a description.",
+  "srv.doc.linePrice": "Line {line} needs a price greater than zero.",
+  "srv.inv.voidPay": "A void invoice cannot take payments.",
+  "srv.inv.exceeds":
+    "The payment exceeds the balance due ({balance} minor units).",
+  "srv.inv.hasPayments":
+    "This invoice has payments recorded and cannot be voided.",
+  "srv.inv.paid": "This invoice is already paid in full.",
+  "srv.pay.down": "IntraForge Pay is not answering. Try again in a moment.",
+  "srv.pay.unavailable":
+    "IntraForge Pay is not available in this shop. Record the payment another way.",
+  "srv.pay.amount":
+    "IntraForge Pay reports a different amount for this payment. Check the Pay receipt before recording anything.",
+  "srv.pay.late":
+    "The customer paid with IntraForge Pay (receipt {receipt}), but the invoice can no longer take it: {reason} Record it by hand after checking the invoice.",
+  "srv.pay.forbidden": "You may not take IntraForge Pay payments in this shop.",
+  "srv.pay.notInstalled": "IntraForge Pay is not installed in this shop.",
+  "srv.pay.refused": "IntraForge Pay refused this payment.",
+
+  // Server messages: stock, products, purchasing, locations
+  "srv.stock.inactive": "{sku} is inactive and cannot be reserved.",
+  "srv.stock.needBatch":
+    "{sku} is kept in batches: enter the batch number and expiry date.",
+  "srv.stock.reservedHere":
+    "{reserved} of the stock here is reserved for orders; release those first.",
+  "srv.stock.adjNonZero": "Adjustment must be a non-zero whole number.",
+  "srv.stock.notExpired":
+    "Batch {batch} expires on {date}; it has not expired yet.",
+  "srv.stock.expired":
+    "Batch {batch} of {sku} expired on {date} and cannot be sold.",
+  "srv.stock.twoLocations": "Choose two different locations.",
+  "srv.stock.batchNo": "Enter the batch number printed on the pack.",
+  "srv.stock.expiry": "Enter the expiry date printed on the pack.",
+  "srv.stock.reason": "Give a reason for the stock adjustment.",
+  "srv.stock.insufficientFor":
+    "Insufficient available stock for {sku}: {requested} requested, {available} available.",
+  "srv.stock.insufficientForBatches":
+    "Insufficient available stock for {sku}: {requested} requested, {available} available (expired batches are not counted).",
+  "srv.stock.insufficient": "Insufficient available stock.",
+  "srv.stock.badReservationQty": "Invalid quantity for this reservation.",
+  "srv.stock.batchShort": "Not enough stock in that batch.",
+  "srv.stock.transferOnly":
+    "Only {available} available to transfer from this location.",
+  "srv.stock.batchLeft": "Only {qty} left in batch {batch}.",
+  "srv.stock.onHandOnly": "Only {qty} on hand at this location.",
+  "srv.stock.unexpiredOnly":
+    "Only {total} of {sku} in unexpired batches here; {expired} more are expired and cannot be sold.",
+  "srv.stock.inStockOnly": "Only {total} of {sku} in stock here.",
+  "srv.stock.reservationGone": "Reservation is no longer active.",
+  "srv.stock.batchHeld":
+    "Stock of batch {batch} is held for an order; cancel or change that order first.",
+  "srv.stock.reservedShort":
+    "There is not enough reserved stock to fulfil that quantity.",
+  "srv.prod.oemExists":
+    "{oem} is already in My Products as {sku}. Open that product, or choose to create another one deliberately.",
+  "srv.prod.anotherProduct": "another product",
+  "srv.prod.maxPhotos": "A product may have at most {max} photos.",
+  "srv.prod.batchSwitch":
+    "Batch tracking can only be switched while the product has no stock. Bring its stock to zero first.",
+  "srv.prod.openingLocation": "Choose a location for the opening stock.",
+  "srv.prod.number": "Enter a valid number.",
+  "srv.prod.imageSize": "Images may be at most {mb} MB.",
+  "srv.prod.imageType": "Only PNG, JPEG, GIF or WebP images are accepted.",
+  "srv.prod.skuExists": "SKU {sku} already exists.",
+  "srv.prod.numberExists": "That number is already on this product.",
+  "srv.prod.extMismatch":
+    "The file name says .{ext} but the content is {mime}.",
+  "srv.prod.photoOrder": "The photo order must list every photo exactly once.",
+  "srv.prod.skuRemove": "The shop SKU cannot be removed.",
+  "srv.prod.linked": "This product is already linked to that reference part.",
+  "srv.prod.stale":
+    "This product was changed by someone else. Reload it and try again.",
+  "srv.prod.cost": "You may not change cost prices.",
+  "srv.po.cannotMove": "A {status} purchase order cannot be {to}.",
+  "srv.po.cannotReceive": "A {status} purchase order cannot receive goods.",
+  "srv.po.maxLines": "A purchase order may have at most 200 lines.",
+  "srv.po.received": "Goods have already been received on this order.",
+  "srv.po.nothing": "Nothing to receive.",
+  "srv.po.moreExpected": "Only {qty} more expected on this line.",
+  "srv.po.draftOnly": "Only a draft purchase order can be edited.",
+  "srv.loc.code": "Give the location a code, or a rack, shelf or bin.",
+  "srv.loc.exists": "Location {code} already exists in this warehouse.",
+
+  // Server messages: catalogue import, labels, reports, not found
+  "srv.job.cannotCancel": "A {status} job cannot be cancelled.",
+  "srv.job.cannotImport": "A {status} job cannot be imported.",
+  "srv.job.excludeOnly":
+    "Rows can only be excluded while the job awaits review.",
+  "srv.job.notStaged": "This job is not a staged CSV import.",
+  "srv.cat.drawingsRights":
+    "Confirm that you may store and show these drawings before importing them.",
+  "srv.cat.dataRights":
+    "Confirm that your organization may use this data before importing it.",
+  "srv.cat.tooLarge": "Larger than the 64 MB limit.",
+  "srv.cat.mapManufacturer":
+    "Map a column to manufacturer, or choose a default manufacturer.",
+  "srv.cat.mapOem": "Map a column to oem_number.",
+  "srv.cat.noDrawings": "No PNG or JPEG drawings were found.",
+  "srv.cat.notImage": "Not a PNG/JPEG file.",
+  "srv.cat.partMissing":
+    "Part {oem} is not in parts.csv or the catalogue; list it there first.",
+  "srv.cat.providerKey":
+    "Provider key may use lower-case letters, digits and hyphens.",
+  "srv.cat.rightsEvidence":
+    "Record the rights evidence or reason (at least 12 characters).",
+  "srv.cat.mappingJson": "The column mapping is not valid JSON.",
+  "srv.cat.utf8":
+    "The file is not valid UTF-8 text. Save it as CSV (UTF-8) and try again.",
+  "srv.cat.missingColumn":
+    'The mapped column "{header}" does not exist in the file.',
+  "srv.cat.unknownField": 'Unknown field "{field}" in the mapping.',
+  "srv.cat.imageRights": "Unknown image-rights state.",
+  "srv.cat.verification": "Unknown verification state.",
+  "srv.r.ids": "ids must be a list of image ids.",
+  "srv.r.size": "size must be printer or sheet.",
+  "srv.r.type": "type must be code128 or qr.",
+  "srv.r.csv": "This report cannot be exported as CSV.",
+  "srv.r.label": "This SKU cannot be turned into a label.",
+  "srv.nf": "{what} not found.",
+  "srv.n.batch": "Batch",
+  "srv.n.customer": "Customer",
+  "srv.n.drawing": "Drawing",
+  "srv.n.endpoint": "Endpoint",
+  "srv.n.enquiry": "Enquiry",
+  "srv.n.file": "File",
+  "srv.n.image": "Image",
+  "srv.n.importJob": "Import job",
+  "srv.n.invoice": "Invoice",
+  "srv.n.location": "Location",
+  "srv.n.number": "Number",
+  "srv.n.orderLine": "Order line",
+  "srv.n.payment": "Payment",
+  "srv.n.photo": "Photo",
+  "srv.n.product": "Product",
+  "srv.n.productForCode": "Product for that code",
+  "srv.n.productOnLine": "Product on line {line}",
+  "srv.n.purchaseOrder": "Purchase order",
+  "srv.n.quotation": "Quotation",
+  "srv.n.referenceLink": "Reference link",
+  "srv.n.referencePart": "Reference part",
+  "srv.n.report": "Report",
+  "srv.n.salesOrder": "Sales order",
+  "srv.n.stagedRow": "Staged row",
+  "srv.n.supplier": "Supplier",
+  "srv.n.supplierLink": "Supplier link",
+  "srv.n.user": "User",
+  "srv.n.warehouse": "Warehouse",
 } as const;
 
 export type MessageKey = keyof typeof en;
