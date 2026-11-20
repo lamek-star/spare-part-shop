@@ -14,6 +14,7 @@ import {
 } from "../../ui/kit";
 import { qs } from "../../ui/api";
 import { useT } from "../../ui/i18n";
+import type { MessageKey } from "../../ui/messages";
 
 interface Dash {
   products: number;
@@ -70,7 +71,10 @@ export default function Dashboard() {
     <>
       <PageHead
         title={t("dash.businessOverview")}
-        subtitle={`Signed in as ${s.me?.user.displayName} (${s.me?.user.role})`}
+        subtitle={t("dash.signedInAs", {
+          name: s.me?.user.displayName ?? "",
+          role: s.me ? t(`role.${s.me.user.role}` as MessageKey) : "",
+        })}
       />
       <ErrorBanner message={d.error} />
       {d.loading && !d.data && <Loading what={t("dash.loadingOverview")} />}
@@ -103,7 +107,7 @@ export default function Dashboard() {
               {
                 label: t("dash.lowStock"),
                 value: n(d.data.lowStockProducts),
-                hint: "at or below reorder level",
+                hint: t("dash.atOrBelowReorder"),
               },
               {
                 label: t("dash.stockValueCost"),

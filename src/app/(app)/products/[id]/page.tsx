@@ -171,7 +171,10 @@ export default function ProductPage({
           {
             label: t("prod.available"),
             value: totals.available,
-            hint: `${totals.onHand} on hand · ${totals.reserved} reserved`,
+            hint: t("prod.onHandReserved", {
+              onHand: totals.onHand,
+              reserved: totals.reserved,
+            }),
           },
           {
             label: t("prod.sellingPrice"),

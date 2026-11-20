@@ -13,7 +13,8 @@ import {
 } from "../../../ui/kit";
 import { qs, titleCase } from "../../../ui/api";
 import { apiUrl } from "@/lib/basePath";
-import { useT } from "../../../ui/i18n";
+import { useT, type Translate } from "../../../ui/i18n";
+import { en } from "../../../ui/messages/en";
 import type { MessageKey } from "../../../ui/messages";
 
 const REPORTS: {
@@ -95,13 +96,13 @@ const REPORTS: {
   },
 ];
 const isMoney = (k: string) => /Minor$/.test(k);
-const heading = (k: string) =>
-  titleCase(
-    k
-      .replace(/Minor$/, "")
-      .replace(/([A-Z])/g, " $1")
-      .trim(),
-  );
+/** A report column's name: col.<field> in the person's language, else the field name in Title Case. */
+const heading = (k: string, t: Translate) => {
+  const base = k.replace(/Minor$/, "");
+  const key = `col.${base}`;
+  if (key in en) return t(key as MessageKey);
+  return titleCase(base.replace(/([A-Z])/g, " $1").trim());
+};
 
 export default function Reports() {
   const t = useT();
@@ -184,7 +185,7 @@ export default function Reports() {
             rows={rows}
             empty={t("rep.noDataForThisReport")}
             columns={headers.map((h) => ({
-              header: heading(h),
+              header: heading(h, t),
               align:
                 typeof rows[0][h] === "number" ? ("right" as const) : undefined,
               cell: (row: Record<string, unknown>) =>
@@ -205,7 +206,7 @@ export default function Reports() {
         {Boolean(r.data) && !rows && (
           <Metrics
             items={Object.entries(r.data as Record<string, number>).map(
-              ([k, v]) => ({ label: heading(k), value: String(v) }),
+              ([k, v]) => ({ label: heading(k, t), value: String(v) }),
             )}
           />
         )}

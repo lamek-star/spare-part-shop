@@ -113,7 +113,9 @@ function CatalogueSearch() {
             {
               label: t("cat.drawings"),
               value: stats.data.drawings,
-              hint: `${stats.data.drawingsWithImages} with stored images`,
+              hint: t("cat.withImages", {
+                count: stats.data.drawingsWithImages,
+              }),
             },
           ]}
         />
@@ -123,7 +125,7 @@ function CatalogueSearch() {
           <strong>{t("cat.theReferenceCatalogueIsEmpty")}</strong>{" "}
           {s.can("catalogue.import") ? (
             <>
-              Import a CSV or an offline catalogue package to fill it.{" "}
+              {t("cat.importToFill")}{" "}
               <Link href="/catalogue/import">{t("cat.goToImport")}</Link>.
             </>
           ) : (
