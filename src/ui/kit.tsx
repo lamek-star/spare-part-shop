@@ -61,17 +61,27 @@ const ToastCtx = createContext<(message: string) => void>(() => undefined);
 export const useToast = () => useContext(ToastCtx);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState("");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const show = useCallback((m: string) => {
+    timers.current.forEach(clearTimeout);
     setMessage(m);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMessage(""), 3500);
+    setLeaving(false);
+    // Fade out for the last 300 ms, then remove (the CSS animation matches).
+    timers.current = [
+      setTimeout(() => setLeaving(true), 3200),
+      setTimeout(() => setMessage(""), 3500),
+    ];
   }, []);
   return (
     <ToastCtx.Provider value={show}>
       {children}
       {message && (
-        <div className="toast" role="status">
+        <div
+          key={message}
+          className={`toast${leaving ? " leaving" : ""}`}
+          role="status"
+        >
           {message}
         </div>
       )}
@@ -206,9 +216,12 @@ export function ErrorBanner({
 export function Loading({ what }: { what?: string }) {
   const t = useT();
   return (
-    <p className="muted" role="status">
-      {what ?? t("common.loading")}…
-    </p>
+    <div className="loading" role="status" aria-live="polite">
+      <span className="sr-only">{what ?? t("common.loading")}…</span>
+      <span className="skeleton" />
+      <span className="skeleton short" />
+      <span className="skeleton" />
+    </div>
   );
 }
 export function Empty({ children }: { children: ReactNode }) {
@@ -286,7 +299,7 @@ export function DataTable<T>({
             <tr
               key={rowKey(r)}
               onClick={onRow ? () => onRow(r) : undefined}
-              style={onRow ? { cursor: "pointer" } : undefined}
+              className={onRow ? "clickable" : undefined}
             >
               {columns.map((c) => (
                 <td
@@ -358,20 +371,34 @@ export function Modal({
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
+  const [closing, setClosing] = useState(false);
   useEffect(() => {
     ref.current?.showModal();
   }, []);
+  const close = () => {
+    if (closing) return;
+    const still =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (still) return onClose();
+    setClosing(true);
+    setTimeout(onClose, 160);
+  };
   const t = useT();
   return (
     <dialog
       ref={ref}
-      onCancel={onClose}
+      onCancel={(e) => {
+        e.preventDefault();
+        close();
+      }}
       aria-labelledby={titleId}
+      className={closing ? "closing" : undefined}
       style={wide ? { width: "min(920px, 96vw)" } : undefined}
     >
       <div className="modal-head">
         <h2 id={titleId}>{title}</h2>
-        <button aria-label={t("common.closeDialog")} onClick={onClose}>
+        <button aria-label={t("common.closeDialog")} onClick={close}>
           ×
         </button>
       </div>

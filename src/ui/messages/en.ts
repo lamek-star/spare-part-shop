@@ -1219,6 +1219,42 @@ export const en = {
   "srv.n.supplierLink": "Supplier link",
   "srv.n.user": "User",
   "srv.n.warehouse": "Warehouse",
+
+  // Part number, minimum stock and the dashboard's stock status
+  "prod.partNumberOem": "Part number (OEM)",
+  "prod.partNumberHelp":
+    "The manufacturer's number for this part. Staff and customers find the item by it; add more numbers later on the Part numbers tab.",
+  "prod.partNumber": "Part number",
+  "prod.minimumLevel": "Minimum stock",
+  "prod.minimumLevelHelp":
+    "Red on the dashboard at or below this. Keep it at or below the reorder level.",
+  "status.USED": "Used",
+  "status.REMANUFACTURED": "Remanufactured",
+  "status.OTHER": "Other",
+  "prod.weight": "Weight",
+  "prod.origin": "Origin",
+  "prod.notes": "Notes",
+  "prod.updated": "Last changed",
+  "prod.each": "Each",
+  "prod.pack": "Pack",
+  "dash.stockStatus": "Stock status",
+  "dash.levelRED": "Critical",
+  "dash.levelAMBER": "Low",
+  "dash.levelGREEN": "Enough",
+  "dash.levelHintRED": "At or below the minimum, or none left",
+  "dash.levelHintAMBER": "At or below the reorder level",
+  "dash.levelHintGREEN": "Above the reorder level",
+  "dash.allLevels": "All",
+  "dash.noItemsAtLevel": "No items at this level.",
+  "dash.minReorder": "Min {min} · Reorder {reorder}",
+  "dash.setLevels": "Set levels",
+  "dash.levelsFor": "Stock levels: {name}",
+  "dash.levelsSaved": "Stock levels saved.",
+  "dash.showingFirst": "Showing the {count} most urgent.",
+  "dash.allProducts": "All products",
+  "srv.prod.minAboveReorder":
+    "The minimum level cannot be above the reorder level.",
+  "srv.prod.badPartNumber": "Enter a valid part number.",
 } as const;
 
 export type MessageKey = keyof typeof en;

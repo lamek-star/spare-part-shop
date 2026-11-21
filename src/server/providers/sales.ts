@@ -83,7 +83,11 @@ export interface SalesRepository {
   getPayRequest(id: string): Promise<PayRequest | null>;
   payRequestsForInvoice(invoiceId: string): Promise<PayRequest[]>;
   /** Marks a pending request paid once; false when it was already settled or closed. */
-  settlePayRequest(id: string, paymentId: string, receiptNumber: string): Promise<boolean>;
+  settlePayRequest(
+    id: string,
+    paymentId: string,
+    receiptNumber: string,
+  ): Promise<boolean>;
   closePayRequest(id: string, status: "EXPIRED" | "CANCELLED"): Promise<void>;
 }
 
@@ -116,6 +120,22 @@ export interface PurchasingRepository {
 }
 
 // ---------- reports ----------
+export const STOCK_LEVELS = ["RED", "AMBER", "GREEN"] as const;
+export type StockLevel = (typeof STOCK_LEVELS)[number];
+export interface StockLevels {
+  counts: Record<StockLevel, number>;
+  items: {
+    productId: string;
+    sku: string;
+    name: string;
+    brand: string;
+    unit: string;
+    available: number;
+    reorderLevel: number;
+    minimumLevel: number;
+    level: StockLevel;
+  }[];
+}
 export interface DashboardMetrics {
   products: number;
   activeProducts: number;
@@ -251,6 +271,9 @@ export interface ReportRepository {
       reorderLevel: number;
     }[]
   >;
+  /** Active products by stock level: RED at/below the minimum (or none available), AMBER at/below the
+   * reorder level, GREEN above it. Counts cover every product; items are one level (or all), worst first. */
+  stockStatus(level: StockLevel | null, limit: number): Promise<StockLevels>;
   salesByPeriod(
     from: string,
     to: string,

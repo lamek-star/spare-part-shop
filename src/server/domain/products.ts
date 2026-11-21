@@ -91,6 +91,14 @@ export interface ProductListItem extends Product {
   onHand: number;
   available: number;
   primaryImageUrl: string | null;
+  /** The part number the shop knows this item by (its OEM number first); "" when it has none. */
+  partNumber: string;
+}
+
+/** The number a list shows beside the SKU: the active OEM number, else any other active part number. */
+export function mainPartNumber(numbers: ProductNumber[]): string {
+  const active = numbers.filter((n) => n.active && n.type !== "INTERNAL_SKU");
+  return (active.find((n) => n.type === "OEM_OE") ?? active[0])?.display ?? "";
 }
 
 const mask = (p: ProductRow, actor: Actor): Product => ({
@@ -98,6 +106,15 @@ const mask = (p: ProductRow, actor: Actor): Product => ({
   costMinor: can(actor, "products.cost.read") ? p.costMinor : null,
 });
 
+/** Red (minimum) must come before amber (reorder): a minimum above the reorder level would skip amber. */
+function checkLevels(f: { reorderLevel: number; minimumLevel: number }) {
+  if (
+    f.minimumLevel > 0 &&
+    f.reorderLevel > 0 &&
+    f.minimumLevel > f.reorderLevel
+  )
+    throw validation("The minimum level cannot be above the reorder level.");
+}
 function productFields(input: Record<string, unknown>, base?: ProductRow) {
   const pick = <T>(key: string, fallback: T) =>
     input[key] === undefined ? fallback : input[key];
@@ -203,6 +220,7 @@ export class ProductService {
           onHand: balances.reduce((n, b) => n + b.onHand, 0),
           available: balances.reduce((n, b) => n + b.available, 0),
           primaryImageUrl: primary ? imageUrl(primary.fileId) : null,
+          partNumber: mainPartNumber(await r.products.numbers(p.id)),
         });
       }
       return { ...page, items };
@@ -277,15 +295,23 @@ export class ProductService {
     requirePermission(actor, "products.write");
     const input = record(raw);
     const f = productFields(input);
+    checkLevels(f);
     const costMinor = moneyMinor(input.costMinor, "Cost price", { default: 0 });
     if (input.costMinor !== undefined && costMinor !== 0)
       requirePermission(actor, "products.cost.read");
     const opening = input.openingStock as
       { locationId?: string; quantity?: number } | undefined;
     if (opening) requirePermission(actor, "inventory.write");
+    // The manufacturer's (OEM) number, entered with the product so it is found by it from the start.
+    const partNumber = text(input.partNumber, "Part number", { max: 100 });
+    if (partNumber && !normalizeNumber(partNumber))
+      throw validation("Enter a valid part number.");
     return this.uow.write(async (r) => {
       if (await r.products.getBySku(f.sku))
         throw conflict(`SKU ${f.sku} already exists.`);
+      // A product is priced in the shop's currency unless the caller names one.
+      if (input.currency === undefined || input.currency === "")
+        f.currency = (await r.config.get()).currency;
       const supplierId =
         typeof input.defaultSupplierId === "string" && input.defaultSupplierId
           ? input.defaultSupplierId
@@ -324,6 +350,25 @@ export class ProductService {
         supplierId: null,
         supersededByNumber: null,
       });
+      if (
+        partNumber &&
+        normalizeNumber(partNumber) !== normalizeNumber(product.sku)
+      )
+        await r.products.upsertNumber({
+          id: newId(),
+          productId: product.id,
+          display: partNumber,
+          normalized: normalizeNumber(partNumber),
+          type: "OEM_OE",
+          brand: product.manufacturer || product.brand,
+          source: "Shop entry",
+          market: "",
+          active: true,
+          primary: false,
+          notes: "",
+          supplierId: null,
+          supersededByNumber: null,
+        });
       if (supplierId)
         await r.products.upsertSupplier({
           id: newId(),
@@ -359,7 +404,11 @@ export class ProductService {
         entityType: "product",
         entityId: product.id,
         summary: `Product ${product.sku} ${product.name} created`,
-        metadata: { sku: product.sku, priceMinor: product.priceMinor },
+        metadata: {
+          sku: product.sku,
+          priceMinor: product.priceMinor,
+          ...(partNumber ? { partNumber } : {}),
+        },
       });
       return mask(product, actor);
     });
@@ -380,6 +429,7 @@ export class ProductService {
           "STALE",
         );
       const f = productFields(input, current);
+      checkLevels(f);
       let costMinor = current.costMinor;
       if (input.costMinor !== undefined) {
         if (!can(actor, "products.cost.read"))

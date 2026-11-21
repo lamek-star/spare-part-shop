@@ -129,8 +129,23 @@ export const minorToInput = (minor: number | null | undefined) =>
   minor === null || minor === undefined ? "" : (minor / 100).toFixed(2);
 export const formatDate = (iso: string | null | undefined) =>
   iso ? iso.slice(0, 10) : "—";
-export const formatDateTime = (iso: string | null | undefined) =>
-  iso ? iso.slice(0, 16).replace("T", " ") : "—";
+/** A stored moment (UTC, ISO 8601) as "YYYY-MM-DD HH:MM" in this computer's own time zone: the shop's time,
+ * the same clock the receipts and the Pay window show. Text without a time zone (not a stored moment) is shown as stored. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (!/T\d\d:\d\d.*(Z|[+-]\d\d:?\d\d)$/.test(iso) || Number.isNaN(d.getTime()))
+    return iso.slice(0, 16).replace("T", " ");
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+/** A moment's time of day, 24-hour, in this computer's time zone ("17:32:21"); the same in every language. */
+export function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+}
 export const titleCase = (s: string) =>
   s
     .toLowerCase()

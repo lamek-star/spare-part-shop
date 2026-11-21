@@ -1,8 +1,8 @@
 import type { UnitOfWork } from "../providers/uow";
-import type { DashboardMetrics } from "../providers/sales";
+import { STOCK_LEVELS, type DashboardMetrics } from "../providers/sales";
 import type { Actor } from "./types";
 import { can, requirePermission } from "./permissions";
-import { isoDate } from "./validate";
+import { integer, isoDate, oneOf } from "./validate";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const range = (from: unknown, to: unknown) => {
@@ -57,6 +57,16 @@ export class ReportService {
   async lowStock(actor: Actor) {
     requirePermission(actor, "reports.inventory");
     return this.uow.read((r) => r.reports.lowStock());
+  }
+  /** The dashboard's red / amber / green stock list (levels are set per product: minimum and reorder). */
+  async stockStatus(actor: Actor, q: { level?: unknown; limit?: unknown }) {
+    requirePermission(actor, "reports.inventory");
+    const level =
+      q.level === undefined || q.level === "" || q.level === "ALL"
+        ? null
+        : oneOf(q.level, STOCK_LEVELS, "Level", "RED");
+    const limit = integer(q.limit, "Limit", { min: 1, max: 500, default: 50 });
+    return this.uow.read((r) => r.reports.stockStatus(level, limit));
   }
   async salesByPeriod(actor: Actor, q: { from?: unknown; to?: unknown }) {
     requirePermission(actor, "reports.sales");

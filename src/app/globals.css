@@ -1240,3 +1240,571 @@ main a:not(.button):hover {
     break-inside: avoid;
   }
 }
+
+/* ===================================================================== motion & polish
+   One set of timings for the whole app; everything settles fast (under 0.4 s) and nothing moves for people who
+   ask their system for less motion (the last block). */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --fast: 140ms;
+  --base: 220ms;
+  --slow: 380ms;
+  --ring: 0 0 0 3px #3ab8ab38;
+  --shadow-1: 0 1px 2px #172c400d, 0 1px 3px #172c4008;
+  --shadow-2: 0 6px 18px #172c4016;
+  --red: #c4414b;
+  --amber: #d48a12;
+  --green: #2f9e6d;
+}
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+button,
+.button,
+a,
+input,
+select,
+textarea,
+.metric,
+.panel,
+tbody tr {
+  transition:
+    background-color var(--fast) var(--ease-out),
+    border-color var(--fast) var(--ease-out),
+    color var(--fast) var(--ease-out),
+    box-shadow var(--base) var(--ease-out),
+    transform var(--fast) var(--ease-out),
+    opacity var(--fast) var(--ease-out);
+}
+button:active:not(:disabled),
+.button:active {
+  transform: translateY(1px) scale(0.985);
+}
+.primary {
+  box-shadow: 0 1px 2px #08504a30;
+}
+.primary:hover:not(:disabled) {
+  box-shadow: 0 6px 16px #087f7533;
+  transform: translateY(-1px);
+}
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: #aabec8;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #3ab8ab;
+  box-shadow: var(--ring);
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+.panel,
+.metrics {
+  box-shadow: var(--shadow-1);
+}
+.metric:hover {
+  background: #fafcfd;
+}
+tbody tr.clickable {
+  cursor: pointer;
+}
+tbody tr.clickable:hover {
+  background: #f2f8f8;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- entrances --- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+main.page-enter > * {
+  animation: rise var(--slow) var(--ease-out) both;
+}
+main.page-enter > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+main.page-enter > *:nth-child(3) {
+  animation-delay: 60ms;
+}
+main.page-enter > *:nth-child(4) {
+  animation-delay: 90ms;
+}
+main.page-enter > *:nth-child(5) {
+  animation-delay: 120ms;
+}
+main.page-enter > *:nth-child(n + 6) {
+  animation-delay: 150ms;
+}
+tbody tr {
+  animation: fade-in var(--base) var(--ease-out) both;
+}
+tbody tr:nth-child(2) {
+  animation-delay: 15ms;
+}
+tbody tr:nth-child(3) {
+  animation-delay: 30ms;
+}
+tbody tr:nth-child(4) {
+  animation-delay: 45ms;
+}
+tbody tr:nth-child(5) {
+  animation-delay: 60ms;
+}
+tbody tr:nth-child(6) {
+  animation-delay: 75ms;
+}
+tbody tr:nth-child(7) {
+  animation-delay: 90ms;
+}
+tbody tr:nth-child(n + 8) {
+  animation-delay: 105ms;
+}
+.login-card {
+  animation: rise var(--slow) var(--ease-out) both;
+}
+.notice,
+.error {
+  animation: rise var(--base) var(--ease-out) both;
+}
+
+/* --- sidebar: a sliding marker on the current page; the frame eases when collapsed --- */
+.app {
+  transition: grid-template-columns var(--base) var(--ease-out);
+}
+.nav-item {
+  position: relative;
+  border-radius: 7px;
+}
+.nav-item::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 3px;
+  background: #53baac;
+  transform: scaleY(0);
+  transition: transform var(--base) var(--ease-out);
+}
+.nav-item.active::before {
+  transform: scaleY(1);
+}
+.nav-item svg {
+  transition: transform var(--base) var(--ease-out);
+}
+.nav-item:hover svg {
+  transform: scale(1.1);
+}
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: #385062 transparent;
+}
+
+/* --- tabs: the underline grows in instead of jumping --- */
+.tabs button {
+  position: relative;
+  border-radius: 6px 6px 0 0;
+}
+.tabs button:hover {
+  color: var(--text);
+  background: #eef3f6;
+}
+.tabs button.selected {
+  border-bottom: 0;
+}
+.tabs button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--teal);
+  transform: scaleX(0);
+  transition: transform var(--base) var(--ease-out);
+}
+.tabs button.selected::after {
+  transform: scaleX(1);
+}
+
+/* --- dialogs: scale in, ease out; a soft blur behind --- */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+dialog[open] {
+  animation: dialog-in var(--base) var(--ease-out);
+}
+dialog[open]::backdrop {
+  backdrop-filter: blur(2px);
+  animation: backdrop-in var(--base) ease-out;
+}
+dialog.closing {
+  animation: dialog-out 160ms var(--ease-in-out) forwards;
+}
+dialog.closing::backdrop {
+  animation: backdrop-out 160ms ease-in forwards;
+}
+.modal-head button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  padding: 0;
+}
+.modal-head button:hover {
+  transform: rotate(90deg);
+}
+
+/* --- menus and the search drop-down open with a small pop --- */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.account[open] .account-menu,
+.search-results {
+  animation: pop var(--base) var(--ease-out);
+  transform-origin: top;
+}
+
+/* --- toast: slides up, fades away --- */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.toast {
+  animation: toast-in var(--slow) var(--ease-out) both;
+}
+.toast.leaving {
+  animation: toast-out 300ms var(--ease-in-out) forwards;
+}
+
+/* --- loading: a shimmer in the shape of content instead of a bare word --- */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.loading {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0;
+  max-width: 640px;
+}
+.skeleton {
+  display: block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e7edf2 0%, #f6f9fb 45%, #e7edf2 90%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.skeleton.short {
+  width: 55%;
+}
+
+/* --- part number: the manufacturer's number as a small monospace chip --- */
+.part-no {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border: 1px solid #cfe7e2;
+  border-radius: 4px;
+  background: #eef7f5;
+  color: #0b6b62;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--teal);
+}
+button.ghost:hover {
+  background: #edf6f5;
+  border-color: #cfe7e2;
+}
+
+/* --- dashboard stock status: red / amber / green --- */
+.level-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.7fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.level-tab {
+  --c: var(--teal);
+  --soft: #edf6f5;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "dot name count"
+    "hint hint hint";
+  align-items: center;
+  gap: 2px 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  text-align: start;
+  white-space: normal;
+}
+.level-tab.red {
+  --c: var(--red);
+  --soft: #fdf1f2;
+}
+.level-tab.amber {
+  --c: var(--amber);
+  --soft: #fff6e6;
+}
+.level-tab.green {
+  --c: var(--green);
+  --soft: #eef8f3;
+}
+.level-tab.all {
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name count";
+}
+.level-tab .level-dot {
+  grid-area: dot;
+}
+.level-tab .level-name {
+  grid-area: name;
+}
+.level-tab .level-count {
+  grid-area: count;
+  color: var(--c);
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.level-tab small {
+  grid-area: hint;
+  font-weight: 400;
+}
+.level-tab:hover {
+  border-color: var(--c);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+  background: #fff;
+}
+.level-tab[aria-selected="true"] {
+  background: var(--soft);
+  border-color: var(--c);
+  box-shadow:
+    inset 0 0 0 1px var(--c),
+    var(--shadow-2);
+}
+.level-dot {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c, #9badbb);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, #9badbb) 18%, transparent);
+}
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 50%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+.stock-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.stock-row {
+  --c: var(--teal);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.7fr) minmax(90px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 8px;
+  border-bottom: 1px solid #edf1f4;
+  border-radius: 6px;
+  animation: rise var(--base) var(--ease-out) both;
+  transition: background-color var(--fast) var(--ease-out);
+}
+.stock-row:last-child {
+  border-bottom: 0;
+}
+.stock-row:hover {
+  background: #f7fafb;
+}
+.stock-row.red {
+  --c: var(--red);
+}
+.stock-row.amber {
+  --c: var(--amber);
+}
+.stock-row.green {
+  --c: var(--green);
+}
+.stock-row.red .level-dot {
+  animation: pulse 1.8s ease-out infinite;
+}
+.stock-row:nth-child(2) {
+  animation-delay: 25ms;
+}
+.stock-row:nth-child(3) {
+  animation-delay: 50ms;
+}
+.stock-row:nth-child(4) {
+  animation-delay: 75ms;
+}
+.stock-row:nth-child(5) {
+  animation-delay: 100ms;
+}
+.stock-row:nth-child(n + 6) {
+  animation-delay: 125ms;
+}
+.stock-name {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stock-name:hover {
+  color: var(--teal);
+}
+.stock-name small {
+  display: block;
+  font-weight: 400;
+}
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.stock-meter {
+  height: 8px;
+  border-radius: 99px;
+  background: #edf2f5;
+  overflow: hidden;
+}
+.stock-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--c);
+  transform-origin: left center;
+  animation: grow 700ms var(--ease-out) 120ms both;
+}
+[dir="rtl"] .stock-meter > span {
+  transform-origin: right center;
+}
+.stock-qty {
+  min-width: 96px;
+  text-align: end;
+}
+.stock-qty strong {
+  font-size: 15px;
+}
+.stock-qty small {
+  display: block;
+}
+@media (max-width: 1150px) {
+  .level-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .stock-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px 10px;
+  }
+  .stock-meter {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  .stock-row > button.ghost {
+    grid-column: 2 / -1;
+    justify-self: start;
+    padding-inline: 0;
+  }
+}
+
+/* --- for people who ask their system for less motion: no movement at all --- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media print {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

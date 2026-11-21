@@ -1,6 +1,25 @@
 import type { FieldSpec } from "./kit";
-import type { Translate } from "./i18n";
+import { useT, type Translate } from "./i18n";
 import { translate } from "./messages";
+
+/** The part number shown beside the SKU: the active OEM number, else any other active part number
+ * (the same rule as the server's mainPartNumber for the product list). */
+export function mainPartNumber(
+  numbers: { display: string; type: string; active: boolean }[],
+): string {
+  const active = numbers.filter((n) => n.active && n.type !== "INTERNAL_SKU");
+  return (active.find((n) => n.type === "OEM_OE") ?? active[0])?.display ?? "";
+}
+
+/** The default units ("Each", "Pack") in the person's language; a unit the shop typed itself is shown as typed. */
+export function useUnitLabel() {
+  const t = useT();
+  return (unit: string) =>
+    unit === "Each" ? t("prod.each") : unit === "Pack" ? t("prod.pack") : unit;
+}
+
+/** A product's condition; each has a "status.<value>" text in every language. */
+export const CONDITIONS = ["NEW", "USED", "REMANUFACTURED", "OTHER"] as const;
 
 export function productFields(opts: {
   /** The person's language (useT()). */
@@ -71,6 +90,18 @@ export function productFields(opts: {
       ]
     : [
         { name: "sku", label: t("prod.skuYourOwnCode"), required: true },
+        // The manufacturer's number goes in with a new product; later ones are added on its Part numbers tab.
+        ...(opts.creating
+          ? [
+              {
+                name: "partNumber",
+                label: t("prod.partNumberOem"),
+                optional: true,
+                placeholder: "04465-33450",
+                help: t("prod.partNumberHelp"),
+              },
+            ]
+          : []),
         { name: "name", label: t("users.name"), required: true },
         { name: "brand", label: t("prod.brand") },
         { name: "manufacturer", label: t("prod.manufacturer") },
@@ -79,9 +110,9 @@ export function productFields(opts: {
           name: "condition",
           label: t("prod.condition"),
           type: "select",
-          options: ["NEW", "USED", "REMANUFACTURED", "OTHER"].map((v) => ({
+          options: CONDITIONS.map((v) => ({
             value: v,
-            label: v.charAt(0) + v.slice(1).toLowerCase(),
+            label: t(`status.${v}`),
           })),
         },
         { name: "priceMinor", label: t("prod.sellingPrice"), type: "money" },
@@ -94,6 +125,13 @@ export function productFields(opts: {
       label: t("prod.reorderLevel"),
       type: "number",
       help: t("prod.warnWhenAvailableStockFalls"),
+    },
+    {
+      // Red on the dashboard at or below this; amber at or below the reorder level; green above it.
+      name: "minimumLevel",
+      label: t("prod.minimumLevel"),
+      type: "number",
+      help: t("prod.minimumLevelHelp"),
     },
     {
       name: "unit",

@@ -7,7 +7,9 @@ import type {
   ProductSalesHistory,
   WriteOffRow,
   ReportRepository,
+  StockLevel,
   StockLevelRow,
+  StockLevels,
 } from "../../providers/sales";
 import { likeTerm, pageArgs } from "./util";
 
@@ -152,6 +154,43 @@ export class SqliteReportRepository implements ReportRepository {
         available: n(r.on_hand) - n(r.reserved),
       })),
     );
+  }
+  stockStatus(level: StockLevel | null, limit: number): Promise<StockLevels> {
+    // Available = on hand - reserved, from the stock ledger's balances (never from the browser).
+    const levelled = `SELECT x.*, CASE
+          WHEN x.available <= 0 OR (x.minimum_level > 0 AND x.available <= x.minimum_level) THEN 'RED'
+          WHEN x.reorder_level > 0 AND x.available <= x.reorder_level THEN 'AMBER'
+          ELSE 'GREEN' END AS level
+        FROM (SELECT p.id, p.sku, p.name, p.brand, p.unit, p.reorder_level, p.minimum_level,
+                     COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) AS available
+                FROM products p WHERE p.status = 'ACTIVE') x`;
+    return this.db.read(async (h) => {
+      const counts: Record<StockLevel, number> = { RED: 0, AMBER: 0, GREEN: 0 };
+      for (const r of await h.all<Row>(
+        `SELECT y.level, COUNT(*) AS n FROM (${levelled}) y GROUP BY y.level`,
+      ))
+        counts[s(r.level) as StockLevel] = n(r.n);
+      const rows = await h.all<Row>(
+        `SELECT y.* FROM (${levelled}) y ${level ? "WHERE y.level = ?" : ""}
+          ORDER BY CASE y.level WHEN 'RED' THEN 0 WHEN 'AMBER' THEN 1 ELSE 2 END, y.available, y.name COLLATE NOCASE
+          LIMIT ?`,
+        level ? [level, limit] : [limit],
+      );
+      return {
+        counts,
+        items: rows.map((r) => ({
+          productId: s(r.id),
+          sku: s(r.sku),
+          name: s(r.name),
+          brand: s(r.brand),
+          unit: s(r.unit),
+          available: n(r.available),
+          reorderLevel: n(r.reorder_level),
+          minimumLevel: n(r.minimum_level),
+          level: s(r.level) as StockLevel,
+        })),
+      };
+    });
   }
   lowStock() {
     return this.db.read(async (h) =>

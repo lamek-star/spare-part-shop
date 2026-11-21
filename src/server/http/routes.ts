@@ -1179,6 +1179,11 @@ export function buildRouter(): Router {
       "inventory-valuation": () => rep.inventoryValuation(a),
       "stock-on-hand": () => rep.stockOnHand(a),
       "low-stock": () => rep.lowStock(a),
+      "stock-status": () =>
+        rep.stockStatus(a, {
+          level: c.query.str("level"),
+          limit: c.query.int("limit"),
+        }),
       "sales-by-period": () => rep.salesByPeriod(a, range),
       "sales-by-product": () => rep.salesByProduct(a, range),
       "customer-activity": () => rep.customerActivity(a, range),

@@ -14,6 +14,7 @@ import {
 } from "../../ui/kit";
 import { qs } from "../../ui/api";
 import { useT } from "../../ui/i18n";
+import { StockStatusPanel } from "../../ui/stockStatus";
 import type { MessageKey } from "../../ui/messages";
 
 interface Dash {
@@ -35,15 +36,6 @@ export default function Dashboard() {
   const t = useT();
   const s = useSession();
   const d = useApi<Dash>("/reports/dashboard");
-  const low = useApi<
-    {
-      productId: string;
-      sku: string;
-      name: string;
-      available: number;
-      reorderLevel: number;
-    }[]
-  >(s.can("reports.inventory") ? "/reports/low-stock" : null);
   const overdue = useApi<
     {
       invoiceId: string;
@@ -143,7 +135,8 @@ export default function Dashboard() {
           />
         </>
       )}
-      <div className="dashboard-grid">
+      {s.can("reports.inventory") && <StockStatusPanel />}
+      <div>
         {s.can("enquiries.read") && (
           <Panel
             title={t("dash.newEnquiries")}
@@ -173,27 +166,6 @@ export default function Dashboard() {
                 ]}
               />
             )}
-          </Panel>
-        )}
-        {s.can("reports.inventory") && (
-          <Panel title={t("dash.needsReordering")}>
-            {low.data && low.data.length === 0 && (
-              <Empty>{t("dash.nothingIsBelowItsReorder")}</Empty>
-            )}
-            {low.data?.slice(0, 8).map((r) => (
-              <div className="top-part" key={r.productId}>
-                <Link href={`/products/${r.productId}`}>
-                  {r.name}
-                  <small className="muted" style={{ display: "block" }}>
-                    {r.sku}
-                  </small>
-                </Link>
-                <span style={{ marginLeft: "auto" }}>
-                  {r.available}{" "}
-                  <span className="muted">/ {r.reorderLevel}</span>
-                </span>
-              </div>
-            ))}
           </Panel>
         )}
       </div>

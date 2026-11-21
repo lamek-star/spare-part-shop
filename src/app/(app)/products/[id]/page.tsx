@@ -18,6 +18,7 @@ import {
   Tabs,
   useAction,
   useApi,
+  useStatusLabel,
   type FieldSpec,
 } from "../../../../ui/kit";
 import {
@@ -40,8 +41,10 @@ import {
 } from "../../../../ui/stock";
 import {
   belowCostWarning,
+  mainPartNumber,
   productFields,
   productPayload,
+  useUnitLabel,
 } from "../../../../ui/productForm";
 import { LabelDialog } from "../../../../ui/labelDialog";
 import { useT } from "../../../../ui/i18n";
@@ -147,13 +150,23 @@ export default function ProductPage({
   if (!d.data) return <ErrorBanner message={d.error || t("prod.notFound")} />;
   const { product: p, totals } = d.data;
   const low = p.reorderLevel > 0 && totals.available <= p.reorderLevel;
+  const partNo = mainPartNumber(d.data.numbers);
   return (
     <>
       <PageHead
         title={p.name}
         subtitle={
           <>
-            {p.sku} · <Badge value={p.status} />{" "}
+            {p.sku}
+            {partNo && (
+              <>
+                {" · "}
+                <span className="part-no" title={t("prod.partNumber")}>
+                  {partNo}
+                </span>
+              </>
+            )}{" "}
+            · <Badge value={p.status} />{" "}
             {low && <Badge value="LOW" label={t("dash.lowStock")} />}
           </>
         }
@@ -188,7 +201,11 @@ export default function ProductPage({
                 },
               ]
             : []),
-          { label: t("prod.reorderLevel"), value: p.reorderLevel },
+          {
+            label: t("prod.reorderLevel"),
+            value: p.reorderLevel,
+            hint: `${t("prod.minimumLevel")}: ${p.minimumLevel}`,
+          },
         ]}
       />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
@@ -231,6 +248,8 @@ export default function ProductPage({
 // ------------------------------------------------------------------ overview
 function Overview({ d, reload }: { d: Detail; reload: () => void }) {
   const t = useT();
+  const statusLabel = useStatusLabel();
+  const unitLabel = useUnitLabel();
   const s = useSession();
   const p = d.product;
   const act = useAction(reload);
@@ -420,16 +439,17 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
                     string,
                   ][])
                 : []),
-              ["Brand", p.brand],
-              ["Manufacturer", p.manufacturer],
-              ["Category", p.category],
-              ["Condition", titleCase(p.condition)],
-              ["Unit", p.unit],
-              ["Weight", p.weightGrams ? `${p.weightGrams} g` : ""],
-              ["Origin", p.origin],
-              ["Description", p.description],
-              ["Notes", p.notes],
-              ["Updated", formatDateTime(p.updatedAt)],
+              [t("prod.partNumber"), mainPartNumber(d.numbers)],
+              [t("prod.brand"), p.brand],
+              [t("prod.manufacturer"), p.manufacturer],
+              [t("prod.category"), p.category],
+              [t("prod.condition"), statusLabel(p.condition)],
+              [t("prod.unit"), unitLabel(p.unit)],
+              [t("prod.weight"), p.weightGrams ? `${p.weightGrams} g` : ""],
+              [t("prod.origin"), p.origin],
+              [t("lines.description"), p.description],
+              [t("prod.notes"), p.notes],
+              [t("prod.updated"), formatDateTime(p.updatedAt)],
             ]}
           />
           <div className="actions" style={{ marginTop: 16 }}>

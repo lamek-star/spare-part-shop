@@ -28,6 +28,7 @@ interface Product {
   onHand: number;
   available: number;
   primaryImageUrl: string | null;
+  partNumber: string;
 }
 export default function Products() {
   const t = useT();
@@ -120,6 +121,11 @@ export default function Products() {
                     {p.sku}
                     {p.brand ? ` · ${p.brand}` : ""}
                   </small>
+                  {p.partNumber && (
+                    <span className="part-no" title={t("prod.partNumber")}>
+                      {p.partNumber}
+                    </span>
+                  )}
                 </div>
               </div>
             ),
@@ -172,7 +178,6 @@ export default function Products() {
           initial={{
             condition: "NEW",
             status: "ACTIVE",
-            currency: "AED",
             ...(s.edition === "pharmacy"
               ? { trackBatches: true, unit: "Pack" }
               : {}),

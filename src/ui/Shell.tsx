@@ -385,7 +385,9 @@ function AppFrame({ children }: { children: ReactNode }) {
             </div>
           </details>
         </header>
-        <main>{children}</main>
+        <main key={path} className="page-enter">
+          {children}
+        </main>
       </div>
     </div>
   );

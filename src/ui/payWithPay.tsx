@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Money, useToast } from "./kit";
-import { post } from "./api";
+import { formatTime, post } from "./api";
 import { useT } from "./i18n";
 
 interface PayView {
@@ -112,7 +112,7 @@ export function PayWithPay({
             {pay.expiresAt && (
               <p className="muted">
                 {tr("pay.expiresAt", {
-                  time: new Date(pay.expiresAt).toLocaleTimeString(),
+                  time: formatTime(pay.expiresAt),
                 })}
               </p>
             )}
