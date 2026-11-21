@@ -1023,7 +1023,7 @@ export const ti: Messages = {
   "srv.doc.lineDesc": "መስመር {line} መግለጺ የድልዮ።",
   "srv.doc.linePrice": "መስመር {line} ካብ ዜሮ ዝዓቢ ዋጋ የድልዮ።",
   "srv.inv.voidPay": "ዝተሰረዘ ፋክቱራ ክፍሊት ክቕበል ኣይክእልን።",
-  "srv.inv.exceeds": "እቲ ክፍሊት ካብቲ ዝተረፈ ዕዳ ይበዝሕ ({balance} ንኣሽቱ ኣሃዱታት)።",
+  "srv.inv.exceeds": "እቲ ክፍሊት ካብቲ ዝተረፈ ዕዳ ይበዝሕ ({balance})።",
   "srv.inv.hasPayments": "እዚ ፋክቱራ ዝተመዝገቡ ክፍሊታት ስለዘለውዎ ክስረዝ ኣይክእልን።",
   "srv.inv.paid": "እዚ ፋክቱራ ድሮ ብምሉኡ ተኸፊሉ እዩ።",
   "srv.pay.down": "IntraForge Pay ኣይመልስን ዘሎ። ቁሩብ ጸኒሕኩም እንደገና ፈትኑ።",

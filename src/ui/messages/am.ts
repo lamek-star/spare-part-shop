@@ -1028,7 +1028,7 @@ export const am: Messages = {
   "srv.doc.lineDesc": "መስመር {line} መግለጫ ያስፈልገዋል።",
   "srv.doc.linePrice": "መስመር {line} ከዜሮ የሚበልጥ ዋጋ ያስፈልገዋል።",
   "srv.inv.voidPay": "የተሰረዘ ደረሰኝ ክፍያ መቀበል አይችልም።",
-  "srv.inv.exceeds": "ክፍያው ከቀሪው ዕዳ ይበልጣል ({balance} ትናንሽ አሃዶች)።",
+  "srv.inv.exceeds": "ክፍያው ከቀሪው ዕዳ ይበልጣል ({balance})።",
   "srv.inv.hasPayments": "ይህ ደረሰኝ የተመዘገቡ ክፍያዎች ስላሉት መሰረዝ አይቻልም።",
   "srv.inv.paid": "ይህ ደረሰኝ አስቀድሞ ሙሉ በሙሉ ተከፍሏል።",
   "srv.pay.down": "IntraForge Pay መልስ እየሰጠ አይደለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",

@@ -481,6 +481,16 @@ test("order -> invoice bills only what was delivered; payments are partial then 
       "VALIDATION",
       "cannot overpay",
     );
+    await assert.rejects(
+      t.app.sales.recordPayment(s, inv1.id, {
+        amountMinor: 21501,
+        method: "CARD",
+      }),
+      (e: Error) =>
+        e.message ===
+        `The payment exceeds the balance due (${inv1.currency} 215.00).`,
+      "the cashier sees the balance as money, not minor units",
+    );
     assert.equal(
       await code(
         t.app.sales.recordPayment(s, inv1.id, {

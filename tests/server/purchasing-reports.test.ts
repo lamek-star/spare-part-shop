@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeApp, seedBasics } from "./helpers";
+import { averagedCost } from "../../src/server/domain/purchasing";
 import { AppError } from "../../src/server/kernel/errors";
 
 const code = async (p: Promise<unknown>) => {
@@ -273,6 +274,74 @@ test("settings are configuration: the shop name is data, never hard-coded", asyn
     });
     assert.equal(q.taxBp, 0);
     assert.equal(q.terms, "Payment within 14 days.");
+  } finally {
+    await t.cleanup();
+  }
+});
+
+test("averaged cost: weighted by the stock already on hand; no cost or no stock takes the new cost", () => {
+  assert.equal(averagedCost(10, 6000, 20, 5500), 5667);
+  assert.equal(averagedCost(0, 6000, 5, 5500), 5500);
+  assert.equal(averagedCost(10, 0, 5, 5500), 5500);
+});
+
+test("received goods set the product's cost: discount applied, averaged, audited; other currency or no cost leaves it", async () => {
+  const t = await makeApp();
+  try {
+    const { supplier, location } = await seedBasics(t);
+    const o = t.actors.OWNER;
+    const inv = t.actors.INVENTORY;
+    const p = await t.app.products.create(o, {
+      sku: "FLT-1",
+      name: "Filter",
+      priceMinor: 2000,
+    });
+    const receive = async (lines: Record<string, unknown>[]) => {
+      const po = await t.app.purchasing.create(inv, {
+        supplierId: supplier.id,
+        locationId: location.id,
+        lines,
+      });
+      await t.app.purchasing.confirm(inv, po.id);
+      return t.app.purchasing.receive(inv, po.id, {});
+    };
+    const cost = async () =>
+      (await t.app.products.detail(o, p.id)).product.costMinor;
+
+    // No cost yet: takes the first delivery's cost after its 10% line discount.
+    await receive([
+      { productId: p.id, quantity: 10, unitCostMinor: 1250, discountBp: 1000 },
+    ]);
+    assert.equal(await cost(), 1125);
+    // Then averaged with the 10 on hand: (10 x 11.25 + 10 x 15.00) / 20 = 13.125 -> 13.13.
+    const second = await receive([
+      { productId: p.id, quantity: 10, unitCostMinor: 1500 },
+    ]);
+    assert.equal(await cost(), 1313);
+    const audit = await t.container.repos.audit.query({
+      entityType: "product",
+      entityId: p.id,
+    });
+    assert.ok(
+      audit.some(
+        (a) =>
+          a.action === "product.cost_change" &&
+          a.summary === `Cost of FLT-1 set from ${second.number}`,
+      ),
+    );
+    // A free (zero-cost) line leaves the cost alone, and so does a product priced in another currency than the
+    // order (orders are in the shop's currency; nothing is converted).
+    await receive([{ productId: p.id, quantity: 5, unitCostMinor: 0 }]);
+    assert.equal(await cost(), 1313);
+    const usd = await t.app.products.create(o, {
+      sku: "USD-1",
+      name: "Imported",
+      priceMinor: 100,
+      currency: "USD",
+    });
+    await receive([{ productId: usd.id, quantity: 5, unitCostMinor: 900 }]);
+    assert.equal((await t.app.products.detail(o, usd.id)).product.costMinor, 0);
+    assert.deepEqual(await t.container.repos.inventory.verifyIntegrity(), []);
   } finally {
     await t.cleanup();
   }

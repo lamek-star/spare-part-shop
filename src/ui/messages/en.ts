@@ -1075,8 +1075,7 @@ export const en = {
   "srv.doc.lineDesc": "Line {line} needs a description.",
   "srv.doc.linePrice": "Line {line} needs a price greater than zero.",
   "srv.inv.voidPay": "A void invoice cannot take payments.",
-  "srv.inv.exceeds":
-    "The payment exceeds the balance due ({balance} minor units).",
+  "srv.inv.exceeds": "The payment exceeds the balance due ({balance}).",
   "srv.inv.hasPayments":
     "This invoice has payments recorded and cannot be voided.",
   "srv.inv.paid": "This invoice is already paid in full.",

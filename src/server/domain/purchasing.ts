@@ -9,6 +9,26 @@ import { requirePermission } from "./permissions";
 import { integer, isoDate, moneyMinor, record, text } from "./validate";
 import type { Repositories } from "../providers/uow";
 
+/**
+ * A product's cost after goods arrive: the weighted average of the stock already on hand at the old cost and the
+ * delivered quantity at the order's unit cost. A product with no cost yet, or no stock, simply takes the new cost.
+ */
+export function averagedCost(
+  onHand: number,
+  oldCostMinor: number,
+  quantity: number,
+  unitCostMinor: number,
+): number {
+  if (oldCostMinor <= 0 || onHand <= 0) return unitCostMinor;
+  return Math.round(
+    (onHand * oldCostMinor + quantity * unitCostMinor) / (onHand + quantity),
+  );
+}
+
+/** What one unit on this line really cost, after the line's discount. */
+const effectiveUnitCost = (line: PurchaseLine) =>
+  Math.round((line.unitCostMinor * (10_000 - line.discountBp)) / 10_000);
+
 async function purchaseLines(
   r: Repositories,
   raw: unknown,
@@ -271,6 +291,9 @@ export class PurchasingService {
           throw validation(
             `Only ${line.quantity - line.quantityReceived} more expected on this line.`,
           );
+        const onHandBefore = (
+          await r.inventory.balances({ productId: line.productId })
+        ).reduce((sum, b) => sum + b.onHand, 0);
         await inv.receive(actor, {
           productId: line.productId,
           locationId,
@@ -285,6 +308,7 @@ export class PurchasingService {
           ),
         });
         line.quantityReceived += qty;
+        await updateCostFromReceipt(r, actor, o, line, qty, onHandBefore);
         receiptLines.push({
           purchaseLineId: line.id,
           productId: line.productId,
@@ -317,4 +341,43 @@ export class PurchasingService {
       return o;
     });
   }
+}
+
+/**
+ * Received goods set the product's cost (weighted average), so stock value and gross profit use what the shop paid.
+ * Skipped when the order is in another currency than the product, or the line has no cost (free or unknown).
+ */
+async function updateCostFromReceipt(
+  r: Repositories,
+  actor: Actor,
+  order: PurchaseOrder,
+  line: PurchaseLine,
+  quantity: number,
+  onHandBefore: number,
+) {
+  const unitCost = effectiveUnitCost(line);
+  if (unitCost <= 0) return;
+  const product = await r.products.get(line.productId);
+  if (!product || product.currency !== order.currency) return;
+  const costMinor = averagedCost(
+    onHandBefore,
+    product.costMinor ?? 0,
+    quantity,
+    unitCost,
+  );
+  if (costMinor === product.costMinor) return;
+  await r.products.update({ ...product, costMinor, updatedAt: nowIso() });
+  await r.audit.record(actor, {
+    action: "product.cost_change",
+    entityType: "product",
+    entityId: product.id,
+    summary: `Cost of ${product.sku} set from ${order.number}`,
+    metadata: {
+      fromMinor: product.costMinor,
+      toMinor: costMinor,
+      purchaseOrder: order.number,
+      quantity,
+      unitCostMinor: unitCost,
+    },
+  });
 }

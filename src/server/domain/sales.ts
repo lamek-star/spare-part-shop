@@ -15,7 +15,7 @@ import type {
 } from "./types";
 import { paymentMethods } from "./types";
 import { conflict, forbidden, notFound, validation } from "../kernel/errors";
-import { documentTotals, lineTotal } from "../kernel/money";
+import { documentTotals, formatMoney, lineTotal } from "../kernel/money";
 import { newId, normalizeNumber, nowIso } from "../kernel/ids";
 import { batchInput, InventoryOps } from "./inventory";
 import { requirePermission } from "./permissions";
@@ -89,7 +89,7 @@ export async function applyPayment(
     throw conflict("This invoice is already paid in full.");
   if (fields.amountMinor > invoice.balanceMinor)
     throw validation(
-      `The payment exceeds the balance due (${invoice.balanceMinor} minor units).`,
+      `The payment exceeds the balance due (${formatMoney(invoice.balanceMinor, invoice.currency)}).`,
     );
   const payment: Payment = {
     id: newId(),

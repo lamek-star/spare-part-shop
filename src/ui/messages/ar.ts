@@ -1053,8 +1053,7 @@ export const ar: Messages = {
   "srv.doc.lineDesc": "السطر {line} يحتاج إلى وصف.",
   "srv.doc.linePrice": "السطر {line} يحتاج إلى سعر أكبر من صفر.",
   "srv.inv.voidPay": "لا يمكن تسجيل دفعات على فاتورة ملغاة.",
-  "srv.inv.exceeds":
-    "الدفعة تتجاوز الرصيد المستحق ({balance} من الوحدات الصغرى).",
+  "srv.inv.exceeds": "الدفعة تتجاوز الرصيد المستحق ({balance}).",
   "srv.inv.hasPayments": "توجد دفعات مسجلة على هذه الفاتورة ولا يمكن إلغاؤها.",
   "srv.inv.paid": "هذه الفاتورة مدفوعة بالكامل بالفعل.",
   "srv.pay.down": "IntraForge Pay لا يستجيب. حاول مرة أخرى بعد قليل.",
