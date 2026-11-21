@@ -13,6 +13,7 @@ import {
   productPayload,
 } from "../../../ui/productForm";
 import { useT } from "../../../ui/i18n";
+import { needsOrdering } from "../../../ui/stockStatus";
 
 interface Product {
   id: string;
@@ -25,6 +26,7 @@ interface Product {
   costMinor: number | null;
   currency: string;
   reorderLevel: number;
+  minimumLevel: number;
   onHand: number;
   available: number;
   primaryImageUrl: string | null;
@@ -135,7 +137,7 @@ export default function Products() {
             header: t("prod.available"),
             align: "right",
             cell: (p) =>
-              p.reorderLevel > 0 && p.available <= p.reorderLevel ? (
+              needsOrdering(p) ? (
                 <strong style={{ color: "#a4323e" }}>{p.available}</strong>
               ) : (
                 p.available

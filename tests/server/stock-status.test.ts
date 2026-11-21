@@ -197,3 +197,57 @@ test("stock status: red at/below the minimum or none left, amber at/below reorde
     await t.cleanup();
   }
 });
+
+test("the Low stock tile, the 'Low stock only' filter and the low-stock report agree with Stock status", async () => {
+  const t = await makeApp();
+  try {
+    const o = t.actors.OWNER;
+    const { location } = await seedBasics(t); // OIL-001: 10 on hand, reorder 3 -> green
+    const make = (
+      sku: string,
+      qty: number,
+      minimumLevel: number,
+      reorderLevel: number,
+      status = "ACTIVE",
+    ) =>
+      t.app.products.create(o, {
+        sku,
+        name: sku,
+        priceMinor: 1,
+        minimumLevel,
+        reorderLevel,
+        status,
+        ...(qty
+          ? { openingStock: { locationId: location.id, quantity: qty } }
+          : {}),
+      });
+    await make("A-RED-MIN", 2, 2, 5);
+    await make("B-RED-NONE", 0, 0, 0); // none left, no levels: was missed by the tile and the filter
+    await make("C-AMBER", 4, 2, 5);
+    await make("D-GREEN", 20, 2, 5);
+    await make("E-MIN-ONLY", 1, 3, 0); // a minimum without a reorder level: red
+    await make("F-INACTIVE", 0, 0, 0, "INACTIVE");
+
+    const status = await t.app.reports.stockStatus(o, {});
+    const attention = status.counts.RED + status.counts.AMBER;
+    assert.equal(attention, 4);
+    assert.equal(
+      (await t.app.reports.dashboard(o)).lowStockProducts,
+      attention,
+      "the tile counts red and amber",
+    );
+    const filtered = await t.app.products.list(o, { lowStockOnly: true });
+    assert.deepEqual(
+      filtered.items.map((i) => i.sku).sort(),
+      ["A-RED-MIN", "B-RED-NONE", "C-AMBER", "E-MIN-ONLY"],
+      "the filter shows the same products, never an inactive one",
+    );
+    assert.deepEqual(
+      (await t.app.reports.lowStock(o)).map((r) => r.sku),
+      ["B-RED-NONE", "E-MIN-ONLY", "A-RED-MIN", "C-AMBER"],
+      "the report lists them emptiest first",
+    );
+  } finally {
+    await t.cleanup();
+  }
+});

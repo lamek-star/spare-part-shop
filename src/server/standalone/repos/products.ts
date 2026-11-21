@@ -1,4 +1,5 @@
 import type { SqlDatabase } from "../../db/connection";
+import { NEEDS_ORDERING_SQL } from "./stockRule";
 import type {
   Page,
   ProductImage,
@@ -90,11 +91,7 @@ export class SqliteProductRepository implements ProductRepository {
         params.push(query.category));
     if (query.brand)
       (where.push("p.brand = ? COLLATE NOCASE"), params.push(query.brand));
-    if (query.lowStockOnly)
-      where.push(
-        `p.reorder_level > 0 AND p.status = 'ACTIVE' AND
-         COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) <= p.reorder_level`,
-      );
+    if (query.lowStockOnly) where.push(NEEDS_ORDERING_SQL);
     const clause = where.length ? "WHERE " + where.join(" AND ") : "";
     return this.db.read(async (h) => ({
       items: (

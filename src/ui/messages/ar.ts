@@ -1227,4 +1227,10 @@ export const ar: Messages = {
   "srv.prod.minAboveReorder":
     "لا يمكن أن يكون الحد الأدنى أعلى من حد إعادة الطلب.",
   "srv.prod.badPartNumber": "أدخل رقم قطعة صالحًا.",
+
+  // Stock levels: one rule everywhere
+  "dash.criticalOrLow": "حرج أو منخفض",
+  "dash.minOnly": "الحد الأدنى {min}",
+  "dash.reorderOnly": "إعادة الطلب {reorder}",
+  "dash.noLevels": "لم تُحدَّد مستويات",
 };

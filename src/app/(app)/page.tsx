@@ -99,7 +99,7 @@ export default function Dashboard() {
               {
                 label: t("dash.lowStock"),
                 value: n(d.data.lowStockProducts),
-                hint: t("dash.atOrBelowReorder"),
+                hint: t("dash.criticalOrLow"),
               },
               {
                 label: t("dash.stockValueCost"),

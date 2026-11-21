@@ -48,6 +48,7 @@ import {
 } from "../../../../ui/productForm";
 import { LabelDialog } from "../../../../ui/labelDialog";
 import { useT } from "../../../../ui/i18n";
+import { needsOrdering } from "../../../../ui/stockStatus";
 
 interface Product {
   id: string;
@@ -149,7 +150,7 @@ export default function ProductPage({
   if (d.loading && !d.data) return <Loading />;
   if (!d.data) return <ErrorBanner message={d.error || t("prod.notFound")} />;
   const { product: p, totals } = d.data;
-  const low = p.reorderLevel > 0 && totals.available <= p.reorderLevel;
+  const level = needsOrdering({ ...p, available: totals.available });
   const partNo = mainPartNumber(d.data.numbers);
   return (
     <>
@@ -167,7 +168,12 @@ export default function ProductPage({
               </>
             )}{" "}
             · <Badge value={p.status} />{" "}
-            {low && <Badge value="LOW" label={t("dash.lowStock")} />}
+            {level && (
+              <Badge
+                value={level === "RED" ? "OUT" : "LOW"}
+                label={t(level === "RED" ? "dash.levelRED" : "dash.levelAMBER")}
+              />
+            )}
           </>
         }
         back={{ href: "/products", label: t("nav.products") }}

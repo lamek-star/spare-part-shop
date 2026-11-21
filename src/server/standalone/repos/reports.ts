@@ -11,6 +11,7 @@ import type {
   StockLevelRow,
   StockLevels,
 } from "../../providers/sales";
+import { AVAILABLE_SQL, NEEDS_ORDERING_SQL } from "./stockRule";
 import { likeTerm, pageArgs } from "./util";
 
 type Row = Record<string, unknown>;
@@ -41,8 +42,7 @@ export class SqliteReportRepository implements ReportRepository {
           "SELECT COUNT(*) AS v FROM products WHERE status = 'ACTIVE'",
         ),
         lowStockProducts: await one(
-          `SELECT COUNT(*) AS v FROM products p WHERE p.reorder_level > 0 AND p.status = 'ACTIVE' AND
-             COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) <= p.reorder_level`,
+          `SELECT COUNT(*) AS v FROM products p WHERE ${NEEDS_ORDERING_SQL}`,
         ),
         inventoryValueMinor: await one(
           `SELECT COALESCE(SUM(b.on_hand * p.cost_minor), 0) AS v FROM stock_balances b JOIN products p ON p.id = b.product_id`,
@@ -162,7 +162,7 @@ export class SqliteReportRepository implements ReportRepository {
           WHEN x.reorder_level > 0 AND x.available <= x.reorder_level THEN 'AMBER'
           ELSE 'GREEN' END AS level
         FROM (SELECT p.id, p.sku, p.name, p.brand, p.unit, p.reorder_level, p.minimum_level,
-                     COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) AS available
+                     ${AVAILABLE_SQL} AS available
                 FROM products p WHERE p.status = 'ACTIVE') x`;
     return this.db.read(async (h) => {
       const counts: Record<StockLevel, number> = { RED: 0, AMBER: 0, GREEN: 0 };
@@ -196,10 +196,8 @@ export class SqliteReportRepository implements ReportRepository {
     return this.db.read(async (h) =>
       (
         await h.all<Row>(
-          `SELECT p.id, p.sku, p.name, p.reorder_level,
-                  COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) AS available
-             FROM products p WHERE p.reorder_level > 0 AND p.status = 'ACTIVE'
-              AND COALESCE((SELECT SUM(b.on_hand - b.reserved) FROM stock_balances b WHERE b.product_id = p.id), 0) <= p.reorder_level
+          `SELECT p.id, p.sku, p.name, p.reorder_level, ${AVAILABLE_SQL} AS available
+             FROM products p WHERE ${NEEDS_ORDERING_SQL}
             ORDER BY available, p.name COLLATE NOCASE`,
         )
       ).map((r) => ({

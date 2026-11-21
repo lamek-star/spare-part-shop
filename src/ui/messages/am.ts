@@ -1192,4 +1192,10 @@ export const am: Messages = {
   "dash.allProducts": "ሁሉም ምርቶች",
   "srv.prod.minAboveReorder": "ዝቅተኛው ደረጃ ከዳግም ማዘዣ ደረጃው መብለጥ አይችልም።",
   "srv.prod.badPartNumber": "ትክክለኛ የክፍል ቁጥር ያስገቡ።",
+
+  // Stock levels: one rule everywhere
+  "dash.criticalOrLow": "አሳሳቢ ወይም ዝቅተኛ",
+  "dash.minOnly": "ዝቅተኛ {min}",
+  "dash.reorderOnly": "ዳግም ማዘዣ {reorder}",
+  "dash.noLevels": "ደረጃዎች አልተወሰኑም",
 };

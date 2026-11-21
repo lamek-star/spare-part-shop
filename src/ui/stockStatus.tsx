@@ -35,6 +35,39 @@ interface StockStatus {
 const LEVELS: Level[] = ["RED", "AMBER", "GREEN"];
 const LIMIT = 12;
 
+interface Levels {
+  available: number;
+  minimumLevel: number;
+  reorderLevel: number;
+}
+
+/**
+ * One product's colour for a badge, by the same rule the server's Stock status uses (repos/stockRule.ts):
+ * red when none is left or at/below the minimum, amber at/below the reorder level. Inactive products get none.
+ */
+export function needsOrdering(
+  p: Levels & { status: string },
+): "RED" | "AMBER" | null {
+  if (p.status !== "ACTIVE") return null;
+  if (p.available <= 0 || (p.minimumLevel > 0 && p.available <= p.minimumLevel))
+    return "RED";
+  if (p.reorderLevel > 0 && p.available <= p.reorderLevel) return "AMBER";
+  return null;
+}
+
+/** "Min 3 · Reorder 6", only the levels that are set, or "No levels set". */
+function useLevelsText() {
+  const t = useT();
+  return (i: Levels) =>
+    i.minimumLevel > 0 && i.reorderLevel > 0
+      ? t("dash.minReorder", { min: i.minimumLevel, reorder: i.reorderLevel })
+      : i.minimumLevel > 0
+        ? t("dash.minOnly", { min: i.minimumLevel })
+        : i.reorderLevel > 0
+          ? t("dash.reorderOnly", { reorder: i.reorderLevel })
+          : t("dash.noLevels");
+}
+
 /** How full the bar is: available against twice the reorder level (half-full = at the reorder level). */
 function fill(i: Item): number {
   const scale = Math.max(i.reorderLevel, i.minimumLevel) * 2;
@@ -52,6 +85,7 @@ export function StockStatusPanel() {
   const s = useSession();
   const toast = useToast();
   const unitLabel = useUnitLabel();
+  const levelsText = useLevelsText();
   const [chosen, setChosen] = useState<Level | "ALL" | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [editing, setEditing] = useState<Item | null>(null);
@@ -140,12 +174,7 @@ export function StockStatusPanel() {
               <div className="stock-qty">
                 <strong>{i.available}</strong>{" "}
                 <span className="muted">{unitLabel(i.unit)}</span>
-                <small className="muted">
-                  {t("dash.minReorder", {
-                    min: i.minimumLevel,
-                    reorder: i.reorderLevel,
-                  })}
-                </small>
+                <small className="muted">{levelsText(i)}</small>
               </div>
               {s.can("products.write") && (
                 <button className="ghost" onClick={() => setEditing(i)}>

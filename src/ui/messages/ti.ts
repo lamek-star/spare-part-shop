@@ -1185,4 +1185,10 @@ export const ti: Messages = {
   "dash.allProducts": "ኩሎም ኣቕሑ",
   "srv.prod.minAboveReorder": "ዝተሓተ ደረጃ ካብ ደረጃ ዳግማይ ትእዛዝ ክበልጽ ኣይክእልን።",
   "srv.prod.badPartNumber": "ቅኑዕ ቁጽሪ ክፋል ኣእቱ።",
+
+  // Stock levels: one rule everywhere
+  "dash.criticalOrLow": "ኣሰካፊ ወይ ትሑት",
+  "dash.minOnly": "ዝተሓተ {min}",
+  "dash.reorderOnly": "ዳግማይ ትእዛዝ {reorder}",
+  "dash.noLevels": "ደረጃታት ኣይተወሰኑን",
 };

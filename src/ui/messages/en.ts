@@ -1255,6 +1255,12 @@ export const en = {
   "srv.prod.minAboveReorder":
     "The minimum level cannot be above the reorder level.",
   "srv.prod.badPartNumber": "Enter a valid part number.",
+
+  // Stock levels: one rule everywhere
+  "dash.criticalOrLow": "critical or low",
+  "dash.minOnly": "Min {min}",
+  "dash.reorderOnly": "Reorder {reorder}",
+  "dash.noLevels": "No levels set",
 } as const;
 
 export type MessageKey = keyof typeof en;
