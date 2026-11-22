@@ -338,3 +338,49 @@ test("sign-in shows a clear error and sign-out ends the session", async ({
   const me = await page.request.get("/api/v1/auth/me");
   expect(me.status()).toBe(401);
 });
+
+test("on IntraForge, sign-out goes straight to IntraForge's sign-in without flashing this app's", async ({
+  page,
+}) => {
+  await signIn(page, OWNER.email, OWNER.password);
+  await expect(
+    page.getByRole("heading", { name: "Business overview" }),
+  ).toBeVisible();
+  // From here on the server answers as it does inside IntraForge: no session means "go to IntraForge".
+  await page.route("**/api/v1/auth/status", (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          needsSetup: false,
+          edition: "spare-parts",
+          shopName: OWNER.shop,
+          platform: { openUrl: "/intraforge-open" },
+        },
+      },
+    }),
+  );
+  await page.route("**/intraforge-open", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<h1>IntraForge sign-in</h1>",
+    }),
+  );
+  let sawOwnSignIn = false;
+  await page.exposeFunction("sawOwnSignIn", () => {
+    sawOwnSignIn = true;
+  });
+  await page.evaluate(() => {
+    new MutationObserver(() => {
+      if (document.querySelector('input[type="password"]'))
+        (window as unknown as { sawOwnSignIn: () => void }).sawOwnSignIn();
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.locator("details.account summary").click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(
+    page.getByRole("heading", { name: "IntraForge sign-in" }),
+  ).toBeVisible();
+  expect(sawOwnSignIn, "this app's own sign-in form must not appear").toBe(
+    false,
+  );
+});

@@ -136,7 +136,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (platformOpenUrl) return toIntraForge(platformOpenUrl);
         setMe(null);
         setCsrfToken("");
-        setStatus("anonymous");
+        // "Loading", not this app's own sign-in page: on IntraForge, load() learns where
+        // to go and leaves for IntraForge's sign-in, so this app's form (which cannot work
+        // there) must never flash up first. Standalone, load() ends on the sign-in page.
+        setStatus("loading");
         await load();
       },
     }),
