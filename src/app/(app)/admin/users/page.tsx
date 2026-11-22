@@ -12,6 +12,7 @@ import {
 } from "../../../../ui/kit";
 import { formatDateTime, patch, post, titleCase } from "../../../../ui/api";
 import { useT, type Translate } from "../../../../ui/i18n";
+import { AccessRequestsPanel } from "../../../../ui/accessRequests";
 
 interface User {
   id: string;
@@ -48,6 +49,7 @@ export default function Users() {
         }
       />
       <ErrorBanner message={users.error || act.error} onClose={act.clear} />
+      <AccessRequestsPanel />
       <Panel>
         {users.data && (
           <DataTable

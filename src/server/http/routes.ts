@@ -212,6 +212,34 @@ export function buildRouter(): Router {
       }),
     };
   });
+  // IntraForge access requests made from this app (platform mode; ADR-0026).
+  r.get("/access-requests", { permission: "users.manage" }, async (c) => ({
+    data: {
+      available: c.app.accessRequests.available,
+      ...(await c.app.accessRequests.list(c.actor)),
+    },
+  }));
+  r.post(
+    "/access-requests/:id/decide",
+    { permission: "users.manage" },
+    async (c) => {
+      const b = await c.json();
+      const decision = String(b.decision ?? "");
+      if (decision !== "approve" && decision !== "reject" && decision !== "link")
+        throw validation("Choose approve, reject or a new link.");
+      // Where the person reached this app: the confirmation link opens there (IntraForge accepts only its own hosts).
+      const host = c.req.headers.get("x-forwarded-host") ?? c.req.headers.get("host") ?? "";
+      return {
+        data: await c.app.accessRequests.decide(c.actor, {
+          requestId: c.params.id,
+          decision,
+          roleSlug: nul(b.roleSlug) ?? undefined,
+          note: nul(b.note) ?? undefined,
+          origin: `https://${host.split(",")[0].trim()}`,
+        }),
+      };
+    },
+  );
   r.get("/settings", { permission: "settings.read" }, async (c) => ({
     data: await c.app.settings.get(c.actor),
   }));

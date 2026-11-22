@@ -1218,4 +1218,30 @@ export const am: Messages = {
   "rep.from": "ከ",
   "rep.to": "እስከ",
   "stock.to": "ወደ",
+
+  // Access requests (ADR-0026)
+  "access.title": "እዚህ ለመስራት የቀረቡ ጥያቄዎች",
+  "access.help": "አዲስ ሰራተኞች ከመግቢያ ገጹ (መዳረሻ ይጠይቁ) ይጠይቃሉ። ሚናውን እርስዎ ይመርጣሉ፤ ከዚያ አዲሱ ሰው በአንድ ጊዜ አገናኝ መለያውን ያነቃል።",
+  "access.none": "የሚጠብቅ ጥያቄ የለም።",
+  "access.askedFor": "የጠየቁት",
+  "access.adminChooses": "የእርስዎ ምርጫ",
+  "access.asked": "የተጠየቀበት",
+  "access.waiting": "በመጠባበቅ ላይ",
+  "access.waitingForLink": "ጸድቋል፣ አገናኙ ገና አልተጠቀመም",
+  "access.approve": "አጽድቅ",
+  "access.reject": "ውድቅ አድርግ",
+  "access.newLink": "አዲስ አገናኝ",
+  "access.roleToGive": "የሚሰጥ ሚና",
+  "access.youDecide": "ውሳኔው የእርስዎ ነው፤ የጠየቁት ሀሳብ ብቻ ነው።",
+  "access.note": "ማስታወሻ (አማራጭ)",
+  "access.reason": "ምክንያት (አማራጭ)",
+  "access.handOver": "የማንቂያ አገናኙን ያስረክቡ",
+  "access.emailed": "አገናኙ ወደ {email} በኢሜይል ተልኳል። በአካልም መስጠት ይችላሉ፦",
+  "access.giveInPerson": "ይህን አገናኝ ለ{email} በአካል ወይም እሱ/እሷ ብቻ በሚያነቡት መልእክት ይስጡ። አንድ ጊዜ ብቻ፣ ለ72 ሰዓታት ይሰራል።",
+  "access.copy": "ቅዳ",
+  "access.done": "ተጠናቋል",
+
+  // Access requests: server messages
+  "srv.access.decision": "አጽድቅ፣ ውድቅ አድርግ ወይም አዲስ አገናኝ ይምረጡ።",
+  "srv.n.accessRequests": "የመዳረሻ ጥያቄዎች",
 };

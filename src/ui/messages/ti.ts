@@ -1211,4 +1211,30 @@ export const ti: Messages = {
   "rep.from": "ካብ",
   "rep.to": "ክሳብ",
   "stock.to": "ናብ",
+
+  // Access requests (ADR-0026)
+  "access.title": "ኣብዚ ንምስራሕ ዝቐረቡ ሕቶታት",
+  "access.help": "ሓደስቲ ሰራሕተኛታት ካብ ገጽ ምእታው (ፍቓድ ሕተት) ይሓቱ። ተራ ንስኻ ትመርጽ፤ ድሕሪኡ እቲ ሓድሽ ሰብ ብሓንሳብ ዝሰርሕ መላግቦ ሕሳቡ የንጥፍ።",
+  "access.none": "ዝጽበ ሕቶ የለን።",
+  "access.askedFor": "ዝሓተቶ",
+  "access.adminChooses": "ናትካ ምርጫ",
+  "access.asked": "ዝተሓተሉ",
+  "access.waiting": "ይጽበ ኣሎ",
+  "access.waitingForLink": "ጸዲቑ፣ መላግቦ ገና ኣይተጠቕመን",
+  "access.approve": "ኣጽድቕ",
+  "access.reject": "ንጸግ",
+  "access.newLink": "ሓድሽ መላግቦ",
+  "access.roleToGive": "ዝወሃብ ተራ",
+  "access.youDecide": "ውሳኔ ናትካ እዩ፤ ዝሓተቶ ርእይቶ ጥራይ እዩ።",
+  "access.note": "መዘኻኸሪ (ኣማራጺ)",
+  "access.reason": "ምኽንያት (ኣማራጺ)",
+  "access.handOver": "መላግቦ ምንጣፍ ኣረክብ",
+  "access.emailed": "እቲ መላግቦ ናብ {email} ብኢመይል ተላኢኹ። ብኣካል እውን ክትህቦ ትኽእል፦",
+  "access.giveInPerson": "ነዚ መላግቦ ን{email} ብኣካል ወይ ንሱ/ንሳ ጥራይ ዘንብቦ መልእኽቲ ሃቦ። ሓንሳብ ጥራይ፣ ን72 ሰዓታት ይሰርሕ።",
+  "access.copy": "ቅዳሕ",
+  "access.done": "ተወዲኡ",
+
+  // Access requests: server messages
+  "srv.access.decision": "ኣጽድቕ፣ ንጸግ ወይ ሓድሽ መላግቦ ምረጽ።",
+  "srv.n.accessRequests": "ሕቶታት ፍቓድ",
 };

@@ -18,6 +18,7 @@ import { PlatformFileStorage } from "./files";
 import { PlatformIdentityProvider } from "./identity";
 import { IntraForgeClient, platformEnv } from "./intraforge";
 import { PlatformPayGateway } from "./pay";
+import { PlatformAccessRequests } from "./accessRequests";
 import { productName } from "../edition";
 
 /**
@@ -82,6 +83,7 @@ export function composePlatform(db: SqlDatabase, client: IntraForgeClient) {
     relay,
     identity: new PlatformIdentityProvider(client),
     pay: new PlatformPayGateway(client),
+    accessRequests: new PlatformAccessRequests(client),
   };
 }
 
@@ -135,6 +137,7 @@ export async function createPlatformContainer(
     uow,
     identity: new PlatformIdentityProvider(client),
     pay: new PlatformPayGateway(client),
+    accessRequests: new PlatformAccessRequests(client),
     dataDir: join(process.cwd(), ".data-platform"),
     self,
     relay,

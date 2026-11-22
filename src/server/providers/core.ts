@@ -158,6 +158,36 @@ export interface PayCharge {
   code?: string;
   qrSvg?: string;
 }
+/** IntraForge access requests made from this app (ADR-0026); only in platform mode. IntraForge checks that the
+ * person (actorId) may give roles, and the role chosen here is the one given. */
+export interface AccessRequestView {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  email: string;
+  name: string;
+  phone: string;
+  requested_role: string;
+  requested_role_name: string;
+  granted_role: string;
+  message: string;
+  new_account: boolean;
+  activated: boolean;
+  created_at: string;
+}
+export interface AccessRequestsGateway {
+  list(actorId: string): Promise<{
+    results: AccessRequestView[];
+    roles: { slug: string; name: string; summary: string }[];
+  }>;
+  decide(input: {
+    actorId: string;
+    requestId: string;
+    decision: "approve" | "reject" | "link";
+    roleSlug?: string;
+    note?: string;
+    origin: string;
+  }): Promise<{ link: string | null; emailed: boolean }>;
+}
 /** Asks IntraForge Pay for payments; only in platform mode (standalone has none). */
 export interface PayGateway {
   create(input: {

@@ -1252,4 +1252,30 @@ export const ar: Messages = {
   "rep.from": "من",
   "rep.to": "إلى",
   "stock.to": "إلى",
+
+  // Access requests (ADR-0026)
+  "access.title": "طلبات العمل هنا",
+  "access.help": "يطلب الموظفون الجدد من صفحة تسجيل الدخول (طلب وصول). أنت تختار الدور؛ ثم يفعّل الشخص الجديد حسابه برابط يُستخدم مرة واحدة.",
+  "access.none": "لا توجد طلبات معلّقة.",
+  "access.askedFor": "طلب",
+  "access.adminChooses": "اختيارك",
+  "access.asked": "تاريخ الطلب",
+  "access.waiting": "بانتظار القرار",
+  "access.waitingForLink": "موافق عليه، لم يُستخدم الرابط بعد",
+  "access.approve": "موافقة",
+  "access.reject": "رفض",
+  "access.newLink": "رابط جديد",
+  "access.roleToGive": "الدور الممنوح",
+  "access.youDecide": "القرار لك: ما طلبوه مجرد اقتراح.",
+  "access.note": "ملاحظة (اختياري)",
+  "access.reason": "السبب (اختياري)",
+  "access.handOver": "سلّم رابط التفعيل",
+  "access.emailed": "أُرسل الرابط بالبريد إلى {email}. يمكنك أيضًا تسليمه شخصيًا:",
+  "access.giveInPerson": "سلّم هذا الرابط إلى {email} شخصيًا أو برسالة يقرؤها وحده. يعمل مرة واحدة لمدة 72 ساعة.",
+  "access.copy": "نسخ",
+  "access.done": "تم",
+
+  // Access requests: server messages
+  "srv.access.decision": "اختر موافقة أو رفض أو رابطًا جديدًا.",
+  "srv.n.accessRequests": "طلبات الوصول",
 };

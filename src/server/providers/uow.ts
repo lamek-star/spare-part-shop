@@ -1,4 +1,5 @@
 import type {
+  AccessRequestsGateway,
   AuditProvider,
   ConfigurationProvider,
   FileStorage,
@@ -42,4 +43,6 @@ export interface Providers {
   identity: IdentityProvider;
   /** IntraForge Pay, in platform mode only. */
   pay?: PayGateway;
+  /** IntraForge access requests made from this app, in platform mode only (ADR-0026). */
+  accessRequests?: AccessRequestsGateway;
 }

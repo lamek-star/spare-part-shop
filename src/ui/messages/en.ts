@@ -1280,6 +1280,32 @@ export const en = {
   "rep.from": "From",
   "rep.to": "To",
   "stock.to": "To",
+
+  // Access requests (ADR-0026)
+  "access.title": "Requests to work here",
+  "access.help": "New staff ask from the sign-in page (Request access). You choose the role; a new person then activates their account with a one-time link.",
+  "access.none": "No requests waiting.",
+  "access.askedFor": "Asked for",
+  "access.adminChooses": "Your choice",
+  "access.asked": "Asked on",
+  "access.waiting": "Waiting",
+  "access.waitingForLink": "Approved, link not used yet",
+  "access.approve": "Approve",
+  "access.reject": "Reject",
+  "access.newLink": "New link",
+  "access.roleToGive": "Role to give",
+  "access.youDecide": "You decide: what they asked for is only a suggestion.",
+  "access.note": "Note (optional)",
+  "access.reason": "Reason (optional)",
+  "access.handOver": "Hand over the activation link",
+  "access.emailed": "The link was e-mailed to {email}. You can also give it in person:",
+  "access.giveInPerson": "Give this link to {email} in person, or by a message only they read. It works once, for 72 hours.",
+  "access.copy": "Copy",
+  "access.done": "Done",
+
+  // Access requests: server messages
+  "srv.access.decision": "Choose approve, reject or a new link.",
+  "srv.n.accessRequests": "Access requests",
 } as const;
 
 export type MessageKey = keyof typeof en;

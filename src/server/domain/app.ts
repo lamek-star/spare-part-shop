@@ -3,6 +3,7 @@ import type { NewUser, ShopConfig } from "../providers/core";
 import type { Role } from "./types";
 import type { Actor, AuditEvent } from "./types";
 import { requirePermission } from "./permissions";
+import { notFound } from "../kernel/errors";
 import { MasterDataService } from "./masterdata";
 import { InventoryService } from "./inventory";
 import { ProductService } from "./products";
@@ -18,7 +19,7 @@ import { PackageImportService } from "../catalogue/package";
 /** The application's business API, independent of HTTP and of storage:
  * route handlers and tests both talk to this. */
 export function createApp(providers: Providers) {
-  const { uow, identity, pay } = providers;
+  const { uow, identity, pay, accessRequests } = providers;
   return {
     identity,
     users: {
@@ -52,6 +53,30 @@ export function createApp(providers: Providers) {
     inventory: new InventoryService(uow),
     sales: new SalesService(uow),
     pay: new PayService(uow, pay),
+    // IntraForge access requests made from this app (ADR-0026). IntraForge enforces who may decide; this layer
+    // only lets people who manage users here ask.
+    accessRequests: {
+      available: Boolean(accessRequests),
+      async list(actor: Actor) {
+        requirePermission(actor, "users.manage");
+        if (!accessRequests) return { results: [], roles: [] };
+        return accessRequests.list(actor.id);
+      },
+      async decide(
+        actor: Actor,
+        input: {
+          requestId: string;
+          decision: "approve" | "reject" | "link";
+          roleSlug?: string;
+          note?: string;
+          origin: string;
+        },
+      ) {
+        requirePermission(actor, "users.manage");
+        if (!accessRequests) throw notFound("Access requests");
+        return accessRequests.decide({ actorId: actor.id, ...input });
+      },
+    },
     purchasing: new PurchasingService(uow),
     reports: new ReportService(uow),
     catalogue: new CatalogueService(uow),
