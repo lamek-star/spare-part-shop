@@ -1213,4 +1213,9 @@ export const am: Messages = {
   "dash.noSalesYet": "በዚህ ጊዜ እስካሁን ሽያጭ የለም።",
 
   "dash.nActive": "{count} ንቁ",
+
+  // Date range and transfer destination
+  "rep.from": "ከ",
+  "rep.to": "እስከ",
+  "stock.to": "ወደ",
 };

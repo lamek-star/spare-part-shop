@@ -1275,6 +1275,11 @@ export const en = {
   "dash.noSalesYet": "No sales in this period yet.",
 
   "dash.nActive": "{count} active",
+
+  // Date range and transfer destination
+  "rep.from": "From",
+  "rep.to": "To",
+  "stock.to": "To",
 } as const;
 
 export type MessageKey = keyof typeof en;

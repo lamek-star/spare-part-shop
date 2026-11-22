@@ -1206,4 +1206,9 @@ export const ti: Messages = {
   "dash.noSalesYet": "ኣብዚ እዋን ክሳብ ሕጂ መሸጣ የለን።",
 
   "dash.nActive": "{count} ንጡፍ",
+
+  // Date range and transfer destination
+  "rep.from": "ካብ",
+  "rep.to": "ክሳብ",
+  "stock.to": "ናብ",
 };

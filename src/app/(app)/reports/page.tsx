@@ -158,7 +158,7 @@ export default function Reports() {
         {def?.ranged && (
           <>
             <label>
-              From{" "}
+              {t("rep.from")}{" "}
               <input
                 type="date"
                 value={from}
@@ -166,7 +166,7 @@ export default function Reports() {
               />
             </label>
             <label>
-              To{" "}
+              {t("rep.to")}{" "}
               <input
                 type="date"
                 value={to}

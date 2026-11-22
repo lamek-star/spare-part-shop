@@ -1247,4 +1247,9 @@ export const ar: Messages = {
   "dash.noSalesYet": "لا توجد مبيعات في هذه الفترة بعد.",
 
   "dash.nActive": "{count} نشط",
+
+  // Date range and transfer destination
+  "rep.from": "من",
+  "rep.to": "إلى",
+  "stock.to": "إلى",
 };

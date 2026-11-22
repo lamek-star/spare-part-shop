@@ -165,7 +165,7 @@ export function TransferStockModal({
       type: "select",
       options: opts,
     },
-    { name: "toLocationId", label: "To", type: "select", options: opts },
+    { name: "toLocationId", label: t("stock.to"), type: "select", options: opts },
     {
       name: "quantity",
       label: t("lines.quantity"),
