@@ -1191,4 +1191,19 @@ export const ti: Messages = {
   "dash.minOnly": "ዝተሓተ {min}",
   "dash.reorderOnly": "ዳግማይ ትእዛዝ {reorder}",
   "dash.noLevels": "ደረጃታት ኣይተወሰኑን",
+
+  // Glass dashboard
+  "shell.goodMorning": "ከመይ ሓዲርኩም፣ {name}",
+  "shell.goodAfternoon": "ከመይ ውዒልኩም፣ {name}",
+  "shell.goodEvening": "ከመይ ኣምሲኹም፣ {name}",
+  "shell.darkMode": "ጸሊም ገጽታ",
+  "dash.salesTrend": "ኣንፈት መሸጣ",
+  "dash.range7": "7 መዓልቲ",
+  "dash.range30": "30 መዓልቲ",
+  "dash.range90": "90 መዓልቲ",
+  "dash.range12m": "12 ወርሒ",
+  "dash.salesInPeriod": "ኣብዚ እዋን {count} ፋክቱራታት",
+  "dash.noSalesYet": "ኣብዚ እዋን ክሳብ ሕጂ መሸጣ የለን።",
+
+  "dash.nActive": "{count} ንጡፍ",
 };

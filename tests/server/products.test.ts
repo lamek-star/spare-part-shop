@@ -333,6 +333,19 @@ test("product photos: validated by content, ordered, one primary, deleted with t
       images.map((i) => [i.id === two.id, i.isPrimary]).filter((x) => x[1]),
       [[true, true]],
     );
+    // A later upload never takes the primary place unless asked (the browser no longer guesses it).
+    const three = await t.app.products.addImage(o, product.id, {
+      bytes: PNG,
+      fileName: "back.png",
+    });
+    assert.equal(three.isPrimary, false);
+    assert.equal(
+      (await t.app.products.detail(o, product.id)).images.filter(
+        (i) => i.isPrimary,
+      ).length,
+      1,
+    );
+    await t.app.products.removeImage(o, product.id, three.id);
     await t.app.products.reorderImages(o, product.id, [two.id, one.id]);
     images = (await t.app.products.detail(o, product.id)).images;
     assert.deepEqual(

@@ -1232,4 +1232,19 @@ export const ar: Messages = {
   "dash.minOnly": "الحد الأدنى {min}",
   "dash.reorderOnly": "إعادة الطلب {reorder}",
   "dash.noLevels": "لم تُحدَّد مستويات",
+
+  // Glass dashboard
+  "shell.goodMorning": "صباح الخير، {name}",
+  "shell.goodAfternoon": "مساء الخير، {name}",
+  "shell.goodEvening": "مساء الخير، {name}",
+  "shell.darkMode": "الوضع الداكن",
+  "dash.salesTrend": "اتجاه المبيعات",
+  "dash.range7": "7 أيام",
+  "dash.range30": "30 يومًا",
+  "dash.range90": "90 يومًا",
+  "dash.range12m": "12 شهرًا",
+  "dash.salesInPeriod": "{count} فاتورة في هذه الفترة",
+  "dash.noSalesYet": "لا توجد مبيعات في هذه الفترة بعد.",
+
+  "dash.nActive": "{count} نشط",
 };

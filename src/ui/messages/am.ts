@@ -1198,4 +1198,19 @@ export const am: Messages = {
   "dash.minOnly": "ዝቅተኛ {min}",
   "dash.reorderOnly": "ዳግም ማዘዣ {reorder}",
   "dash.noLevels": "ደረጃዎች አልተወሰኑም",
+
+  // Glass dashboard
+  "shell.goodMorning": "እንደምን አደሩ፣ {name}",
+  "shell.goodAfternoon": "እንደምን ዋሉ፣ {name}",
+  "shell.goodEvening": "እንደምን አመሹ፣ {name}",
+  "shell.darkMode": "ጨለማ ገጽታ",
+  "dash.salesTrend": "የሽያጭ አዝማሚያ",
+  "dash.range7": "7 ቀን",
+  "dash.range30": "30 ቀን",
+  "dash.range90": "90 ቀን",
+  "dash.range12m": "12 ወር",
+  "dash.salesInPeriod": "በዚህ ጊዜ {count} ደረሰኞች",
+  "dash.noSalesYet": "በዚህ ጊዜ እስካሁን ሽያጭ የለም።",
+
+  "dash.nActive": "{count} ንቁ",
 };

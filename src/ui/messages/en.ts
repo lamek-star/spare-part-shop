@@ -1260,6 +1260,21 @@ export const en = {
   "dash.minOnly": "Min {min}",
   "dash.reorderOnly": "Reorder {reorder}",
   "dash.noLevels": "No levels set",
+
+  // Glass dashboard
+  "shell.goodMorning": "Good morning, {name}",
+  "shell.goodAfternoon": "Good afternoon, {name}",
+  "shell.goodEvening": "Good evening, {name}",
+  "shell.darkMode": "Dark mode",
+  "dash.salesTrend": "Sales trend",
+  "dash.range7": "7D",
+  "dash.range30": "30D",
+  "dash.range90": "90D",
+  "dash.range12m": "12M",
+  "dash.salesInPeriod": "{count} invoices in this period",
+  "dash.noSalesYet": "No sales in this period yet.",
+
+  "dash.nActive": "{count} active",
 } as const;
 
 export type MessageKey = keyof typeof en;

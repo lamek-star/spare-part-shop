@@ -3,6 +3,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  GlowField,
+  Greeting,
+  SunGlow,
+  ThemeSwitch,
+  useThemeOnLoad,
+} from "./glass";
+import {
   Box,
   LayoutDashboard,
   Library,
@@ -208,6 +215,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
 ];
 
 export function Providers({ children }: { children: ReactNode }) {
+  useThemeOnLoad();
   return (
     <SessionProvider>
       <I18nProvider>
@@ -272,124 +280,151 @@ function AppFrame({ children }: { children: ReactNode }) {
     .join("")
     .toUpperCase();
   return (
-    <div
-      className="app"
-      style={
-        collapsed ? { gridTemplateColumns: "64px minmax(0, 1fr)" } : undefined
-      }
-    >
-      <aside className="sidebar no-print" aria-label={t("shell.mainNav")}>
-        <div className="brandmark">
-          <Box />{" "}
-          {!collapsed && <span>{s.shopName || productNameOf(s.edition)}</span>}
-        </div>
-        <nav>
-          {NAV.map((g) => {
-            const items = g.items
-              .filter((i) => s.can(i.perm) && (!i.only || i.only === s.edition))
-              .map((i) =>
-                s.edition === "pharmacy" && i.pharmacyLabel
-                  ? { ...i, label: i.pharmacyLabel }
-                  : i,
+    <>
+      <GlowField />
+      <div
+        className="app"
+        style={
+          collapsed ? { gridTemplateColumns: "64px minmax(0, 1fr)" } : undefined
+        }
+      >
+        <aside className="sidebar no-print" aria-label={t("shell.mainNav")}>
+          <div className="brandmark">
+            <Box />{" "}
+            {!collapsed && (
+              <span>{s.shopName || productNameOf(s.edition)}</span>
+            )}
+          </div>
+          <nav>
+            {NAV.map((g) => {
+              const items = g.items
+                .filter(
+                  (i) => s.can(i.perm) && (!i.only || i.only === s.edition),
+                )
+                .map((i) =>
+                  s.edition === "pharmacy" && i.pharmacyLabel
+                    ? { ...i, label: i.pharmacyLabel }
+                    : i,
+                );
+              if (!items.length) return null;
+              return (
+                <div className="nav-group" key={g.group}>
+                  {!collapsed && (
+                    <small
+                      className="nav-group-label"
+                      style={{
+                        display: "block",
+                        padding: "12px 12px 4px",
+                        opacity: 0.6,
+                        textTransform: "uppercase",
+                        fontSize: 10,
+                        letterSpacing: 0.6,
+                      }}
+                    >
+                      {t(g.group)}
+                    </small>
+                  )}
+                  {items.map((i) => (
+                    <Link
+                      key={i.href}
+                      href={i.href}
+                      className={`nav-item button ${active(i.href) ? "active" : ""}`}
+                      aria-current={active(i.href) ? "page" : undefined}
+                      title={t(i.label)}
+                    >
+                      {i.icon} {!collapsed && <span>{t(i.label)}</span>}
+                    </Link>
+                  ))}
+                </div>
               );
-            if (!items.length) return null;
-            return (
-              <div className="nav-group" key={g.group}>
-                {!collapsed && (
-                  <small
-                    className="nav-group-label"
-                    style={{
-                      display: "block",
-                      padding: "12px 12px 4px",
-                      opacity: 0.6,
-                      textTransform: "uppercase",
-                      fontSize: 10,
-                      letterSpacing: 0.6,
-                    }}
-                  >
-                    {t(g.group)}
+            })}
+          </nav>
+          <div className="sidebar-bottom">
+            {!collapsed && <ThemeSwitch />}
+            {!collapsed && (
+              <div className="me-card">
+                <span className="avatar">{initials}</span>
+                <span>
+                  {s.me?.user.displayName}
+                  <small>
+                    {s.me ? t(`role.${s.me.user.role}` as MessageKey) : ""}
                   </small>
-                )}
-                {items.map((i) => (
-                  <Link
-                    key={i.href}
-                    href={i.href}
-                    className={`nav-item button ${active(i.href) ? "active" : ""}`}
-                    aria-current={active(i.href) ? "page" : undefined}
-                    title={t(i.label)}
-                  >
-                    {i.icon} {!collapsed && <span>{t(i.label)}</span>}
-                  </Link>
-                ))}
+                </span>
               </div>
-            );
-          })}
-        </nav>
-        <div className="sidebar-bottom">
-          {!collapsed && (
-            <>
-              <span
-                className="status-dot"
-                style={offline ? { background: "#e0a030" } : undefined}
-              />{" "}
-              <span className="sidebar-status">
-                {offline ? t("shell.offline") : t("shell.connected")}
-              </span>
-              <small style={{ display: "block" }}>{t("shell.localData")}</small>
-            </>
-          )}
-          <button
-            aria-label={t("shell.collapse")}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            <PanelLeftClose size={18} />
-          </button>
-        </div>
-      </aside>
-      <div className="main-shell">
-        <header className="topbar no-print">
-          <form
-            className="global-search"
-            role="search"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const term = q.trim();
-              if (!term) return;
-              setQ("");
-              router.push(`/scan?code=${encodeURIComponent(term)}`);
-            }}
-          >
-            <Search size={17} />
-            <input
-              aria-label={t("shell.quickFind")}
-              placeholder={t("shell.searchPlaceholder")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </form>
-          <details className="account">
-            <summary>
-              <span className="avatar">{initials}</span>
-              <span>
-                {s.me?.user.displayName}
-                <small>
-                  {s.me ? t(`role.${s.me.user.role}` as MessageKey) : ""}
-                </small>
-              </span>
-            </summary>
-            <div className="account-menu">
-              <LanguagePicker />
-              <button onClick={() => void s.signOut()}>
-                <LogOut size={15} /> {t("shell.signOut")}
+            )}
+            <div className="sidebar-meta">
+              {!collapsed && (
+                <div>
+                  <span
+                    className="status-dot"
+                    style={offline ? { background: "#e0a030" } : undefined}
+                  />{" "}
+                  <span className="sidebar-status">
+                    {offline ? t("shell.offline") : t("shell.connected")}
+                  </span>
+                  <small style={{ display: "block" }}>
+                    {t("shell.localData")}
+                  </small>
+                </div>
+              )}
+              <button
+                aria-label={t("shell.collapse")}
+                onClick={() => setCollapsed(!collapsed)}
+              >
+                <PanelLeftClose size={18} />
               </button>
             </div>
-          </details>
-        </header>
-        <main key={path} className="page-enter">
-          {children}
-        </main>
+          </div>
+        </aside>
+        <div className="main-shell">
+          <SunGlow />
+          <header className="topbar no-print">
+            <Greeting name={s.me?.user.displayName ?? ""} />
+            <div className="topbar-end">
+              <form
+                className="global-search"
+                role="search"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const term = q.trim();
+                  if (!term) return;
+                  setQ("");
+                  router.push(`/scan?code=${encodeURIComponent(term)}`);
+                }}
+              >
+                <Search size={17} />
+                <input
+                  aria-label={t("shell.quickFind")}
+                  placeholder={t("shell.searchPlaceholder")}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </form>
+              <details className="account">
+                <summary>
+                  <span className="avatar">{initials}</span>
+                  <span>
+                    {s.me?.user.displayName}
+                    <small>
+                      {s.me ? t(`role.${s.me.user.role}` as MessageKey) : ""}
+                    </small>
+                  </span>
+                </summary>
+                <div className="account-menu">
+                  <LanguagePicker />
+                  <button onClick={() => void s.signOut()}>
+                    <LogOut size={15} /> {t("shell.signOut")}
+                  </button>
+                </div>
+              </details>
+            </div>
+          </header>
+          <main key={path} className="page-enter">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

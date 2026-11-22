@@ -15,6 +15,7 @@ import {
 import { qs } from "../../ui/api";
 import { useT } from "../../ui/i18n";
 import { StockStatusPanel } from "../../ui/stockStatus";
+import { CountUp, formatCount, formatMoney, SalesChart } from "../../ui/glass";
 import type { MessageKey } from "../../ui/messages";
 
 interface Dash {
@@ -30,7 +31,6 @@ interface Dash {
   salesThisMonthMinor: number | null;
   paymentsThisMonthMinor: number | null;
 }
-const n = (v: number | null) => (v === null ? "—" : v.toLocaleString("en-US"));
 
 export default function Dashboard() {
   const t = useT();
@@ -59,6 +59,19 @@ export default function Dashboard() {
       : null,
   );
   const first = !d.loading && d.data && d.data.products === 0;
+  // The shop's own currency for the counting money figures (the same as on its documents).
+  const settings = useApi<{ currency: string }>(
+    s.can("settings.read") ? "/settings" : null,
+  );
+  const currency = settings.data?.currency || "AED";
+  const count = (v: number | null) =>
+    v === null ? "—" : <CountUp value={v} format={formatCount} />;
+  const cash = (v: number | null) =>
+    v === null ? (
+      <Money minor={null} />
+    ) : (
+      <CountUp value={v} format={formatMoney(currency)} />
+    );
   return (
     <>
       <PageHead
@@ -93,17 +106,19 @@ export default function Dashboard() {
             items={[
               {
                 label: t("dash.products"),
-                value: n(d.data.products),
-                hint: `${n(d.data.activeProducts)} active`,
+                value: count(d.data.products),
+                hint: t("dash.nActive", {
+                  count: d.data.activeProducts.toLocaleString("en-US"),
+                }),
               },
               {
                 label: t("dash.lowStock"),
-                value: n(d.data.lowStockProducts),
+                value: count(d.data.lowStockProducts),
                 hint: t("dash.criticalOrLow"),
               },
               {
                 label: t("dash.stockValueCost"),
-                value: <Money minor={d.data.inventoryValueMinor} />,
+                value: cash(d.data.inventoryValueMinor),
                 hint:
                   d.data.inventoryValueMinor === null
                     ? t("dash.notVisible")
@@ -111,7 +126,7 @@ export default function Dashboard() {
               },
               {
                 label: t("dash.salesThisMonth"),
-                value: <Money minor={d.data.salesThisMonthMinor} />,
+                value: cash(d.data.salesThisMonthMinor),
               },
             ]}
           />
@@ -119,22 +134,23 @@ export default function Dashboard() {
             items={[
               {
                 label: t("dash.openEnquiries"),
-                value: n(d.data.openEnquiries),
+                value: count(d.data.openEnquiries),
               },
               {
                 label: t("dash.openQuotations"),
-                value: n(d.data.openQuotations),
+                value: count(d.data.openQuotations),
               },
-              { label: t("dash.openOrders"), value: n(d.data.openOrders) },
+              { label: t("dash.openOrders"), value: count(d.data.openOrders) },
               {
                 label: t("dash.outstandingInvoices"),
-                value: n(d.data.outstandingInvoices),
+                value: count(d.data.outstandingInvoices),
                 hint: <Money minor={d.data.outstandingBalanceMinor} />,
               },
             ]}
           />
         </>
       )}
+      {s.can("reports.financial") && <SalesChart currency={currency} />}
       {s.can("reports.inventory") && <StockStatusPanel />}
       <div>
         {s.can("enquiries.read") && (

@@ -267,10 +267,10 @@ function Overview({ d, reload }: { d: Detail; reload: () => void }) {
   const canWrite = s.can("products.write");
   async function upload(files: FileList | null) {
     if (!files?.length) return;
-    for (const [i, f] of [...files].entries()) {
+    for (const f of [...files]) {
+      // The server makes a product's first photo primary (it knows what is saved; this page may not yet).
       const form = new FormData();
       form.set("file", f);
-      if (images.length === 0 && i === 0) form.set("primary", "true");
       const ok = await act.run(
         () => api("POST", `/products/${p.id}/images`, form),
         `Uploaded ${f.name}`,

@@ -953,7 +953,8 @@ export class ProductService {
     return this.uow.write(async (r) => {
       const product = await r.products.get(productId);
       if (!product) throw notFound("Product");
-      if ((await r.products.images(productId)).length >= MAX_IMAGES_PER_PRODUCT)
+      const existing = await r.products.images(productId);
+      if (existing.length >= MAX_IMAGES_PER_PRODUCT)
         throw conflict(
           `A product may have at most ${MAX_IMAGES_PER_PRODUCT} photos.`,
         );
@@ -971,7 +972,9 @@ export class ProductService {
         productId,
         fileId: file.id,
         position: 0,
-        isPrimary: Boolean(input.primary),
+        // A product's first photo is its primary one, decided here in the same transaction: a browser that
+        // uploads two photos before it has seen the first one saved can no longer make both primary.
+        isPrimary: Boolean(input.primary) || !existing.some((i) => i.isPrimary),
         caption: text(input.caption, "Caption", { max: 200 }),
         mime: file.mime,
         size: file.size,
