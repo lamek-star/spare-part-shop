@@ -6,6 +6,7 @@ import { Badge, Money } from "../../../ui/kit";
 import { formatDate } from "../../../ui/api";
 import { useSession } from "../../../ui/session";
 import { useT } from "../../../ui/i18n";
+import { OrderShortagesButton } from "../../../ui/shortages";
 
 interface PO {
   id: string;
@@ -36,9 +37,12 @@ export default function Purchasing() {
       searchPlaceholder={t("purch.searchPoNumber")}
       actions={
         s.can("purchasing.write") && (
-          <Link className="button primary" href="/purchasing/new">
-            {t("purch.newPurchaseOrder")}
-          </Link>
+          <>
+            <OrderShortagesButton />
+            <Link className="button primary" href="/purchasing/new">
+              {t("purch.newPurchaseOrder")}
+            </Link>
+          </>
         )
       }
       rowKey={(p) => p.id}

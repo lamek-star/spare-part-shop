@@ -1040,6 +1040,10 @@ export function buildRouter(): Router {
     status: 201,
     data: await c.app.sales.createOrder(c.actor, await c.json()),
   }));
+  r.get("/orders/:id/pdf", { permission: "orders.read" }, async (c) => {
+    const d = await c.app.documents.salesOrderPdf(c.actor, c.params.id);
+    return { binary: { bytes: d.bytes, mime: "application/pdf", fileName: d.fileName, inline: true } };
+  });
   r.get("/orders/:id", { permission: "orders.read" }, async (c) => ({
     data: await c.app.sales.getOrder(c.actor, c.params.id),
   }));
@@ -1148,6 +1152,22 @@ export function buildRouter(): Router {
       supplierId: c.query.str("supplierId"),
     }),
   }));
+  // Order what needs ordering: the plan (nothing is created), then one draft per supplier.
+  r.get("/purchase-orders/:id/pdf", { permission: "purchasing.read" }, async (c) => {
+    const d = await c.app.documents.purchaseOrderPdf(c.actor, c.params.id);
+    return { binary: { bytes: d.bytes, mime: "application/pdf", fileName: d.fileName, inline: true } };
+  });
+  r.get("/purchase-orders/shortages", { permission: "purchasing.read" }, async (c) => ({
+    data: await c.app.purchasing.shortagePlan(c.actor),
+  }));
+  r.post(
+    "/purchase-orders/from-shortages",
+    { permission: "purchasing.write" },
+    async (c) => ({
+      status: 201,
+      data: await c.app.purchasing.orderShortages(c.actor, await c.json()),
+    }),
+  );
   r.post("/purchase-orders", { permission: "purchasing.write" }, async (c) => ({
     status: 201,
     data: await c.app.purchasing.create(c.actor, await c.json()),
@@ -1260,6 +1280,10 @@ export function buildRouter(): Router {
       requirePermission(c.actor, "quotations.read");
     else if (meta.kind === "INVOICE_PDF")
       requirePermission(c.actor, "invoices.read");
+    else if (meta.kind === "PURCHASE_ORDER_PDF")
+      requirePermission(c.actor, "purchasing.read");
+    else if (meta.kind === "SALES_ORDER_PDF")
+      requirePermission(c.actor, "orders.read");
     else throw notFound("File");
     const f = await c.container.repos.files.get(meta.id);
     if (!f) throw notFound("File");

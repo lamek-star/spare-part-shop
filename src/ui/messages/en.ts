@@ -1306,6 +1306,20 @@ export const en = {
   // Access requests: server messages
   "srv.access.decision": "Choose approve, reject or a new link.",
   "srv.n.accessRequests": "Access requests",
+
+  // Order what needs ordering
+  "purch.orderShortages": "Order what needs ordering",
+  "purch.shortagesHelp": "One draft purchase order per supplier for every item that needs ordering. The quantity brings each item up to twice its reorder level, counting what is already on order. Check and change the drafts before you confirm them.",
+  "purch.onOrder": "On order",
+  "purch.toOrder": "To order",
+  "purch.noSupplierTitle": "No default supplier: set one on the product, then try again",
+  "purch.coveredTitle": "Already on order",
+  "purch.makeDrafts": "Make {count} draft purchase orders",
+  "purch.draftsMade": "{count} draft purchase orders made",
+  "purch.nothingToOrder": "Nothing needs ordering right now.",
+  "srv.purch.nothingToOrder": "Nothing to order: no item that needs ordering has a supplier.",
+
+  "purch.supplierNo": "Supplier part no.",
 } as const;
 
 export type MessageKey = keyof typeof en;

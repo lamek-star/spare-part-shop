@@ -192,6 +192,39 @@ export class SqliteReportRepository implements ReportRepository {
       };
     });
   }
+  shortages() {
+    return this.db.read(async (h) =>
+      (
+        await h.all<Row>(
+          `SELECT p.id, p.sku, p.name, p.reorder_level, p.minimum_level, p.default_supplier_id, p.cost_minor,
+                  ${AVAILABLE_SQL} AS available,
+                  (SELECT ps.cost_minor FROM product_suppliers ps
+                    WHERE ps.product_id = p.id AND ps.supplier_id = p.default_supplier_id) AS supplier_cost,
+                  (SELECT ps.supplier_part_number FROM product_suppliers ps
+                    WHERE ps.product_id = p.id AND ps.supplier_id = p.default_supplier_id) AS supplier_pn,
+                  COALESCE((SELECT SUM(i.quantity - i.quantity_received)
+                              FROM purchase_order_items i JOIN purchase_orders o ON o.id = i.purchase_order_id
+                             WHERE i.product_id = p.id
+                               AND o.status IN ('DRAFT','CONFIRMED','PARTIALLY_RECEIVED')), 0) AS on_order
+             FROM products p WHERE ${NEEDS_ORDERING_SQL}
+            ORDER BY p.name, p.sku`,
+        )
+      ).map((r) => ({
+        productId: s(r.id),
+        sku: s(r.sku),
+        name: s(r.name),
+        available: n(r.available),
+        reorderLevel: n(r.reorder_level),
+        minimumLevel: n(r.minimum_level),
+        defaultSupplierId: r.default_supplier_id ? s(r.default_supplier_id) : null,
+        costMinor: n(r.cost_minor),
+        supplierCostMinor:
+          r.supplier_cost === null || r.supplier_cost === undefined ? null : n(r.supplier_cost),
+        supplierPartNumber: s(r.supplier_pn),
+        onOrder: n(r.on_order),
+      })),
+    );
+  }
   lowStock() {
     return this.db.read(async (h) =>
       (

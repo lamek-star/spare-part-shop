@@ -1237,4 +1237,18 @@ export const ti: Messages = {
   // Access requests: server messages
   "srv.access.decision": "ኣጽድቕ፣ ንጸግ ወይ ሓድሽ መላግቦ ምረጽ።",
   "srv.n.accessRequests": "ሕቶታት ፍቓድ",
+
+  // Order what needs ordering
+  "purch.orderShortages": "ክእዘዙ ዘለዎም እዘዝ",
+  "purch.shortagesHelp": "ንነፍሲ ወከፍ ክእዘዝ ዘለዎ ኣቕሓ ንነፍሲ ወከፍ ኣቕራቢ ሓደ ንድፊ ትእዛዝ ዕድጊ። እቲ ብዝሒ፣ ቀደም ዝተኣዘዘ ሓዊሱ፣ ነፍሲ ወከፍ ኣቕሓ ናብ ክልተ ዕጽፊ ደረጃ ዳግማይ ትእዛዝ የብጽሖ። ቅድሚ ምርግጋጽካ ነቶም ንድፍታት ፈትሾምን ቀይሮምን።",
+  "purch.onOrder": "ዝተኣዘዘ",
+  "purch.toOrder": "ዝእዘዝ",
+  "purch.noSupplierTitle": "ልሙድ ኣቕራቢ የለን፦ ኣብቲ ኣቕሓ ኣቐምጥ፣ ድሕሪኡ እንደገና ፈትን",
+  "purch.coveredTitle": "ቀደም ዝተኣዘዘ",
+  "purch.makeDrafts": "{count} ንድፊ ትእዛዛት ዕድጊ ፍጠር",
+  "purch.draftsMade": "{count} ንድፊ ትእዛዛት ዕድጊ ተፈጢሮም",
+  "purch.nothingToOrder": "ሕጂ ክእዘዝ ዘለዎ የለን።",
+  "srv.purch.nothingToOrder": "ዝእዘዝ የለን፦ ካብቶም ክእዘዙ ዘለዎም ኣቕሑት ኣቕራቢ ዘለዎ የለን።",
+
+  "purch.supplierNo": "ቁጽሪ ኣቕሓ ኣቕራቢ",
 };

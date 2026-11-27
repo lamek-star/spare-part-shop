@@ -262,6 +262,23 @@ export interface ReportRepository {
       available: number;
     }[]
   >;
+  /** What needs ordering (the same rule as lowStock) with what an order needs: the levels, the default supplier, its
+   * cost and part number, and how many are already on open purchase orders (draft, confirmed, partly received). */
+  shortages(): Promise<
+    {
+      productId: string;
+      sku: string;
+      name: string;
+      available: number;
+      reorderLevel: number;
+      minimumLevel: number;
+      defaultSupplierId: string | null;
+      costMinor: number;
+      supplierCostMinor: number | null;
+      supplierPartNumber: string;
+      onOrder: number;
+    }[]
+  >;
   lowStock(): Promise<
     {
       productId: string;

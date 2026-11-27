@@ -117,8 +117,8 @@ export default function ReferencePartPage({
     return <ErrorBanner message={p.error || t("cat.partNotFound")} />;
   const x = p.data;
   const mine = x.linkedProducts[0];
-  // The same fields as My Products > Edit product (src/ui/productForm.ts), so an imported product has everything a
-  // product made by hand has. The part's own number is added automatically, so the "part number" field is left out.
+  // The same fields as My Products > New product (src/ui/productForm.ts), so an imported product has everything a
+  // product made by hand has. Your own SKU and the manufacturer's part number are two separate fields.
   const fields: FieldSpec[] = productFields({
     t,
     canCost: s.can("products.cost.read"),
@@ -126,7 +126,7 @@ export default function ReferencePartPage({
     creating: true,
     locations: s.can("inventory.write") ? locationOptions(wh.data) : undefined,
     pharmacy: s.edition === "pharmacy",
-  }).filter((f) => f.name !== "partNumber");
+  });
   const vehicleOf = (f: Part["fitments"][number]) =>
     [f.make, f.model, f.chassis].filter(Boolean).join(" ");
   return (
@@ -386,7 +386,8 @@ export default function ReferencePartPage({
           submitLabel={t("cat.importToMyProducts")}
           fields={fields}
           initial={{
-            sku: x.oemNumber,
+            sku: "",
+            partNumber: x.oemNumber,
             name: x.description || x.oemNumber,
             brand: x.manufacturer,
             manufacturer: x.manufacturer,

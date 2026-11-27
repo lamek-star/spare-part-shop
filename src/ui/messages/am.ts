@@ -1244,4 +1244,18 @@ export const am: Messages = {
   // Access requests: server messages
   "srv.access.decision": "አጽድቅ፣ ውድቅ አድርግ ወይም አዲስ አገናኝ ይምረጡ።",
   "srv.n.accessRequests": "የመዳረሻ ጥያቄዎች",
+
+  // Order what needs ordering
+  "purch.orderShortages": "መታዘዝ ያለባቸውን እዘዝ",
+  "purch.shortagesHelp": "መታዘዝ ላለበት እያንዳንዱ ዕቃ ለእያንዳንዱ አቅራቢ አንድ ረቂቅ የግዢ ትእዛዝ። ብዛቱ፣ አስቀድሞ የታዘዘውን ጨምሮ፣ እያንዳንዱን ዕቃ የዳግም ትእዛዝ ደረጃው እጥፍ ያደርሰዋል። ከማረጋገጥዎ በፊት ረቂቆቹን ይፈትሹና ይቀይሩ።",
+  "purch.onOrder": "የታዘዘ",
+  "purch.toOrder": "የሚታዘዝ",
+  "purch.noSupplierTitle": "ነባሪ አቅራቢ የለም፦ በዕቃው ላይ ያስቀምጡና እንደገና ይሞክሩ",
+  "purch.coveredTitle": "አስቀድሞ የታዘዘ",
+  "purch.makeDrafts": "{count} ረቂቅ የግዢ ትእዛዞች ፍጠር",
+  "purch.draftsMade": "{count} ረቂቅ የግዢ ትእዛዞች ተፈጥረዋል",
+  "purch.nothingToOrder": "አሁን መታዘዝ ያለበት ነገር የለም።",
+  "srv.purch.nothingToOrder": "የሚታዘዝ የለም፦ መታዘዝ ካለባቸው ዕቃዎች አንዳቸውም አቅራቢ የላቸውም።",
+
+  "purch.supplierNo": "የአቅራቢው ዕቃ ቁጥር",
 };

@@ -3,14 +3,47 @@ import type { ShopConfig } from "../providers/core";
 import { formatMoney, toDecimalString } from "../kernel/money";
 import { A4, PdfDocument, textWidth, wrapText } from "./pdf";
 
+/** Who the document is for: the customer (quotation, invoice, sales order) or the supplier (purchase order). */
+export interface DocumentParty {
+  name: string;
+  contactPerson?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  taxNumber?: string;
+}
+export const partyOfCustomer = (c: Customer): DocumentParty => ({
+  name: c.name,
+  contactPerson: c.contactPerson,
+  address: c.billingAddress,
+  phone: c.phone,
+  email: c.email,
+  taxNumber: c.taxNumber,
+});
+
+export type DocumentKind = "QUOTATION" | "INVOICE" | "PURCHASE_ORDER" | "SALES_ORDER";
+const TITLE: Record<DocumentKind, string> = {
+  QUOTATION: "Quotation",
+  INVOICE: "Invoice",
+  PURCHASE_ORDER: "Purchase order",
+  SALES_ORDER: "Sales order",
+};
+const PARTY_LABEL: Record<DocumentKind, string> = {
+  QUOTATION: "PREPARED FOR",
+  INVOICE: "BILL TO",
+  PURCHASE_ORDER: "SUPPLIER",
+  SALES_ORDER: "CUSTOMER",
+};
+
 export interface CommercialDocument extends Totals {
-  kind: "QUOTATION" | "INVOICE";
+  kind: DocumentKind;
   number: string;
   status: string;
   currency: string;
   taxBp: number;
-  lines: DocumentLine[];
-  /** Quotation: valid until. Invoice: due date. */
+  /** `note`: a small line under the description (an order: delivered / received so far). */
+  lines: (DocumentLine & { note?: string })[];
+  /** Quotation: valid until. Invoice: due date. Purchase order: expected. Sales order: last change. */
   dateLabel: string;
   date: string | null;
   issuedLabel: string;
@@ -20,6 +53,8 @@ export interface CommercialDocument extends Totals {
   payments?: Payment[];
   amountPaidMinor?: number;
   balanceMinor?: number;
+  /** Purchase order: where the goods go. */
+  deliverTo?: string;
 }
 
 const MARGIN = 42;
@@ -40,15 +75,14 @@ const pct = (bp: number) =>
   bp === 0 ? "" : `${(bp / 100).toFixed(bp % 100 === 0 ? 0 : 2)}%`;
 const dateOnly = (v: string | null) => (v ? v.slice(0, 10) : "-");
 
-/** Renders a quotation or invoice to PDF bytes. Pure: same input, same layout. */
+/** Renders a quotation, invoice, purchase order or sales order to PDF bytes. Pure: same input, same layout. */
 export function renderCommercialDocument(
   doc: CommercialDocument,
   shop: ShopConfig,
-  customer: Customer,
+  party: DocumentParty,
 ): Uint8Array {
-  const pdf = new PdfDocument(
-    `${doc.kind === "INVOICE" ? "Invoice" : "Quotation"} ${doc.number}`,
-  );
+  const pdf = new PdfDocument(`${TITLE[doc.kind]} ${doc.number}`);
+  const buying = doc.kind === "PURCHASE_ORDER";
   let y = 0;
 
   const header = () => {
@@ -72,7 +106,7 @@ export function renderCommercialDocument(
     const invoiceTitle = shop.taxRegistration?.trim()
       ? "TAX INVOICE"
       : "INVOICE";
-    pdf.text(RIGHT, 52, doc.kind === "INVOICE" ? invoiceTitle : "QUOTATION", {
+    pdf.text(RIGHT, 52, doc.kind === "INVOICE" ? invoiceTitle : TITLE[doc.kind].toUpperCase(), {
       size: 18,
       bold: true,
       align: "right",
@@ -101,10 +135,10 @@ export function renderCommercialDocument(
     pdf.rect(LEFT, y - 11, RIGHT - LEFT, 17, [0.93, 0.95, 0.97]);
     const head = { size: 8.5, bold: true, color: INK } as const;
     pdf.text(COL.n, y, "#", head);
-    pdf.text(COL.sku, y, "SKU / OEM", head);
+    pdf.text(COL.sku, y, buying ? "SKU / Supplier no." : "SKU / OEM", head);
     pdf.text(COL.desc, y, "Description", head);
     pdf.text(COL.qty, y, "Qty", { ...head, align: "right" });
-    pdf.text(COL.unit, y, "Unit price", { ...head, align: "right" });
+    pdf.text(COL.unit, y, buying ? "Unit cost" : "Unit price", { ...head, align: "right" });
     pdf.text(COL.total, y, "Line total", { ...head, align: "right" });
     y += 14;
   };
@@ -119,21 +153,22 @@ export function renderCommercialDocument(
 
   y = header();
   // parties
-  pdf.text(LEFT, y, doc.kind === "INVOICE" ? "BILL TO" : "PREPARED FOR", {
+  pdf.text(LEFT, y, PARTY_LABEL[doc.kind], {
     size: 8,
     bold: true,
     color: MUTED,
   });
   y += 13;
-  pdf.text(LEFT, y, customer.name, { size: 11, bold: true });
+  pdf.text(LEFT, y, party.name, { size: 11, bold: true });
   y += 13;
-  const party = [
-    customer.contactPerson,
-    customer.billingAddress,
-    [customer.phone, customer.email].filter(Boolean).join("  |  "),
-    customer.taxNumber ? `Tax number: ${customer.taxNumber}` : "",
+  const partyLines = [
+    party.contactPerson ?? "",
+    party.address ?? "",
+    [party.phone, party.email].filter(Boolean).join("  |  "),
+    party.taxNumber ? `Tax number: ${party.taxNumber}` : "",
+    doc.deliverTo ? `Deliver to: ${doc.deliverTo}` : "",
   ].filter(Boolean);
-  for (const line of party)
+  for (const line of partyLines)
     for (const l of wrapText(line, 300, 9.5)) {
       pdf.text(LEFT, y, l, { size: 9.5 });
       y += 12;
@@ -149,7 +184,8 @@ export function renderCommercialDocument(
     ]
       .filter(Boolean)
       .flatMap((t) => wrapText(t, 86, 8.5));
-    const rows = Math.max(desc.length, ident.length, line.discountBp ? 2 : 1);
+    const note = line.note ? wrapText(line.note, COL.descW, 7.5) : [];
+    const rows = Math.max(desc.length + note.length, ident.length, line.discountBp ? 2 : 1);
     const height = rows * 11 + 6;
     if (y + height > A4.height - 70) {
       pdf.addPage();
@@ -159,6 +195,9 @@ export function renderCommercialDocument(
     pdf.text(COL.n, y, String(i + 1), { size: 9 });
     ident.forEach((t, k) => pdf.text(COL.sku, y + k * 11, t, { size: 8.5 }));
     desc.forEach((t, k) => pdf.text(COL.desc, y + k * 11, t, { size: 9 }));
+    note.forEach((t, k) =>
+      pdf.text(COL.desc, y + (desc.length + k) * 11, t, { size: 7.5, color: MUTED }),
+    );
     pdf.text(COL.qty, y, String(line.quantity), { size: 9, align: "right" });
     pdf.text(COL.unit, y, toDecimalString(line.unitPriceMinor), {
       size: 9,
@@ -229,7 +268,7 @@ export function renderCommercialDocument(
   }
   for (const [title, text] of [
     ["NOTES", doc.notes],
-    [doc.kind === "QUOTATION" ? "TERMS" : "PAYMENT NOTES", doc.terms],
+    [doc.kind === "INVOICE" ? "PAYMENT NOTES" : "TERMS", doc.terms],
   ] as const) {
     if (!text.trim()) continue;
     const lines = wrapText(text, RIGHT - LEFT, 9);

@@ -626,6 +626,21 @@ export class ProductService {
         normalizeNumber(part.oemNumber),
         normalizeNumber(product.sku),
       ]);
+      // A part number typed in the dialog that is not the reference part's own (for example the brand's number on
+      // the box) is kept too, beside the reference number.
+      const typed = text(input.partNumber, "Part number", { max: 100 });
+      if (typed && normalizeNumber(typed) && !seen.has(normalizeNumber(typed))) {
+        seen.add(normalizeNumber(typed));
+        await r.products.upsertNumber({
+          ...base,
+          id: newId(),
+          display: typed,
+          normalized: normalizeNumber(typed),
+          type: "OEM_OE",
+          primary: false,
+          source: "Shop entry",
+        });
+      }
       for (const rel of part.relations
         .filter((x) => x.direction === "out")
         .slice(0, 25)) {

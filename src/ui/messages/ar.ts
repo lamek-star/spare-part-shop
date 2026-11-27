@@ -1278,4 +1278,18 @@ export const ar: Messages = {
   // Access requests: server messages
   "srv.access.decision": "اختر موافقة أو رفض أو رابطًا جديدًا.",
   "srv.n.accessRequests": "طلبات الوصول",
+
+  // Order what needs ordering
+  "purch.orderShortages": "اطلب ما يحتاج إلى طلب",
+  "purch.shortagesHelp": "أمر شراء مسودة واحد لكل مورد لكل صنف يحتاج إلى طلب. الكمية ترفع كل صنف إلى ضعف حد إعادة الطلب، مع احتساب ما هو مطلوب مسبقًا. راجع المسودات وعدّلها قبل تأكيدها.",
+  "purch.onOrder": "مطلوب",
+  "purch.toOrder": "للطلب",
+  "purch.noSupplierTitle": "لا يوجد مورد افتراضي: حدده في الصنف ثم حاول مرة أخرى",
+  "purch.coveredTitle": "مطلوب مسبقًا",
+  "purch.makeDrafts": "إنشاء {count} أوامر شراء مسودة",
+  "purch.draftsMade": "تم إنشاء {count} أوامر شراء مسودة",
+  "purch.nothingToOrder": "لا شيء يحتاج إلى طلب الآن.",
+  "srv.purch.nothingToOrder": "لا شيء للطلب: لا يوجد صنف يحتاج إلى طلب وله مورد.",
+
+  "purch.supplierNo": "رقم صنف المورد",
 };

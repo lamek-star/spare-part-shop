@@ -13,6 +13,44 @@ import type { Repositories } from "../providers/uow";
  * A product's cost after goods arrive: the weighted average of the stock already on hand at the old cost and the
  * delivered quantity at the order's unit cost. A product with no cost yet, or no stock, simply takes the new cost.
  */
+export interface ShortageLine {
+  productId: string;
+  sku: string;
+  name: string;
+  available: number;
+  reorderLevel: number;
+  minimumLevel: number;
+  onOrder: number;
+  quantity: number;
+  unitCostMinor: number;
+  supplierPartNumber: string;
+}
+export interface ShortageGroup {
+  supplierId: string;
+  supplierName: string;
+  lines: ShortageLine[];
+}
+export interface ShortagePlan {
+  groups: ShortageGroup[];
+  noSupplier: ShortageLine[];
+  covered: ShortageLine[];
+}
+
+/**
+ * How many to order: enough to bring the available stock (plus what is already on order) up to twice the reorder
+ * level -- or twice the minimum when no reorder level is set, or 1 when neither is. 0 = already covered.
+ * Example: reorder level 6, 4 available, none on order -> 8 (to reach 12).
+ */
+export function suggestedQuantity(s: {
+  available: number;
+  reorderLevel: number;
+  minimumLevel: number;
+  onOrder: number;
+}): number {
+  const target = s.reorderLevel > 0 ? s.reorderLevel * 2 : s.minimumLevel > 0 ? s.minimumLevel * 2 : 1;
+  return Math.max(0, target - Math.max(0, s.available) - Math.max(0, s.onOrder));
+}
+
 export function averagedCost(
   onHand: number,
   oldCostMinor: number,
@@ -103,6 +141,81 @@ export class PurchasingService {
     if (!o) throw notFound("Purchase order");
     return o;
   }
+  /**
+   * What "Order what needs ordering" would order: every product that needs ordering (the dashboard's red and amber),
+   * grouped by its default supplier, with a suggested quantity (see suggestedQuantity) and the supplier's cost (else
+   * the product's). Products with no default supplier, and those already covered by open purchase orders, are listed
+   * apart. Nothing is created here.
+   */
+  async shortagePlan(actor: Actor): Promise<ShortagePlan> {
+    requirePermission(actor, "purchasing.read");
+    return this.uow.read(async (r) => {
+      const rows = await r.reports.shortages();
+      const groups = new Map<string, ShortageGroup>();
+      const plan: ShortagePlan = { groups: [], noSupplier: [], covered: [] };
+      for (const row of rows) {
+        const quantity = suggestedQuantity(row);
+        const item: ShortageLine = {
+          productId: row.productId,
+          sku: row.sku,
+          name: row.name,
+          available: row.available,
+          reorderLevel: row.reorderLevel,
+          minimumLevel: row.minimumLevel,
+          onOrder: row.onOrder,
+          quantity,
+          unitCostMinor: row.supplierCostMinor || row.costMinor,
+          supplierPartNumber: row.supplierPartNumber,
+        };
+        if (quantity === 0) plan.covered.push(item);
+        else if (!row.defaultSupplierId) plan.noSupplier.push(item);
+        else {
+          let g = groups.get(row.defaultSupplierId);
+          if (!g) {
+            const supplier = await r.masterData.getSupplier(row.defaultSupplierId);
+            g = { supplierId: row.defaultSupplierId, supplierName: supplier?.name ?? "", lines: [] };
+            groups.set(row.defaultSupplierId, g);
+          }
+          g.lines.push(item);
+        }
+      }
+      plan.groups = [...groups.values()].sort((a, b) => a.supplierName.localeCompare(b.supplierName));
+      return plan;
+    });
+  }
+
+  /** Makes one DRAFT purchase order per supplier from shortagePlan (optionally only some suppliers). Drafts can be
+   * edited before they are confirmed; each is audited like any purchase order. */
+  async orderShortages(
+    actor: Actor,
+    raw: unknown,
+  ): Promise<{ orders: PurchaseOrder[]; noSupplier: ShortageLine[]; covered: ShortageLine[] }> {
+    requirePermission(actor, "purchasing.write");
+    const input = record(raw);
+    const locationId = text(input.locationId, "Receiving location", { required: true, max: 64 });
+    const only = Array.isArray(input.supplierIds)
+      ? new Set(input.supplierIds.filter((v): v is string => typeof v === "string"))
+      : null;
+    const plan = await this.shortagePlan(actor);
+    const chosen = plan.groups.filter((g) => !only || only.has(g.supplierId));
+    if (chosen.length === 0) throw validation("Nothing to order: no item that needs ordering has a supplier.");
+    const orders: PurchaseOrder[] = [];
+    for (const g of chosen)
+      orders.push(
+        await this.create(actor, {
+          supplierId: g.supplierId,
+          locationId,
+          notes: "Made from the items that need ordering.",
+          lines: g.lines.map((l) => ({
+            productId: l.productId,
+            quantity: l.quantity,
+            unitCostMinor: l.unitCostMinor,
+          })),
+        }),
+      );
+    return { orders, noSupplier: plan.noSupplier, covered: plan.covered };
+  }
+
   async create(actor: Actor, raw: unknown): Promise<PurchaseOrder> {
     requirePermission(actor, "purchasing.write");
     const input = record(raw);

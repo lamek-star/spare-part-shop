@@ -20,6 +20,7 @@ import {
 import { formatDate, post } from "../../../../ui/api";
 import { TotalsBox } from "../../../../ui/doc";
 import { useT } from "../../../../ui/i18n";
+import { apiUrl } from "@/lib/basePath";
 
 interface Line {
   id: string;
@@ -102,7 +103,16 @@ export default function PurchaseOrderPage({
         }
         back={{ href: "/purchasing", label: t("suppliers.purchaseOrders") }}
         actions={
-          w && (
+          <>
+            <a
+              className="button"
+              href={apiUrl(`/purchase-orders/${id}/pdf`)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("docs.downloadPdf")}
+            </a>
+            {w && (
             <>
               {x.status === "DRAFT" && (
                 <button
@@ -149,7 +159,8 @@ export default function PurchaseOrderPage({
                 />
               )}
             </>
-          )
+            )}
+          </>
         }
       />
       <ErrorBanner message={act.error} onClose={act.clear} />

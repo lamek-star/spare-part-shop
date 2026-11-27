@@ -19,6 +19,7 @@ import {
 import { post } from "../../../../ui/api";
 import { DocLines, TotalsBox, type DocLine } from "../../../../ui/doc";
 import { useT } from "../../../../ui/i18n";
+import { apiUrl } from "@/lib/basePath";
 
 interface OrderLine extends DocLine {
   quantityFulfilled: number;
@@ -103,6 +104,14 @@ export default function OrderPage({
         back={{ href: "/orders", label: t("nav.orders") }}
         actions={
           <>
+            <a
+              className="button"
+              href={apiUrl(`/orders/${id}/pdf`)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("docs.downloadPdf")}
+            </a>
             {w &&
               anyToDeliver &&
               !["CANCELLED", "INVOICED"].includes(x.status) && (
