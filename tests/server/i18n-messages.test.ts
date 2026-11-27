@@ -6,17 +6,22 @@ import { am } from "../../src/ui/messages/am";
 import { ti } from "../../src/ui/messages/ti";
 import {
   coverage,
+  DORMANT_LANGUAGES,
   LANGUAGES,
   translate,
   type Language,
 } from "../../src/ui/messages";
-import { LANGUAGES as SERVER_LANGUAGES } from "../../src/server/i18n/language";
+import {
+  DORMANT_LANGUAGES as SERVER_DORMANT,
+  LANGUAGES as SERVER_LANGUAGES,
+} from "../../src/server/i18n/language";
 
 const OTHERS = { ar, am, ti } as const;
 const placeholders = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort();
 
 test("the browser and the server know the same four languages; only Arabic is right-to-left", () => {
   assert.deepEqual(Object.keys(LANGUAGES).sort(), [...SERVER_LANGUAGES].sort());
+  assert.deepEqual([...DORMANT_LANGUAGES].sort(), [...SERVER_DORMANT].sort());
   for (const [code, info] of Object.entries(LANGUAGES))
     assert.equal(info.dir, code === "ar" ? "rtl" : "ltr", code);
 });

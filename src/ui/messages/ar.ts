@@ -960,7 +960,7 @@ export const ar: Messages = {
   "srv.v.currencyAed": "يجب أن تكون العملة رمزًا من 3 أحرف مثل AED.",
   "srv.v.currency": "يجب أن تكون العملة رمزًا من 3 أحرف.",
   "srv.v.taxRate": "نسبة الضريبة خارج النطاق المسموح.",
-  "srv.lang.choose": "اختر الإنجليزية أو العربية أو الأمهرية أو التغرينية.",
+  "srv.lang.choose": "اختر الإنجليزية أو العربية أو التغرينية.",
   "srv.http.crossSite": "الطلبات القادمة من مواقع أخرى غير مسموح بها.",
   "srv.http.noEndpoint": "لا توجد نقطة وصول بهذا العنوان.",
   "srv.http.json": "أرسل الطلب بصيغة application/json.",

@@ -935,7 +935,7 @@ export const ti: Messages = {
   "srv.v.currencyAed": "ባጤራ ከም AED ዝበለ ናይ 3 ፊደላት ኮድ ክኸውን ኣለዎ።",
   "srv.v.currency": "ባጤራ ናይ 3 ፊደላት ኮድ ክኸውን ኣለዎ።",
   "srv.v.taxRate": "መጠን ግብሪ ካብ ዝተፈቕደ ደረት ወጻኢ እዩ።",
-  "srv.lang.choose": "እንግሊዝኛ፣ ዓረብኛ፣ ኣምሓርኛ ወይ ትግርኛ ምረጹ።",
+  "srv.lang.choose": "እንግሊዝኛ፣ ዓረብኛ ወይ ትግርኛ ምረጽ።",
   "srv.http.crossSite": "ካብ ካልእ መርበብ ዝመጹ ሕቶታት ኣይፍቀዱን።",
   "srv.http.noEndpoint": "ከምዚ ዝበለ ናይ ኣገልግሎት ኣድራሻ የለን።",
   "srv.http.json": "ሕቶ ብapplication/json ስደዱ።",

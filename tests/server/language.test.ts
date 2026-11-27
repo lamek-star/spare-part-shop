@@ -13,26 +13,31 @@ test("each person chooses a language; otherwise the shop's default; the shop def
     assert.equal(r.status, 200);
     assert.deepEqual(r.data, { personal: null, shop: "en", effective: "en" });
 
-    // The owner sets the shop to Amharic: everyone who has not chosen follows.
+    // The owner sets the shop to Tigrinya: everyone who has not chosen follows.
     r = await owner.send("PUT", "/settings/language", {
-      json: { language: "am" },
+      json: { language: "ti" },
     });
     assert.equal(r.status, 200);
     r = await sales.send("GET", "/me/language");
-    assert.equal(r.data.effective, "am");
+    assert.equal(r.data.effective, "ti");
 
     // A person's own choice wins, and only for them; null follows the shop again.
     r = await sales.send("PUT", "/me/language", { json: { language: "ar" } });
-    assert.deepEqual(r.data, { personal: "ar", shop: "am", effective: "ar" });
+    assert.deepEqual(r.data, { personal: "ar", shop: "ti", effective: "ar" });
     assert.equal(
       (await owner.send("GET", "/me/language")).data.effective,
-      "am",
+      "ti",
     );
     r = await sales.send("PUT", "/me/language", { json: { language: null } });
-    assert.equal(r.data.effective, "am");
+    assert.equal(r.data.effective, "ti");
 
     // Only the four languages; only settings.manage changes the shop default.
     r = await sales.send("PUT", "/me/language", { json: { language: "fr" } });
+    assert.equal(r.status, 400);
+    // Amharic is dormant (its translations wait for the next build): not accepted, for a person or the shop.
+    r = await sales.send("PUT", "/me/language", { json: { language: "am" } });
+    assert.equal(r.status, 400);
+    r = await owner.send("PUT", "/settings/language", { json: { language: "am" } });
     assert.equal(r.status, 400);
     r = await sales.send("PUT", "/settings/language", {
       json: { language: "en" },
@@ -49,7 +54,7 @@ test("each person chooses a language; otherwise the shop's default; the shop def
     // The shop default change is in the audit log.
     const audit = await owner.send("GET", "/audit?entityType=settings");
     assert.ok(
-      JSON.stringify(audit.data).includes("Shop language set to am"),
+      JSON.stringify(audit.data).includes("Shop language set to ti"),
       "audit records the change",
     );
   } finally {

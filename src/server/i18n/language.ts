@@ -14,8 +14,15 @@ import { nowIso } from "../kernel/ids";
 export const LANGUAGES = ["en", "ar", "am", "ti"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
+/** Languages whose translations stay in the code but are not offered or accepted yet: Amharic waits for its next
+ * build (2026-11-27). A saved choice of one reads as "not chosen" (the shop's language, or English). Switch one
+ * back on by removing it here and in src/ui/messages/index.ts (a test keeps the two lists equal). */
+export const DORMANT_LANGUAGES: readonly Language[] = ["am"];
+
 export const isLanguage = (value: unknown): value is Language =>
-  typeof value === "string" && (LANGUAGES as readonly string[]).includes(value);
+  typeof value === "string" &&
+  (LANGUAGES as readonly string[]).includes(value) &&
+  !(DORMANT_LANGUAGES as readonly string[]).includes(value);
 
 const SHOP_KEY = "language:shop";
 const userKey = (userId: string) => `language:user:${userId}`;
@@ -70,7 +77,7 @@ export async function setPersonalLanguage(
   value: unknown,
 ): Promise<LanguageChoice> {
   if (value !== null && !isLanguage(value))
-    throw validation("Choose English, Arabic, Amharic or Tigrinya.");
+    throw validation("Choose English, Arabic or Tigrinya.");
   await write(db, userKey(actor.id), value);
   return languageChoice(db, actor.id);
 }
@@ -83,7 +90,7 @@ export async function setShopLanguage(
   value: unknown,
 ): Promise<LanguageChoice> {
   if (!isLanguage(value))
-    throw validation("Choose English, Arabic, Amharic or Tigrinya.");
+    throw validation("Choose English, Arabic or Tigrinya.");
   await db.write(async () => {
     await write(db, SHOP_KEY, value);
     await audit.record(actor, {

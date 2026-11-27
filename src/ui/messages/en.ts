@@ -976,7 +976,7 @@ export const en = {
   "srv.v.currencyAed": "Currency must be a 3-letter code such as AED.",
   "srv.v.currency": "Currency must be a 3-letter code.",
   "srv.v.taxRate": "Tax rate is out of range.",
-  "srv.lang.choose": "Choose English, Arabic, Amharic or Tigrinya.",
+  "srv.lang.choose": "Choose English, Arabic or Tigrinya.",
   "srv.http.crossSite": "Cross-site requests are not allowed.",
   "srv.http.noEndpoint": "No such endpoint.",
   "srv.http.json": "Send the request as application/json.",

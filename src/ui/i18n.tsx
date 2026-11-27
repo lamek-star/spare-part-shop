@@ -19,7 +19,7 @@ import {
   type Vars,
 } from "./messages";
 
-export { LANGUAGES, type Language } from "./messages";
+export { ACTIVE_LANGUAGES, LANGUAGES, type Language } from "./messages";
 /** A translate function: t(key, vars). */
 export type Translate = (key: MessageKey, vars?: Vars) => string;
 

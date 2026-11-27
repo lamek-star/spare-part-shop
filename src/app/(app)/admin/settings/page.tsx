@@ -10,7 +10,7 @@ import {
   useApi,
 } from "../../../../ui/kit";
 import { put } from "../../../../ui/api";
-import { LANGUAGES, useI18n, useT, type Language } from "../../../../ui/i18n";
+import { ACTIVE_LANGUAGES, LANGUAGES, useI18n, useT, type Language } from "../../../../ui/i18n";
 
 /** The language for everyone who has not chosen their own (saved at once; audited on the server). */
 function ShopLanguage() {
@@ -30,7 +30,7 @@ function ShopLanguage() {
             )
           }
         >
-          {(Object.keys(LANGUAGES) as Language[]).map((l) => (
+          {ACTIVE_LANGUAGES.map((l) => (
             <option key={l} value={l} lang={l}>
               {LANGUAGES[l].native}
             </option>

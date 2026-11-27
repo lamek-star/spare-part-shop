@@ -524,27 +524,28 @@ export class ProductService {
     requirePermission(actor, "products.write");
     requirePermission(actor, "catalogue.read");
     const input = record(raw);
-    const f = {
-      sku: text(input.sku, "SKU", { required: true, max: 64 }),
-      priceMinor: moneyMinor(input.priceMinor, "Selling price", { default: 0 }),
-      costMinor: moneyMinor(input.costMinor, "Cost price", { default: 0 }),
-      reorderLevel: integer(input.reorderLevel, "Reorder level", {
-        min: 0,
-        max: 1_000_000,
-        default: 0,
-      }),
-      openingQuantity: integer(input.openingQuantity, "Opening quantity", {
-        min: 0,
-        max: 1_000_000,
-        default: 0,
-      }),
-    };
-    if (input.costMinor !== undefined && f.costMinor !== 0)
+    const opening = integer(input.openingQuantity, "Opening quantity", {
+      min: 0,
+      max: 1_000_000,
+      default: 0,
+    });
+    const costMinor = moneyMinor(input.costMinor, "Cost price", { default: 0 });
+    if (input.costMinor !== undefined && costMinor !== 0)
       requirePermission(actor, "products.cost.read");
-    if (f.openingQuantity > 0) requirePermission(actor, "inventory.write");
+    if (opening > 0) requirePermission(actor, "inventory.write");
     return this.uow.write(async (r) => {
       const part = await r.catalogue.getPart(referencePartId);
       if (!part) throw notFound("Reference part");
+      const f = productFields({
+        name: part.description || part.oemNumber,
+        brand: part.manufacturer,
+        manufacturer: part.manufacturer,
+        description: part.description,
+        ...input,
+      });
+      checkLevels(f);
+      if (input.currency === undefined || input.currency === "")
+        f.currency = (await r.config.get()).currency;
       const existing = await r.products.linksForReference(referencePartId);
       if (existing.length && input.allowDuplicate !== true) {
         const p = await r.products.get(existing[0].productId);
@@ -557,56 +558,25 @@ export class ProductService {
       }
       if (await r.products.getBySku(f.sku))
         throw conflict(`SKU ${f.sku} already exists.`);
+      const supplierRaw = input.defaultSupplierId ?? input.supplierId;
       const supplierId =
-        typeof input.supplierId === "string" && input.supplierId
-          ? input.supplierId
-          : null;
+        typeof supplierRaw === "string" && supplierRaw ? supplierRaw : null;
       if (supplierId && !(await r.masterData.getSupplier(supplierId)))
         throw notFound("Supplier");
+      const locationRaw = input.openingLocationId ?? input.locationId;
       const locationId =
-        typeof input.locationId === "string" && input.locationId
-          ? input.locationId
-          : null;
+        typeof locationRaw === "string" && locationRaw ? locationRaw : null;
       if (locationId && !(await r.masterData.getLocation(locationId)))
         throw notFound("Location");
-      if (f.openingQuantity > 0 && !locationId)
+      if (opening > 0 && !locationId)
         throw validation("Choose a location for the opening stock.");
       const now = nowIso();
       const product: ProductRow = {
         id: newId(),
-        sku: f.sku,
-        name:
-          text(input.name, "Name", { max: 200 }) ||
-          part.description ||
-          part.oemNumber,
-        brand: text(input.brand, "Brand", { max: 100 }) || part.manufacturer,
-        manufacturer: part.manufacturer,
-        category: text(input.category, "Category", { max: 100 }),
-        description: part.description,
-        condition: oneOf(
-          input.condition,
-          productConditions,
-          "Condition",
-          "NEW",
-        ),
-        unit: "Each",
-        weightGrams: 0,
-        origin: "",
-        status: "ACTIVE",
-        costMinor: f.costMinor,
-        priceMinor: f.priceMinor,
-        currency: (await r.config.get()).currency,
-        taxCategory: "Standard",
-        reorderLevel: f.reorderLevel,
-        minimumLevel: 0,
+        ...f,
+        costMinor,
         defaultSupplierId: supplierId,
         defaultLocationId: locationId,
-        notes: "",
-        genericName: "",
-        strength: "",
-        dosageForm: "",
-        prescriptionOnly: false,
-        trackBatches: false,
         createdAt: now,
         updatedAt: now,
       };
@@ -682,7 +652,7 @@ export class ProductService {
             "Supplier part number",
             { max: 100 },
           ),
-          costMinor: f.costMinor,
+          costMinor,
           currency: product.currency,
           isDefault: true,
           notes: "",
@@ -703,11 +673,11 @@ export class ProductService {
           importedAt: now,
         },
       });
-      if (f.openingQuantity > 0)
+      if (opening > 0)
         await new InventoryOps(r).receive(actor, {
           productId: product.id,
           locationId: locationId!,
-          quantity: f.openingQuantity,
+          quantity: opening,
           type: "OPENING_BALANCE",
           referenceType: "OPENING_BALANCE",
           note: "Opening stock on import from reference",

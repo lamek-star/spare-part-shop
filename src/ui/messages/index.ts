@@ -14,8 +14,17 @@ export const LANGUAGES = {
 } as const;
 export type Language = keyof typeof LANGUAGES;
 
+/** Kept in the code, not offered yet (see src/server/i18n/language.ts DORMANT_LANGUAGES, which must match). */
+export const DORMANT_LANGUAGES: readonly Language[] = ["am"];
+/** The languages people can choose, in the order shown. */
+export const ACTIVE_LANGUAGES = (Object.keys(LANGUAGES) as Language[]).filter(
+  (l) => !DORMANT_LANGUAGES.includes(l),
+);
+
 export const isLanguage = (value: unknown): value is Language =>
-  typeof value === "string" && value in LANGUAGES;
+  typeof value === "string" &&
+  value in LANGUAGES &&
+  !DORMANT_LANGUAGES.includes(value as Language);
 
 const CATALOG: Record<Language, Messages> = { en, ar, am, ti };
 

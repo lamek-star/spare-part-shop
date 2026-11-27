@@ -938,7 +938,7 @@ export const am: Messages = {
   "srv.v.currencyAed": "ገንዘቡ እንደ AED ያለ ባለ 3 ፊደል ኮድ መሆን አለበት።",
   "srv.v.currency": "ገንዘቡ ባለ 3 ፊደል ኮድ መሆን አለበት።",
   "srv.v.taxRate": "የግብር መጠኑ ከተፈቀደው ክልል ውጭ ነው።",
-  "srv.lang.choose": "እንግሊዝኛ፣ ዓረብኛ፣ አማርኛ ወይም ትግርኛ ይምረጡ።",
+  "srv.lang.choose": "እንግሊዝኛ፣ ዓረብኛ ወይም ትግርኛ ይምረጡ።",
   "srv.http.crossSite": "ከሌላ ድረ-ገጽ የሚመጡ ጥያቄዎች አይፈቀዱም።",
   "srv.http.noEndpoint": "እንዲህ ያለ የአገልግሎት አድራሻ የለም።",
   "srv.http.json": "ጥያቄውን በapplication/json ይላኩ።",

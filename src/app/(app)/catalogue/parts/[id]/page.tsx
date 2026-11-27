@@ -25,6 +25,7 @@ import {
   type LinkedProduct,
 } from "../../../../../ui/catalogue";
 import { locationOptions, useWarehouses } from "../../../../../ui/stock";
+import { belowCostWarning, productFields } from "../../../../../ui/productForm";
 import { useT } from "../../../../../ui/i18n";
 
 interface Part {
@@ -116,74 +117,16 @@ export default function ReferencePartPage({
     return <ErrorBanner message={p.error || t("cat.partNotFound")} />;
   const x = p.data;
   const mine = x.linkedProducts[0];
-  const fields: FieldSpec[] = [
-    {
-      name: "sku",
-      label: t("cat.yourSku"),
-      required: true,
-      help: t("cat.yourOwnStockCodeFor"),
-    },
-    { name: "name", label: t("cat.productName"), required: true },
-    {
-      name: "priceMinor",
-      label: t("prod.sellingPrice"),
-      type: "money",
-      optional: true,
-    },
-    ...(s.can("products.cost.read")
-      ? ([
-          {
-            name: "costMinor",
-            label: t("prod.costPrice"),
-            type: "money",
-            optional: true,
-          },
-        ] as FieldSpec[])
-      : []),
-    {
-      name: "reorderLevel",
-      label: t("prod.reorderLevel"),
-      type: "number",
-      optional: true,
-    },
-    ...(suppliers.data?.items.length
-      ? ([
-          {
-            name: "supplierId",
-            label: t("prod.supplier"),
-            type: "select",
-            optional: true,
-            options: [
-              { value: "", label: t("prod.none") },
-              ...suppliers.data.items.map((v) => ({
-                value: v.id,
-                label: v.name,
-              })),
-            ],
-          },
-        ] as FieldSpec[])
-      : []),
-    ...(wh.data?.locations.length && s.can("inventory.write")
-      ? ([
-          {
-            name: "locationId",
-            label: t("cat.storeIn"),
-            type: "select",
-            optional: true,
-            options: [
-              { value: "", label: t("cat.noStockYet") },
-              ...locationOptions(wh.data),
-            ],
-          },
-          {
-            name: "openingQuantity",
-            label: t("cat.quantityInStockNow"),
-            type: "number",
-            optional: true,
-          },
-        ] as FieldSpec[])
-      : []),
-  ];
+  // The same fields as My Products > Edit product (src/ui/productForm.ts), so an imported product has everything a
+  // product made by hand has. The part's own number is added automatically, so the "part number" field is left out.
+  const fields: FieldSpec[] = productFields({
+    t,
+    canCost: s.can("products.cost.read"),
+    suppliers: suppliers.data?.items ?? [],
+    creating: true,
+    locations: s.can("inventory.write") ? locationOptions(wh.data) : undefined,
+    pharmacy: s.edition === "pharmacy",
+  }).filter((f) => f.name !== "partNumber");
   const vehicleOf = (f: Part["fitments"][number]) =>
     [f.make, f.model, f.chassis].filter(Boolean).join(" ");
   return (
@@ -442,12 +385,25 @@ export default function ReferencePartPage({
           title={`Import ${x.oemNumber} to My Products`}
           submitLabel={t("cat.importToMyProducts")}
           fields={fields}
-          initial={{ sku: x.oemNumber, name: x.description, reorderLevel: 0 }}
+          initial={{
+            sku: x.oemNumber,
+            name: x.description || x.oemNumber,
+            brand: x.manufacturer,
+            manufacturer: x.manufacturer,
+            category: x.partGroup,
+            description: [x.description, x.notes].filter(Boolean).join(" — "),
+            condition: "NEW",
+            unit: "Each",
+            status: "ACTIVE",
+            reorderLevel: 0,
+            minimumLevel: 0,
+          }}
+          warnBeforeSave={(v) => belowCostWarning(v, t)}
           onClose={() => setImporting(false)}
           onSubmit={async (v) => {
             const payload = { ...v };
-            if (payload.supplierId === "") delete payload.supplierId;
-            if (payload.locationId === "") delete payload.locationId;
+            if (payload.defaultSupplierId === "") delete payload.defaultSupplierId;
+            if (payload.openingLocationId === "") delete payload.openingLocationId;
             const created = await post<{ id: string }>(
               `/catalogue/parts/${id}/import-to-products`,
               payload,

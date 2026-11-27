@@ -930,3 +930,59 @@ test("supersession relations are read from the catalogue and copied onto the sho
     await t.cleanup();
   }
 });
+
+test("Import to My Products takes every field of My Products > Edit product, and the part fills what is left out", async () => {
+  const t = await makeApp();
+  try {
+    const { supplier, location } = await seedBasics(t);
+    const { staged } = await importCsv(t, BATCH);
+    await t.app.catalogueImport.commit(t.actors.ADMIN, staged.id);
+    const ref = (await t.app.catalogue.partByOem(t.actors.ADMIN, "11258-D0101"))!;
+    const a = t.actors.ADMIN;
+
+    // The import dialog now sends the product form's own fields and names.
+    const full = await t.app.products.importFromReference(a, ref.id, {
+      sku: "NUT-FULL",
+      name: "Wheel nut",
+      brand: "Nissan Genuine",
+      manufacturer: "Nissan",
+      category: "Wheels",
+      condition: "NEW",
+      priceMinor: 1500,
+      costMinor: 700,
+      reorderLevel: 6,
+      minimumLevel: 2,
+      unit: "Box",
+      weightGrams: 40,
+      origin: "Japan",
+      description: "M12 wheel nut",
+      notes: "Shelf B3",
+      status: "ACTIVE",
+      defaultSupplierId: supplier.id,
+      openingLocationId: location.id,
+      openingQuantity: 3,
+    });
+    assert.deepEqual(
+      [full.name, full.brand, full.manufacturer, full.category, full.unit, full.weightGrams, full.origin],
+      ["Wheel nut", "Nissan Genuine", "Nissan", "Wheels", "Box", 40, "Japan"],
+    );
+    assert.deepEqual([full.reorderLevel, full.minimumLevel, full.description, full.notes], [6, 2, "M12 wheel nut", "Shelf B3"]);
+    const detail = await t.app.products.detail(a, full.id);
+    assert.equal(detail.totals.onHand, 3);
+    assert.equal(detail.suppliers[0].supplierId, supplier.id);
+
+    // The same rule as a product made by hand: the minimum may not be above the reorder level.
+    await assert.rejects(
+      () => t.app.products.importFromReference(a, ref.id, {
+        sku: "NUT-BAD", allowDuplicate: true, reorderLevel: 1, minimumLevel: 5,
+      }),
+      /minimum/i,
+    );
+
+    // Left out: the reference part's own details.
+    const bare = await t.app.products.importFromReference(a, ref.id, { sku: "NUT-BARE", allowDuplicate: true });
+    assert.deepEqual([bare.name, bare.brand, bare.manufacturer, bare.unit], ["Nut", "Nissan", "Nissan", "Each"]);
+  } finally {
+    await t.cleanup();
+  }
+});

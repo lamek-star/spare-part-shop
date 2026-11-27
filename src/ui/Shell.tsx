@@ -42,7 +42,7 @@ import {
 } from "./session";
 import { ToastProvider, ErrorBanner, FormModal, errorText } from "./kit";
 import { post } from "./api";
-import { I18nProvider, LANGUAGES, useI18n, useT, type Language } from "./i18n";
+import { ACTIVE_LANGUAGES, I18nProvider, LANGUAGES, useI18n, useT, type Language } from "./i18n";
 import type { MessageKey } from "./messages";
 
 interface NavItem {
@@ -593,7 +593,7 @@ function LanguagePicker() {
             language: LANGUAGES[choice?.shop ?? "en"].native,
           })}
         </option>
-        {(Object.keys(LANGUAGES) as Language[]).map((l) => (
+        {ACTIVE_LANGUAGES.map((l) => (
           <option key={l} value={l} lang={l}>
             {LANGUAGES[l].native}
           </option>

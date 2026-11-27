@@ -122,7 +122,7 @@ test("IMPORT TO MY PRODUCTS creates a linked product once, and the reference sho
   await page.getByRole("link", { name: "15690-65010" }).first().click();
   await page.getByRole("button", { name: "IMPORT TO MY PRODUCTS" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Your SKU").fill("BYPASS-VALVE-1");
+  await dialog.getByLabel("SKU (your own code)").fill("BYPASS-VALVE-1");
   await dialog.getByLabel("Selling price").fill("35.50");
   await dialog.getByRole("button", { name: "IMPORT TO MY PRODUCTS" }).click();
   await expect(
